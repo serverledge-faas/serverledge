@@ -11,7 +11,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func publishAsyncResponse(reqId string, response function.Response) {
+func PublishAsyncResponse(reqId string, response function.Response) {
 	etcdClient, err := utils.GetEtcdClient()
 	if err != nil {
 		log.Fatal("Client not available")
@@ -20,7 +20,7 @@ func publishAsyncResponse(reqId string, response function.Response) {
 
 	ctx := context.Background()
 
-	resp, err := etcdClient.Grant(ctx, 1800)
+	resp, err := etcdClient.Grant(ctx, 1800) // 30 min
 	if err != nil {
 		log.Fatal(err)
 		return

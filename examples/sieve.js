@@ -20,6 +20,6 @@ module.exports = (params, ctx) => {
 		}
 	}
 
-	result = {"N": max, "Primes": primes.toString()}
+	result = {"N": max, "Primes": primes}
 	return result
 }

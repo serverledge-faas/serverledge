@@ -76,7 +76,7 @@ func (r *Registry) GetAll(remotes bool) (map[string]string, error) {
 	} else {
 		baseDir = r.getEtcdKey("")
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	etcdClient, err := utils.GetEtcdClient()
 	if err != nil {
 		log.Fatal(UnavailableClientErr)

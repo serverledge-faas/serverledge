@@ -7,7 +7,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
-// EdgePolicy supports only Edge-Edge offloading
+// EdgePolicy supports only Edge-Edge offloading. Always does offloading to an edge node if enabled. When offloading is not enabled executes the request locally.
 type EdgePolicy struct{}
 
 func (p *EdgePolicy) Init() {

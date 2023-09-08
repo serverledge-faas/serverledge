@@ -1,5 +1,6 @@
 package scheduling
 
+// CloudOnlyPolicy can be used on Edge nodes to always offload on cloud. If offloading is disabled, the request is dropped
 import "github.com/serverledge-faas/serverledge/internal/function"
 
 type CloudOnlyPolicy struct{}

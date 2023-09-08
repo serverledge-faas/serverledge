@@ -5,7 +5,9 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
-// CloudEdgePolicy supports only Edge-Cloud Offloading
+// CloudEdgePolicy supports only Edge-Cloud Offloading. Executes locally first,
+// but if no resources are available and offload is enabled offloads the request to a cloud node.
+// If no resources are available and offloading is disabled, drops the request.
 type CloudEdgePolicy struct{}
 
 func (p *CloudEdgePolicy) Init() {

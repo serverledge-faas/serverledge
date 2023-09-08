@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os/exec"
+	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/serverledge-faas/serverledge/internal/config"
-	//	"github.com/docker/docker/pkg/stdcopy"
 )
 
 type DockerFactory struct {
@@ -81,21 +82,33 @@ func (cf *DockerFactory) Destroy(contID ContainerID) error {
 	return cf.cli.ContainerRemove(cf.ctx, contID, types.ContainerRemoveOptions{Force: true})
 }
 
+var mutex = sync.Mutex{}
+
 func (cf *DockerFactory) HasImage(image string) bool {
-	// TODO: we should try using cf.cli.ImageList(...)
-	cmd := fmt.Sprintf("docker images %s | grep -vF REPOSITORY", image)
-	_, err := exec.Command("bash", "-c", cmd).Output()
+	mutex.Lock()
+	list, err := cf.cli.ImageList(context.TODO(), types.ImageListOptions{
+		All:            false,
+		Filters:        filters.Args{},
+		SharedSize:     false,
+		ContainerCount: false,
+	})
+	mutex.Unlock()
 	if err != nil {
+		fmt.Printf("image list error: %v\n", err)
 		return false
 	}
-
-	// We have the image, but we may need to refresh it
-	if config.GetBool(config.FACTORY_REFRESH_IMAGES, false) {
-		if refreshed, ok := refreshedImages[image]; !ok || !refreshed {
-			return false
+	for _, summary := range list {
+		if len(summary.RepoTags) > 0 && strings.HasPrefix(summary.RepoTags[0], image) {
+			// We have the image, but we may need to refresh it
+			if config.GetBool(config.FACTORY_REFRESH_IMAGES, false) {
+				if refreshed, ok := refreshedImages[image]; !ok || !refreshed {
+					return false
+				}
+			}
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func (cf *DockerFactory) PullImage(image string) error {
@@ -131,4 +144,25 @@ func (cf *DockerFactory) GetMemoryMB(contID ContainerID) (int64, error) {
 		return -1, err
 	}
 	return contJson.HostConfig.Memory / 1048576, nil
+}
+
+func (cf *DockerFactory) GetLog(contID ContainerID) (string, error) {
+	logsReader, err := cf.cli.ContainerLogs(cf.ctx, contID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Since:      "",
+		Until:      "",
+		Timestamps: false,
+		Follow:     false,
+		Tail:       "",
+		Details:    false,
+	})
+	if err != nil {
+		return "no logs", fmt.Errorf("can't get the logs: %v", err)
+	}
+	logs, err := io.ReadAll(logsReader)
+	if err != nil {
+		return "no logs", fmt.Errorf("can't read the logs: %v", err)
+	}
+	return string(logs[:]), nil
 }

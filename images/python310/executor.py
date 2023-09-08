@@ -43,8 +43,8 @@ class CaptureOutput:
 
 class Executor(BaseHTTPRequestHandler):
     def do_POST(self):
-        content_length = int(self.headers['Content-Length']) 
-        post_data = self.rfile.read(content_length) 
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
         request = json.loads(post_data.decode('utf-8'))
 
         if not "invoke" in self.path:
@@ -52,7 +52,7 @@ class Executor(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        handler = request["Handler"] 
+        handler = request["Handler"]
         handler_dir = request["HandlerDir"]
 
         try:
@@ -61,7 +61,7 @@ class Executor(BaseHTTPRequestHandler):
             params = {}
 
         if "context" in os.environ:
-            context = json.loads(os.environ["CONTEXT"]) 
+            context = json.loads(os.environ["CONTEXT"])
         else:
             context = {}
 
@@ -104,7 +104,7 @@ class Executor(BaseHTTPRequestHandler):
 
 
 
-if __name__ == "__main__":        
+if __name__ == "__main__":
     webServer = HTTPServer((hostName, serverPort), Executor)
     print("Server started http://%s:%s" % (hostName, serverPort))
 

@@ -1,0 +1,15 @@
+{
+  "StartAt": "FirstState",
+  "States": {
+    "FirstState": {
+      "Type": "Task",
+      "Resource": "inc",
+      "Next": "Final"
+    },
+    "Final": {
+      "Type": "Task",
+      "Resource": "inc",
+      "End": true
+    }
+  }
+}

@@ -1,0 +1,27 @@
+metrics:
+  enabled: true
+container:
+  pool:
+    cpus: 2
+    memory: 1024
+api:
+  port: 1323
+cloud:
+  server:
+    url: http://192.168.1.51:1325
+scheduler:
+  #policy: edgecloud
+  policy: customCloudOffload
+  version: flux
+  #policy: customCloudOffloadPrometheus
+  cloud:
+    cost: 0.0001
+registry:
+  udp:
+    port: 9876
+solver:
+  address: "localhost:2500"
+storage:
+  address: "http://localhost:8086"
+  token: "serverledge"
+  orgname: "serverledge"

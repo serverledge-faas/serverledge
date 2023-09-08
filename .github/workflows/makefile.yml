@@ -21,3 +21,6 @@ jobs:
       
      - name: Install dependencies
        run: make
+
+     - name: Test
+       run: make unit_test

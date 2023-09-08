@@ -14,6 +14,7 @@ type Factory interface {
 	PullImage(string) error
 	GetIPAddress(ContainerID) (string, error)
 	GetMemoryMB(id ContainerID) (int64, error)
+	GetLog(id ContainerID) (string, error)
 }
 
 // ContainerOptions contains options for container creation.

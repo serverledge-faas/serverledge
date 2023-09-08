@@ -1,0 +1,7 @@
+{
+  "InputText": [
+    "This is an example text for testing the grep function.\nYou can use the grep function to search for specific words or patterns in text.\nThe function is a powerful tool for text processing.\n",
+    "It allows you to filter and extract lines that match a given pattern.\nYou can customize the pattern using regular expressions.\nFeel free to test the grep function with different patterns and texts."
+  ],
+  "Pattern": "grep"
+}

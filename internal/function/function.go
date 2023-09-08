@@ -3,6 +3,10 @@ package function
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/grussorusso/serverledge/internal/types"
+
+	// "github.com/grussorusso/serverledge/internal/fc"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/cache"
@@ -20,6 +24,7 @@ type Function struct {
 	Handler         string  // example: "module.function_name"
 	TarFunctionCode string  // input is .tar
 	CustomImage     string  // used if custom runtime is chosen
+	Signature       *Signature
 }
 
 func (f *Function) getEtcdKey() string {
@@ -30,7 +35,7 @@ func getEtcdKey(funcName string) string {
 	return fmt.Sprintf("/function/%s", funcName)
 }
 
-// GetFunction retrieves a Function given its name.
+// GetFunction retrieves a Function given its name. If it doesn't exist, returns false
 func GetFunction(name string) (*Function, bool) {
 
 	val, found := getFromCache(name)
@@ -71,7 +76,7 @@ func getFromEtcd(name string) (*Function, bool) {
 	if err != nil {
 		return nil, false
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	getResponse, err := cli.Get(ctx, getEtcdKey(name))
 	if err != nil || len(getResponse.Kvs) < 1 {
 		return nil, false
@@ -86,6 +91,7 @@ func getFromEtcd(name string) (*Function, bool) {
 	return &f, true
 }
 
+// SaveToEtcd registers the function to Etcd
 func (f *Function) SaveToEtcd() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
@@ -117,8 +123,10 @@ func (f *Function) Delete() error {
 	ctx := context.TODO()
 
 	dresp, err := cli.Delete(ctx, f.getEtcdKey())
-	if err != nil || dresp.Deleted != 1 {
+	if err != nil {
 		return fmt.Errorf("Failed Delete: %v", err)
+	} else if dresp.Deleted != 1 {
+		fmt.Printf("no function with key '%s' exists", f.getEtcdKey())
 	}
 
 	// Remove the function from the local cache
@@ -127,22 +135,46 @@ func (f *Function) Delete() error {
 	return nil
 }
 
+func (f *Function) Equals(cmp types.Comparable) bool {
+	f2 := cmp.(*Function)
+	return (f == nil && f2 == nil) || (f.Name == f2.Name &&
+		f.CustomImage == f2.CustomImage &&
+		f.CPUDemand == f2.CPUDemand &&
+		f.Runtime == f2.Runtime &&
+		f.Handler == f2.Handler &&
+		f.MemoryMB == f2.MemoryMB &&
+		f.TarFunctionCode == f2.TarFunctionCode)
+}
+
+// Exists checks if the function is already saved to Etcd
+func (f *Function) Exists() bool {
+	savedFunction, ok := GetFunction(f.Name)
+	return ok && f.Equals(savedFunction)
+}
+
+// GetAll returns all function names
 func GetAll() ([]string, error) {
+	return GetAllWithPrefix("/function")
+}
+
+// GetAllWithPrefix is used to get all /function or /fc currently registered in etcd
+func GetAllWithPrefix(prefix string) ([]string, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, err
 	}
-	ctx := context.TODO()
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
 
-	resp, err := cli.Get(ctx, "/function", clientv3.WithPrefix())
+	resp, err := cli.Get(ctx, prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
 
 	functions := make([]string, len(resp.Kvs))
 	for i, s := range resp.Kvs {
-		functions[i] = string(s.Key)[len("/function/"):]
+		functions[i] = string(s.Key)[len(prefix+"/"):]
 	}
 
-	return functions, nil
+	return functions, ctx.Err()
 }

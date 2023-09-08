@@ -9,6 +9,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
+// DefaultLocalPolicy can be used on single node deployments. Directly executes the function locally, or drops the request if there aren't enough resources.
 type DefaultLocalPolicy struct {
 	queue queue
 }
@@ -65,20 +66,22 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 	} else if errors.Is(err, node.OutOfResourcesErr) {
 	} else {
 		// other error
+		log.Printf("%v", err)
 		p.queue.Dequeue()
 		dropRequest(req)
 	}
 }
 
+// OnArrival for default policy is executed every time a function is invoked, before invoking the function
 func (p *DefaultLocalPolicy) OnArrival(r *scheduledRequest) {
 	containerID, err := node.AcquireWarmContainer(r.Fun)
 	if err == nil {
-		execLocally(r, containerID, true)
+		execLocally(r, containerID, true) // decides to execute locally
 		return
 	}
 
 	if errors.Is(err, node.NoWarmFoundErr) {
-		if handleColdStart(r) {
+		if handleColdStart(r) { // initialize container and executes locally
 			return
 		}
 	} else if errors.Is(err, node.OutOfResourcesErr) {

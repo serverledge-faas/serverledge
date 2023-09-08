@@ -19,7 +19,7 @@ http.createServer(async (request, response) => {
 		try {
 			const reqbody = JSON.parse(data);
 
-			var handler = reqbody["Handler"]	
+			var handler = reqbody["Handler"]
 			var handler_dir = reqbody["HandlerDir"]
 			var params = reqbody["Params"]
 			var return_output = reqbody["ReturnOutput"]

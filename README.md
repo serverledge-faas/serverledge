@@ -1,5 +1,6 @@
 ![ServerlEdge](docs/logo.png)
 
+
 Serverledge is a Function-as-a-Service (FaaS) framework designed to
 work in Edge-Cloud environments.
 
@@ -59,9 +60,14 @@ Start a local Serverledge node:
 
 ### Creating and invoking functions
 
-Register a function `func` from example code:
+Register a function `func` from example python code (the handler is formatted like this: $(filename).$(functionName)):
 
-	$ bin/serverledge-cli create -f func --memory 200 --src examples/hello.py --runtime python310 --handler "hello.handler" 
+	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.py --runtime python310 --handler "hello.handler"
+
+Register a function `func` from example javascript code (the handler is formatted like this: $(filename) and the name of the function is "handler"):
+
+	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.js --runtime nodejs17 --handler "hello"
+    $ bin/serverledge-cli create -f func --memory 600 --src examples/inc.js --runtime nodejs17 --handler "inc"
 
 Invoke `func` with arguments `a=2` and `b=3`:
 
@@ -109,13 +115,13 @@ connect to a node other than `localhost` or use a non-default port
 by means of environment variables or command-line options:
 
 - Use `--host <HOST>` (or `-H <HOST>`) and/or `--port <PORT>` (or, `-P <PORT>`)
-to specify the server
-host and port on the command line
+  to specify the server
+  host and port on the command line
 - Alternatively, you can set the environment variables
-`SERVERLEDGE_HOST` and/or `SERVERLEDGE_PORT`, which are read by the client.
+  `SERVERLEDGE_HOST` and/or `SERVERLEDGE_PORT`, which are read by the client.
 
 Example:
- 
+
     $ bin/serverledge-cli status -H <host ip-address> -P <port number>
 
 ## Configuration

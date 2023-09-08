@@ -5,6 +5,7 @@ const ETCD_ADDRESS = "etcd.address"
 
 // exposed port for serverledge APIs
 const API_PORT = "api.port"
+const API_IP = "api.ip"
 
 // REMOTE SERVER URL
 const CLOUD_URL = "cloud.server.url"
@@ -33,6 +34,9 @@ const CACHE_CLEANUP = "cache.cleanup"
 
 // default expiration time assigned to a cache item (Seconds)
 const CACHE_ITEM_EXPIRATION = "cache.expiration"
+
+// default policy is to persist cache (boolean). Use false in localonly deployments
+const CACHE_PERSISTENCE = "cache.persistence"
 
 // true if the current server is a remote cloud server
 const IS_IN_CLOUD = "cloud"

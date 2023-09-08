@@ -18,6 +18,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/internal/telemetry"
+	"github.com/serverledge-faas/serverledge/internal/workflow"
 	"github.com/serverledge-faas/serverledge/utils"
 	"go.opentelemetry.io/otel/attribute"
 
@@ -29,6 +30,12 @@ import (
 var requestsPool = sync.Pool{
 	New: func() any {
 		return new(function.Request)
+	},
+}
+
+var workflowInvocationRequestPool = sync.Pool{
+	New: func() any {
+		return new(workflow.Request)
 	},
 }
 
@@ -56,13 +63,12 @@ func InvokeFunction(c echo.Context) error {
 		log.Printf("Could not parse request: %v\n", err)
 		return fmt.Errorf("could not parse request: %v", err)
 	}
-
-	r := requestsPool.Get().(*function.Request)
-	defer requestsPool.Put(r)
+	// gets a function.Request from the pool goroutine-safe cache.
+	r := requestsPool.Get().(*function.Request) // function.Request will be created if does not exists, otherwise removed from the pool
+	defer requestsPool.Put(r)                   // at the end of the function, the function.Request is added to the pool.
 	r.Fun = fun
 	r.Params = invocationRequest.Params
 	r.Arrival = time.Now()
-	r.Class = function.ServiceClass(invocationRequest.QoSClass)
 	r.MaxRespT = invocationRequest.QoSMaxRespT
 	r.CanDoOffloading = invocationRequest.CanDoOffloading
 	r.Async = invocationRequest.Async
@@ -90,7 +96,7 @@ func InvokeFunction(c echo.Context) error {
 		return c.String(http.StatusTooManyRequests, "")
 	} else if err != nil {
 		log.Printf("Invocation failed: %v\n", err)
-		return c.String(http.StatusInternalServerError, "")
+		return c.String(http.StatusInternalServerError, "Node has not enough resources")
 	} else {
 		return c.JSON(http.StatusOK, function.Response{Success: true, ExecutionReport: executionReport})
 	}
@@ -207,7 +213,9 @@ func GetServerStatus(c echo.Context) error {
 	defer node.Resources.RUnlock()
 
 	portNumber := config.GetInt("api.port", 1323)
-	url := fmt.Sprintf("http://%s:%d", utils.GetIpAddress().String(), portNumber)
+
+	address, err := utils.GetOutboundIp()
+	url := fmt.Sprintf("http://%s:%d", address.String(), portNumber)
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}

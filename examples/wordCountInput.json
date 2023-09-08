@@ -1,0 +1,4 @@
+{
+  "InputText": "Word counting is a useful technique for analyzing text data. It helps in various natural language processing tasks. In this example, we are testing the wordCount function in JavaScript. It should accurately count the number of words in this text. Counting words can be a fundamental step in text analysis.",
+  "Task": true
+}

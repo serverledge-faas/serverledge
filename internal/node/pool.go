@@ -13,8 +13,8 @@ import (
 )
 
 type ContainerPool struct {
-	busy  *list.List // list of ContainerID
-	ready *list.List // list of warmContainer
+	busy  *list.List // circular list of ContainerID
+	ready *list.List // circular list of warmContainer
 }
 
 type warmContainer struct {
@@ -22,17 +22,25 @@ type warmContainer struct {
 	contID     container.ContainerID
 }
 
+type busyContainer struct {
+	contID container.ContainerID
+}
+
 var NoWarmFoundErr = errors.New("no warm container is available")
 
-// getFunctionPool retrieves (or creates) the container pool for a function.
-func getFunctionPool(f *function.Function) *ContainerPool {
+// GetFunctionPool retrieves (or creates) the container pool for a function.
+func GetFunctionPool(f *function.Function) *ContainerPool {
 	if fp, ok := Resources.ContainerPools[f.Name]; ok {
 		return fp
 	}
 
-	fp := newFunctionPool(f)
+	fp := newFunctionPool()
 	Resources.ContainerPools[f.Name] = fp
 	return fp
+}
+
+func ArePoolsEmptyInThisNode() bool {
+	return len(Resources.ContainerPools) == 0
 }
 
 func (fp *ContainerPool) getWarmContainer() (container.ContainerID, bool) {
@@ -49,7 +57,9 @@ func (fp *ContainerPool) getWarmContainer() (container.ContainerID, bool) {
 }
 
 func (fp *ContainerPool) putBusyContainer(contID container.ContainerID) {
-	fp.busy.PushBack(contID)
+	fp.busy.PushBack(busyContainer{
+		contID: contID,
+	})
 }
 
 func (fp *ContainerPool) putReadyContainer(contID container.ContainerID, expiration int64) {
@@ -59,7 +69,7 @@ func (fp *ContainerPool) putReadyContainer(contID container.ContainerID, expirat
 	})
 }
 
-func newFunctionPool(_ *function.Function) *ContainerPool {
+func newFunctionPool() *ContainerPool {
 	fp := &ContainerPool{}
 	fp.busy = list.New()
 	fp.ready = list.New()
@@ -115,9 +125,17 @@ func AcquireWarmContainer(f *function.Function) (container.ContainerID, error) {
 	Resources.Lock()
 	defer Resources.Unlock()
 
-	fp := getFunctionPool(f)
+	fp := GetFunctionPool(f)
 	contID, found := fp.getWarmContainer()
 	if !found {
+		if contID == "no function" {
+			fmt.Printf("the container exists, but doesn't have the function %s\n", f.Name)
+			return "", NoWarmFoundErr
+		}
+		if contID == "no runtime" {
+			fmt.Printf("the container exists, but doesn't have the correct runtime (%s) for function %s\n", f.Runtime, f.Name)
+			return "", NoWarmFoundErr
+		}
 		return "", NoWarmFoundErr
 	}
 
@@ -138,28 +156,24 @@ func ReleaseContainer(contID container.ContainerID, f *function.Function) {
 
 	Resources.Lock()
 	defer Resources.Unlock()
-
-	fp := getFunctionPool(f)
-
+	fp := GetFunctionPool(f)
 	// we must update the busy list by removing this element
-	var removed container.ContainerID
+	var deleted interface{}
 	elem := fp.busy.Front()
 	for ok := elem != nil; ok; ok = elem != nil {
-		if elem.Value.(container.ContainerID) == contID {
-			removed = fp.busy.Remove(elem).(container.ContainerID)
+		if elem.Value.(busyContainer).contID == contID {
+			deleted = fp.busy.Remove(elem) // delete the element from the busy list
 			break
 		}
 		elem = elem.Next()
 	}
-	if removed != contID {
-		panic("Failed to release container")
+	if deleted == nil {
+		log.Println("Failed to release a container!")
+		return
 	}
 
 	fp.putReadyContainer(contID, expTime)
-
 	releaseResources(f.CPUDemand, 0)
-
-	//log.Printf("Released resources. Now: %v", Resources)
 }
 
 // NewContainer creates and starts a new container for the given function.
@@ -168,7 +182,7 @@ func ReleaseContainer(contID container.ContainerID, f *function.Function) {
 func NewContainer(fun *function.Function) (container.ContainerID, error) {
 	Resources.Lock()
 	if !acquireResources(fun.CPUDemand, fun.MemoryMB, true) {
-		//log.Printf("Not enough resources for the new container.")
+		//log.Printf("Not enough resources for the new container.\n")
 		Resources.Unlock()
 		return "", OutOfResourcesErr
 	}
@@ -219,7 +233,7 @@ func NewContainerWithAcquiredResources(fun *function.Function) (container.Contai
 		return "", err
 	}
 
-	fp := getFunctionPool(fun)
+	fp := GetFunctionPool(fun)
 	fp.putBusyContainer(contID) // We immediately mark it as busy
 
 	return contID, nil
@@ -295,7 +309,7 @@ func DeleteExpiredContainer() {
 			if now > warmed.Expiration {
 				temp := elem
 				elem = elem.Next()
-				log.Printf("cleaner: Removing container %s\n", warmed.contID)
+				//log.Printf("cleaner: Removing container %s\n", warmed.contID)
 				pool.ready.Remove(temp) // remove the expired element
 
 				memory, _ := container.GetMemoryMB(warmed.contID)
@@ -304,7 +318,7 @@ func DeleteExpiredContainer() {
 				if err != nil {
 					log.Printf("Error while destroying container %s: %s\n", warmed.contID, err)
 				}
-				log.Printf("Released resources. Now: %v\n", &Resources)
+				// log.Printf("Released resources. Now: %v\n", &Resources)
 			} else {
 				elem = elem.Next()
 			}
@@ -377,16 +391,21 @@ func ShutdownAllContainers() {
 
 		elem = pool.busy.Front()
 		for ok := elem != nil; ok; ok = elem != nil {
-			contID := elem.Value.(container.ContainerID)
+			contID := elem.Value.(busyContainer).contID
 			temp := elem
 			elem = elem.Next()
 			log.Printf("Removing container with ID %s\n", contID)
 			pool.ready.Remove(temp)
 
-			memory, _ := container.GetMemoryMB(contID)
+			memory, errMem := container.GetMemoryMB(contID)
+			if errMem != nil {
+				log.Printf("failed to get memory from container %s before destroying it: %v", contID, errMem)
+				continue
+			}
 			err := container.Destroy(contID)
 			if err != nil {
-				log.Printf("Error while destroying container %s: %s", contID, err)
+				log.Printf("failed to destroy container %s: %v\n", contID, err)
+				continue
 			}
 			Resources.AvailableMemMB += memory
 			Resources.AvailableCPUs += functionDescriptor.CPUDemand

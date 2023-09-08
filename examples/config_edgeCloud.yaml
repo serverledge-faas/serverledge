@@ -1,0 +1,11 @@
+container:
+  pool:
+    cpus: 4
+    memory: 1024
+api:
+  port: 1323
+cloud:
+  server:
+    url: http://192.168.1.16:1326
+scheduler:
+  policy: edgecloud

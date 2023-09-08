@@ -1,0 +1,18 @@
+[
+  {
+    "name": "class2",
+    "utility": 0,
+    "MaximumResponseTime": -1
+  },
+  {
+    "name": "class1",
+    "utility": 1,
+    "MaximumResponseTime": 20
+  },
+  {
+    "name": "class3",
+    "utility": 0.5,
+    "MaximumResponseTime": 2,
+    "CompletedPercentage": 0.9
+  }
+]

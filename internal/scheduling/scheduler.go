@@ -8,22 +8,18 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/serverledge-faas/serverledge/internal/metrics"
-
-	"github.com/serverledge-faas/serverledge/internal/node"
-	"github.com/serverledge-faas/serverledge/internal/telemetry"
-	"go.opentelemetry.io/otel/trace"
-
 	"github.com/serverledge-faas/serverledge/internal/config"
-
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/telemetry"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 var requests chan *scheduledRequest
 var completions chan *completionNotification
-
-var remoteServerUrl string
 
 var offloadingClient *http.Client
 
@@ -31,7 +27,7 @@ func Run(p Policy) {
 	requests = make(chan *scheduledRequest, 500)
 	completions = make(chan *completionNotification, 500)
 
-	// initialize Resources
+	// initialize resources
 	availableCores := runtime.NumCPU()
 	node.Resources.AvailableMemMB = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
 	node.Resources.AvailableCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
@@ -54,15 +50,13 @@ func Run(p Policy) {
 	// initialize scheduling policy
 	p.Init()
 
-	remoteServerUrl = config.GetString(config.CLOUD_URL, "")
-
 	log.Println("Scheduler started.")
 
 	var r *scheduledRequest
 	var c *completionNotification
 	for {
 		select {
-		case r = <-requests:
+		case r = <-requests: // receive request
 			go p.OnArrival(r)
 		case c = <-completions:
 			node.ReleaseContainer(c.contID, c.fun)
@@ -117,7 +111,7 @@ func SubmitAsyncRequest(r *function.Request) {
 	schedRequest := scheduledRequest{
 		Request:         r,
 		decisionChannel: make(chan schedDecision, 1)}
-	requests <- &schedRequest
+	requests <- &schedRequest // send async request
 
 	// wait on channel for scheduling action
 	schedDecision, ok := <-schedRequest.decisionChannel
@@ -130,7 +124,7 @@ func SubmitAsyncRequest(r *function.Request) {
 	if schedDecision.action == DROP {
 		publishAsyncResponse(r.Id(), function.Response{Success: false})
 	} else if schedDecision.action == EXEC_REMOTE {
-		//log.Printf("Offloading request")
+		//log.Printf("Offloading request\n")
 		err = OffloadAsync(r, schedDecision.remoteHost)
 		if err != nil {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
