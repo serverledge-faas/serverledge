@@ -7,6 +7,7 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
+// FIXME: unused function
 func exampleParsing(str string) (*fc.Dag, []*function.Function, error) {
 
 	py, err := InitializePyFunction("inc", "handler", function.NewSignature().AddInput("input", function.Int{}).AddOutput("result", function.Int{}).Build())
