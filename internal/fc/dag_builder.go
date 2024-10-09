@@ -198,42 +198,44 @@ func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Dag, err1 error) *ChoiceBra
 		// getting start.Next from the dagToChain
 		startNext, _ := dagToChain.Find(dagToChain.Start.Next)
 		// chains the alternative to the input dag, which is already connected to a whole series of nodes
-		c.dagBuilder.dag.addNode(startNext)
-		err := c.dagBuilder.dag.chain(c.dagBuilder.prevNode.(*ChoiceNode), startNext)
-		//dagToChain.Start.Next.setBranchId(branchNumber)
-		if err != nil {
-			c.dagBuilder.appendError(err)
-		}
-		// TODO: RICONTROLLARE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		// adds the nodes to the building dag
-		for _, n := range dagToChain.Nodes {
-			switch n.(type) {
-			case *StartNode:
-				continue
-			case *EndNode:
-				continue
-			case *FanOutNode:
-				c.dagBuilder.dag.addNode(n)
-				n.setBranchId(n.GetBranchId() + baseBranchNumber)
-				continue
-			default:
-				c.dagBuilder.dag.addNode(n)
-				n.setBranchId(n.GetBranchId() + baseBranchNumber)
-				nextNode, _ := dagToChain.Find(n.GetNext()[0])
-				// chain the last node(s) of the input dag to the end node of the building dag
-				if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == dagToChain.End {
-					errEnd := c.dagBuilder.dag.ChainToEndNode(n)
-					if errEnd != nil {
-						c.dagBuilder.appendError(errEnd)
-						return c
+		if !dagToChain.IsEmpty() {
+			c.dagBuilder.dag.addNode(startNext)
+			err := c.dagBuilder.dag.chain(c.dagBuilder.prevNode.(*ChoiceNode), startNext)
+			if err != nil {
+				c.dagBuilder.appendError(err)
+			}
+			// adds the nodes to the building dag
+			for _, n := range dagToChain.Nodes {
+				switch n.(type) {
+				case *StartNode:
+					continue
+				case *EndNode:
+					continue
+				case *FanOutNode:
+					c.dagBuilder.dag.addNode(n)
+					n.setBranchId(n.GetBranchId() + baseBranchNumber)
+					continue
+				default:
+					c.dagBuilder.dag.addNode(n)
+					n.setBranchId(n.GetBranchId() + baseBranchNumber)
+					nextNode, _ := dagToChain.Find(n.GetNext()[0])
+					// chain the last node(s) of the input dag to the end node of the building dag
+					if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == dagToChain.End {
+						errEnd := c.dagBuilder.dag.ChainToEndNode(n)
+						if errEnd != nil {
+							c.dagBuilder.appendError(errEnd)
+							return c
+						}
 					}
 				}
 			}
+			// so we completed a branch
+			c.completed++
+			c.dagBuilder.branches--
+		} else {
+			fmt.Printf("not adding another end node\n")
+			c.EndNextBranch()
 		}
-
-		// so we completed a branch
-		c.completed++
-		c.dagBuilder.branches--
 	} else {
 		panic("There is not a NextBranch. Use EndChoiceAndBuild to end the choiceNode.")
 	}
@@ -542,9 +544,111 @@ func (p *ParallelBroadcastBranchBuilder) HasNextBranch() bool {
 	return p.dagBuilder.branches > 0
 }
 
+func (b *DagBuilder) AddFailNodeAndBuild(errorName, errorMessage string) (*Dag, error) {
+	nErrors := len(b.errors)
+	if nErrors > 0 {
+		return nil, fmt.Errorf("AddFailNodeAndBuild failed because of the following %d error(s) in dagBuilder\n%v", nErrors, b.errors)
+	}
+
+	failNode := NewFailNode(errorName, errorMessage)
+	failNode.setBranchId(b.BranchNumber)
+
+	b.dag.addNode(failNode)
+	err := b.dag.chain(b.prevNode, failNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to chain the FailNode: %v", err)
+	}
+	b.prevNode = failNode
+	return b.Build()
+}
+
+func (b *DagBuilder) AddSucceedNodeAndBuild(message string) (*Dag, error) {
+	nErrors := len(b.errors)
+	if nErrors > 0 {
+		return nil, fmt.Errorf("AddSucceedNodeAndBuild failed because of the following %d error(s) in dagBuilder\n%v", nErrors, b.errors)
+	}
+
+	succeedNode := NewSucceedNode(message)
+	succeedNode.setBranchId(b.BranchNumber)
+
+	b.dag.addNode(succeedNode)
+	err := b.dag.chain(b.prevNode, succeedNode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to chain the SucceedNode: %v", err)
+	}
+	b.prevNode = succeedNode
+	return b.Build()
+}
+
+func (b *DagBuilder) AddPassNode(result string) *DagBuilder {
+	nErrors := len(b.errors)
+	if nErrors > 0 {
+		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
+		return b
+	}
+
+	passNode := NewPassNode(result)
+	passNode.setBranchId(b.BranchNumber)
+
+	b.dag.addNode(passNode)
+	err := b.dag.chain(b.prevNode, passNode)
+	if err != nil {
+		b.appendError(err)
+		return b
+	}
+
+	b.prevNode = passNode
+	return b
+}
+
+func (b *DagBuilder) AddWaitNode(seconds int) *DagBuilder {
+	nErrors := len(b.errors)
+	if nErrors > 0 {
+		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
+		return b
+	}
+
+	passNode := NewWaitNode(seconds)
+	passNode.setBranchId(b.BranchNumber)
+
+	b.dag.addNode(passNode)
+	err := b.dag.chain(b.prevNode, passNode)
+	if err != nil {
+		b.appendError(err)
+		return b
+	}
+
+	b.prevNode = passNode
+	return b
+}
+
+func (b *DagBuilder) AddWaitNodeWithTimestamp(timestampRFC3339 string) *DagBuilder {
+	nErrors := len(b.errors)
+	if nErrors > 0 {
+		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
+		return b
+	}
+	timestamp, ok := parseRFC3339(timestampRFC3339)
+	if !ok {
+		b.appendError(fmt.Errorf("failed to parse timestamp RFC3339 from string %s", timestampRFC3339))
+		return b
+	}
+	passNode := NewWaitNodeFromTimestamp(timestamp)
+	passNode.setBranchId(b.BranchNumber)
+
+	b.dag.addNode(passNode)
+	err := b.dag.chain(b.prevNode, passNode)
+	if err != nil {
+		b.appendError(err)
+		return b
+	}
+
+	b.prevNode = passNode
+	return b
+}
+
 // Build ends the single branch with an EndNode. If there is more than one branch, it panics!
 func (b *DagBuilder) Build() (*Dag, error) {
-
 	switch b.prevNode.(type) {
 	case nil:
 		return &b.dag, nil

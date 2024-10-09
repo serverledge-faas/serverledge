@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/cache"
 	"github.com/grussorusso/serverledge/internal/function"
@@ -12,7 +14,6 @@ import (
 	"github.com/grussorusso/serverledge/utils"
 	"github.com/labstack/gommon/log"
 	"golang.org/x/exp/slices"
-	"time"
 )
 
 // FunctionComposition is a serverless Function Composition
@@ -36,13 +37,26 @@ type CompositionExecutionReport struct {
 	Progress     *Progress `json:"-"` // skipped in Json marshaling
 }
 
-func (cer *CompositionExecutionReport) GetSingleResult() string {
+func (cer *CompositionExecutionReport) GetSingleResult() (string, error) {
 	if len(cer.Result) == 1 {
 		for _, value := range cer.Result {
-			return fmt.Sprintf("%v", value)
+			return fmt.Sprintf("%v", value), nil
 		}
 	}
-	return fmt.Sprintf("%v", cer.Result)
+	return "", fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
+}
+
+func (cer *CompositionExecutionReport) GetIntSingleResult() (int, error) {
+	if len(cer.Result) == 1 {
+		for _, value := range cer.Result {
+			valueInt, ok := value.(int)
+			if !ok {
+				return 0, fmt.Errorf("value %v cannot be casted to int", value)
+			}
+			return valueInt, nil
+		}
+	}
+	return 0, fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
 }
 
 func (cer *CompositionExecutionReport) GetAllResults() string {
@@ -54,8 +68,8 @@ func (cer *CompositionExecutionReport) GetAllResults() string {
 	return result
 }
 
-// NewFC instantiates a new FunctionComposition with a name and a corresponding dag. Function can contain duplicate functions (with the same name)
-func NewFC(name string, dag Dag, functions []*function.Function, removeFnOnDeletion bool) FunctionComposition {
+// NewFC instantiates a new FunctionComposition with a name and a corresponding dag. The functions parameter can contain duplicate functions (with the same name)
+func NewFC(name string, dag Dag, functions []*function.Function, removeFnOnDeletion bool) (*FunctionComposition, error) {
 	functionMap := make(map[string]*function.Function)
 	if functions != nil {
 		for _, f := range functions {
@@ -64,12 +78,21 @@ func NewFC(name string, dag Dag, functions []*function.Function, removeFnOnDelet
 		}
 	}
 
-	return FunctionComposition{
+	// if not all unique functions are present inside the functions array, we return an error
+	definedFunctions := dag.GetUniqueDagFunctions()
+	for _, f := range definedFunctions {
+		_, ok2 := functionMap[f]
+		if !ok2 {
+			return nil, fmt.Errorf("the function %s is not included in the FunctionComposition functions parameter, but it must be registered to Serverledge", f)
+		}
+	}
+
+	return &FunctionComposition{
 		Name:               name,
 		Functions:          functionMap,
 		Workflow:           dag,
 		RemoveFnOnDeletion: removeFnOnDeletion,
-	}
+	}, nil
 }
 
 func (fc *FunctionComposition) getEtcdKey() string {
@@ -279,11 +302,13 @@ func (fc *FunctionComposition) Exists() bool {
 	if !found {
 		// cache miss
 		f, err := getFCFromEtcd(fc.Name)
-		if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(fc.Name)) {
-			return false
-		} else if err != nil {
-			log.Error(err.Error())
-			return false
+		if err != nil {
+			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(fc.Name)) {
+				return false
+			} else {
+				log.Error(err.Error())
+				return false
+			}
 		}
 		//insert a new element to the cache
 		cache.GetCacheInstance().Set(f.Name, f, cache.DefaultExp)
@@ -390,4 +415,134 @@ func (cer CompositionExecutionReport) UnmarshalJSON(data []byte) error {
 		cer.Reports.Set(ExecutionReportId(id), &execReportVar)
 	}
 	return nil
+}
+
+func (cer *CompositionExecutionReport) String() string {
+	str := "["
+	str += fmt.Sprintf("\n\tResponseTime: %f,", cer.ResponseTime)
+	str += "\n\tReports: ["
+	if cer.Reports.Len() > 0 {
+		j := 0
+		cer.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
+			schedAction := "''"
+			if report.SchedAction != "" {
+				schedAction = report.SchedAction
+			}
+			output := "''"
+			if report.Output != "" {
+				output = report.Output
+			}
+
+			str += fmt.Sprintf("\n\t\t%s: {ResponseTime: %f, IsWarmStart: %v, InitTime: %f, OffloadLatency: %f, Duration: %f, SchedAction: %v, Output: %s, Result: %s}", id, report.ResponseTime, report.IsWarmStart, report.InitTime, report.OffloadLatency, report.Duration, schedAction, output, report.Result)
+			if j < cer.Reports.Len()-1 {
+				str += ","
+			}
+			if j == cer.Reports.Len()-1 {
+				str += "\n\t]"
+			}
+			j++
+			return true
+		})
+	}
+
+	str += "\n\tResult: {"
+	i := 0
+	lll := len(cer.Result)
+	for s, v := range cer.Result {
+		if i == 0 {
+			str += "\n"
+		}
+		str += fmt.Sprintf("\t\t%s: %v,", s, v)
+		if i < lll-1 {
+			str += ",\n"
+		} else if i == lll-1 {
+			str += "\n"
+		}
+		i++
+	}
+	str += "\t}\n}\n"
+	return str
+}
+
+func (cer *CompositionExecutionReport) Equals(other types.Comparable) bool {
+	cer2, ok := other.(*CompositionExecutionReport)
+	if !ok {
+		fmt.Printf("other type %T is not CompositionExecutionReport\n", other)
+		return false
+	}
+
+	allEquals := true
+	cer.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
+		report2, isPresent := cer2.Reports.Get(id)
+		if !isPresent {
+			fmt.Printf("element %s is not present in the other report", id)
+			allEquals = false
+			return false
+		}
+		fieldAllEqual := true
+		if report.Output != report2.Output {
+			fmt.Printf("Output: report1 '%v' is different from report2 '%v'\n", report.Output, report2.Output)
+			fieldAllEqual = false
+		}
+
+		if report.Duration != report2.Duration {
+			fmt.Printf("Duration: report1 '%v' is different from report2 '%v'\n", report.Duration, report2.Duration)
+			fieldAllEqual = false
+		}
+
+		if report.Result != report2.Result {
+			fmt.Printf("Result: report1 '%v' is different from report2 '%v'\n", report.Result, report2.Result)
+			fieldAllEqual = false
+		}
+
+		if report.OffloadLatency != report2.OffloadLatency {
+			fmt.Printf("OffloadLatency: report1 '%v' is different from report2 '%v'\n", report.OffloadLatency, report2.OffloadLatency)
+			fieldAllEqual = false
+		}
+
+		if report.ResponseTime != report2.ResponseTime {
+			fmt.Printf("ResponseTime: report1 '%v' is different from report2 '%v'\n", report.ResponseTime, report2.ResponseTime)
+			fieldAllEqual = false
+		}
+
+		if report.SchedAction != report2.SchedAction {
+			fmt.Printf("SchedAction: report1 '%v' is different from report2 '%v'\n", report.SchedAction, report2.SchedAction)
+			fieldAllEqual = false
+		}
+
+		if report.InitTime != report2.InitTime {
+			fmt.Printf("InitTime: report1 '%v' is different from report2 '%v'\n", report.InitTime, report2.InitTime)
+			fieldAllEqual = false
+		}
+
+		if report.IsWarmStart != report2.IsWarmStart {
+			fmt.Printf("IsWarmStart: report1 '%v' is different from report2 '%v'\n", report.IsWarmStart, report2.IsWarmStart)
+			fieldAllEqual = false
+		}
+
+		if !fieldAllEqual {
+			allEquals = false
+			return false
+		}
+		return true
+	})
+
+	if cer.ResponseTime != cer2.ResponseTime {
+		fmt.Printf("Composition ResponseTime: %f is different from %f", cer.ResponseTime, cer2.ResponseTime)
+		return false
+	}
+
+	for key, value := range cer.Result {
+		value2, exists := cer2.Result[key]
+		if !exists {
+			fmt.Printf("Composition Result: key '%s' is not present in the other composition report\n", key)
+			return false
+		}
+		if value != value2 {
+			fmt.Printf("Composition Result: value for key '%s' is different from the other composition report. First is %v of type %T, second is %v of type %T\n", key, value, value, value2, value2)
+			return false
+		}
+	}
+
+	return allEquals
 }

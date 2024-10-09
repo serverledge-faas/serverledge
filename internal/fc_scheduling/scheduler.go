@@ -1,8 +1,10 @@
 package fc_scheduling
 
 import (
-	"github.com/grussorusso/serverledge/internal/fc"
 	"time"
+
+	"github.com/grussorusso/serverledge/internal/fc"
+	"github.com/grussorusso/serverledge/internal/function"
 )
 
 // TODO: offload the entire node when is cloud only
@@ -22,8 +24,19 @@ func SubmitAsyncCompositionRequest(fcReq *fc.CompositionRequest) {
 	executionReport, errInvoke := fcReq.Fc.Invoke(fcReq)
 	if errInvoke != nil {
 		PublishAsyncCompositionResponse(fcReq.ReqId, fc.CompositionResponse{Success: false})
+		return
 	}
-	PublishAsyncCompositionResponse(fcReq.ReqId, fc.CompositionResponse{Success: true, CompositionExecutionReport: executionReport})
+	reports := make(map[string]*function.ExecutionReport)
+	fcReq.ExecReport.Reports.Range(func(id fc.ExecutionReportId, report *function.ExecutionReport) bool {
+		reports[string(id)] = report
+		return true
+	})
+	PublishAsyncCompositionResponse(fcReq.ReqId, fc.CompositionResponse{
+		Success:      true,
+		Result:       fcReq.ExecReport.Result,
+		Reports:      reports,
+		ResponseTime: fcReq.ExecReport.ResponseTime,
+	})
 	fcReq.ExecReport = executionReport
 	fcReq.ExecReport.ResponseTime = time.Now().Sub(fcReq.Arrival).Seconds()
 }

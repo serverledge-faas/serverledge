@@ -1,0 +1,32 @@
+{
+    "Comment": "An example of the Amazon States Language using a choice state.",
+    "StartAt": "FirstState",
+    "States": {
+      "FirstState": {
+        "Type": "Task",
+        "Resource": "noop",
+        "Next": "SecondState"
+      },
+      "SecondState": {
+        "Type": "Task",
+        "Resource": "noop",
+        "Next": "ThirdState"
+      },
+      "ThirdState": {
+        "Type": "Task",
+        "Resource": "noop",
+        "Next": "FourthState"
+      },
+      "FourthState": {
+        "Type": "Task",
+        "Resource": "noop",
+        "Next": "FifthState"
+      },
+      "FifthState": {
+        "Type": "Task",
+        "Resource": "noop",
+        "End": true
+      }
+    }
+    
+  }

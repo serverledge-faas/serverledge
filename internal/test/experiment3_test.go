@@ -3,11 +3,12 @@ package test
 import (
 	"encoding/base64"
 	"fmt"
+	"testing"
+
 	"github.com/grussorusso/serverledge/internal/cli"
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/utils"
-	"testing"
 )
 
 func TestExperiment3(t *testing.T) {
@@ -31,9 +32,10 @@ func createMultiFnComposition(t *testing.T) (*fc.FunctionComposition, error) {
 	dag, errSequence := fc.CreateSequenceDag(funSlice...)
 	utils.AssertNil(t, errSequence)
 
-	composition := fc.NewFC("complex", *dag, funSlice, true)
-	createCompositionApiTest(t, &composition, "127.0.0.1", 1323)
-	return &composition, nil
+	composition, err := fc.NewFC("complex", *dag, funSlice, true)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, "127.0.0.1", 1323)
+	return composition, nil
 }
 
 func initializePyFunctionWithName(fnName string, fileName string, handler string, sign *function.Signature) (*function.Function, error) {

@@ -2,19 +2,21 @@ package test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/grussorusso/serverledge/utils"
-	"testing"
-	"time"
 )
 
 // TestContainerPool executes repeatedly different functions (**not compositions**) to verify the container pool
 func TestContainerPool(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	// creating inc and double functions
 	funcs := []string{"inc", "double"}
@@ -60,8 +62,8 @@ func TestContainerPool(t *testing.T) {
 
 // TestCreateComposition tests the compose REST API that creates a new function composition
 func TestCreateComposition(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
@@ -70,8 +72,10 @@ func TestCreateComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
-	composition := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	createCompositionApiTest(t, &composition, HOST, PORT)
+	utils.AssertNil(t, err)
+	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, HOST, PORT)
 
 	// verifies the function exists (using function REST API)
 	functionNames := getFunctionApiTest(t, HOST, PORT)
@@ -93,8 +97,8 @@ func TestCreateComposition(t *testing.T) {
 
 // TestInvokeComposition tests the REST API that executes a given function composition
 func TestInvokeComposition(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
 	fn, err := initializeJsFunction("inc", function.NewSignature().
@@ -103,8 +107,10 @@ func TestInvokeComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
-	composition := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	createCompositionApiTest(t, &composition, HOST, PORT)
+	utils.AssertNil(t, err)
+	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, HOST, PORT)
 
 	// verifies the function exists (using function REST API)
 	functionNames := getFunctionApiTest(t, HOST, PORT)
@@ -132,8 +138,8 @@ func TestInvokeComposition(t *testing.T) {
 
 // TestInvokeComposition tests the REST API that executes a given function composition
 func TestInvokeComposition_DifferentFunctions(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
 	fnJs, err := initializeJsFunction("inc", function.NewSignature().
@@ -147,8 +153,10 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
 	dag, err := fc.CreateSequenceDag(fnPy, fnJs, fnPy, fnJs)
-	composition := fc.NewFC(fcName, *dag, []*function.Function{fnPy, fnJs}, true)
-	createCompositionApiTest(t, &composition, HOST, PORT)
+	utils.AssertNil(t, err)
+	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fnPy, fnJs}, true)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, HOST, PORT)
 
 	// verifies the function exists (using function REST API)
 	functionNames := getFunctionApiTest(t, HOST, PORT)
@@ -176,8 +184,8 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 
 // TestDeleteComposition tests the compose REST API that deletes a function composition
 func TestDeleteComposition(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
@@ -190,8 +198,10 @@ func TestDeleteComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, db, fn)
+	utils.AssertNil(t, err)
 	for _, b := range []bool{true, false} {
-		composition := fc.NewFC(fcName, *dag, []*function.Function{fn, db}, b)
+		composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn, db}, b)
+		utils.AssertNil(t, err)
 		err = composition.SaveToEtcd()
 		utils.AssertNil(t, err)
 
@@ -230,8 +240,8 @@ func TestDeleteComposition(t *testing.T) {
 
 // TestAsyncInvokeComposition tests the REST API that executes a given function composition
 func TestAsyncInvokeComposition(t *testing.T) {
-	if !IntegrationTest {
-		t.Skip()
+	if testing.Short() {
+		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
@@ -240,8 +250,10 @@ func TestAsyncInvokeComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
-	composition := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	createCompositionApiTest(t, &composition, HOST, PORT)
+	utils.AssertNil(t, err)
+	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, HOST, PORT)
 
 	// === this is the test ===
 	params := make(map[string]interface{})
@@ -249,9 +261,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	invocationResult := invokeCompositionApiTest(t, params, fcName, HOST, PORT, true)
 	fmt.Println(invocationResult)
 
-	reqIdStruct := &struct {
-		ReqId string
-	}{}
+	reqIdStruct := &function.AsyncResponse{}
 
 	errUnmarshal := json.Unmarshal([]byte(invocationResult), reqIdStruct)
 	utils.AssertNil(t, errUnmarshal)
@@ -262,15 +272,20 @@ func TestAsyncInvokeComposition(t *testing.T) {
 		pollResult := pollCompositionTest(t, reqIdStruct.ReqId, HOST, PORT)
 		fmt.Println(pollResult)
 
-		compExecReport := &fc.CompositionExecutionReport{}
-		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), compExecReport)
+		var compExecReport fc.CompositionExecutionReport
+		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &compExecReport)
 
-		result := compExecReport.GetSingleResult()
 		if errUnmarshalExecResult != nil {
+			var unmarshalError *json.UnmarshalTypeError
+			if errors.As(errUnmarshalExecResult, &unmarshalError) {
+				utils.AssertFalseMsg(t, true, errUnmarshalExecResult.Error())
+			}
 			i++
-			fmt.Printf("Attempt %d - Result not available - retrying after 200 ms\n", i)
+			fmt.Printf("Attempt %d - Result not available - retrying after 200 ms: %v\n", i, errUnmarshalExecResult)
 			time.Sleep(200 * time.Millisecond)
 		} else {
+			result, err := compExecReport.GetSingleResult()
+			utils.AssertNilMsg(t, err, "failed to get single result")
 			utils.AssertEquals(t, "4", result)
 			break
 		}

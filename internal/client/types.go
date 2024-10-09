@@ -37,6 +37,7 @@ type CompositionInvocationRequest struct {
 }
 
 type CompositionCreationFromASLRequest struct {
-	Name   string // Name of the new composition
-	ASLSrc string // Specification source in Amazon State Language (encoded in Base64)
+	Name               string // Name of the new composition
+	RmFnOnDeletionFlag bool   // flag to allow function remove on deletion of the FC
+	ASLSrc             string // Specification source in Amazon State Language (encoded in Base64)
 }

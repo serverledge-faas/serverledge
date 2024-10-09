@@ -4,14 +4,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/cache"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/types"
 	"math"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/grussorusso/serverledge/internal/asl"
+	"github.com/grussorusso/serverledge/internal/cache"
+	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/types"
 )
 
 // used to send output from parallel nodes to fan in node or to the next node
@@ -96,7 +98,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 			}
 		}
 		return nodes
-	case *SimpleNode:
+	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
 		toAdd := VisitDag(dag, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
@@ -234,7 +236,7 @@ func (dag *Dag) executeSimple(progress *Progress, simpleNode *SimpleNode, r *Com
 	nodeId := simpleNode.GetId()
 	requestId := ReqId(r.ReqId)
 	partialData, err := RetrieveSinglePartialData(requestId, nodeId, cache.Persist)
-
+	//partialData, err := RetrieveSinglePartialData(requestId, nodeId, true)
 	if err != nil {
 		return false, fmt.Errorf("request %s - simple node %s - %v", r.ReqId, simpleNode.Id, err)
 	}
@@ -255,10 +257,11 @@ func (dag *Dag) executeSimple(progress *Progress, simpleNode *SimpleNode, r *Com
 	// }
 
 	forNode := simpleNode.GetNext()[0]
+
 	pd = NewPartialData(requestId, forNode, nodeId, output)
 	errSend := simpleNode.PrepareOutput(dag, output)
 	if errSend != nil {
-		return false, fmt.Errorf("the node %s cannot send the output: %v", simpleNode.ToString(), errSend)
+		return false, fmt.Errorf("the node %s cannot send the output: %v", simpleNode.String(), errSend)
 	}
 
 	// saving partial data and updating progress
@@ -295,7 +298,7 @@ func (dag *Dag) executeChoice(progress *Progress, choice *ChoiceNode, r *Composi
 	pd = NewPartialData(requestId, choice.GetNext()[0], nodeId, output)
 	errSend := choice.PrepareOutput(dag, output)
 	if errSend != nil {
-		return false, fmt.Errorf("the node %s cannot send the output: %v", choice.ToString(), errSend)
+		return false, fmt.Errorf("the node %s cannot send the output: %v", choice.String(), errSend)
 	}
 
 	// for choice node, we skip all branch that will not be executed
@@ -339,7 +342,7 @@ func (dag *Dag) executeFanOut(progress *Progress, fanOut *FanOutNode, r *Composi
 	// sends output to each next node
 	errSend := fanOut.PrepareOutput(dag, output)
 	if errSend != nil {
-		return false, fmt.Errorf("the node %s cannot send the output: %v", fanOut.ToString(), errSend)
+		return false, fmt.Errorf("the node %s cannot send the output: %v", fanOut.String(), errSend)
 	}
 
 	for i, nextNode := range fanOut.GetNext() {
@@ -546,6 +549,61 @@ func (dag *Dag) executeFanIn(progress *Progress, fanIn *FanInNode, r *Compositio
 	return true, nil
 }
 
+func (dag *Dag) executeSucceedNode(progress *Progress, succeedNode *SucceedNode, r *CompositionRequest) (bool, error) {
+	return commonExec(dag, progress, succeedNode, r)
+}
+
+func (dag *Dag) executeFailNode(progress *Progress, failNode *FailNode, r *CompositionRequest) (bool, error) {
+	return commonExec(dag, progress, failNode, r)
+}
+
+func commonExec(dag *Dag, progress *Progress, node DagNode, r *CompositionRequest) (bool, error) {
+	var pd *PartialData
+	nodeId := node.GetId()
+	requestId := ReqId(r.ReqId)
+	partialData, err := RetrieveSinglePartialData(requestId, nodeId, cache.Persist)
+
+	if err != nil {
+		return false, fmt.Errorf("request %s - %s %s - %v", r.ReqId, node.GetNodeType(), node.GetId(), err)
+	}
+	err = node.CheckInput(partialData.Data)
+	if err != nil {
+		return false, err
+	}
+	// executing node
+	output, err := node.Exec(r, partialData.Data)
+	if err != nil {
+		return false, err
+	}
+
+	// Todo: uncomment when running TestInvokeFC_Concurrent to debug concurrency errors
+	// errDbg := Debug(r, string(node.Id), output)
+	// if errDbg != nil {
+	// 	return false, errDbg
+	// }
+
+	forNode := node.GetNext()[0]
+	pd = NewPartialData(requestId, forNode, nodeId, output)
+	errSend := node.PrepareOutput(dag, output)
+	if errSend != nil {
+		return false, fmt.Errorf("the node %s cannot send the output: %v", node.String(), errSend)
+	}
+
+	// saving partial data and updating progress
+	err = SavePartialData(pd, cache.Persist)
+	if err != nil {
+		return false, err
+	}
+	err = progress.CompleteNode(nodeId)
+	if err != nil {
+		return false, err
+	}
+	if node.GetNodeType() == Fail || node.GetNodeType() == Succeed {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (dag *Dag) executeEnd(progress *Progress, node *EndNode, r *CompositionRequest) (bool, error) {
 	// r.ExecReport.Reports[CreateExecutionReportId(node)] = &function.ExecutionReport{Result: "end"}
 	r.ExecReport.Reports.Set(CreateExecutionReportId(node), &function.ExecutionReport{Result: "end"})
@@ -572,7 +630,7 @@ func (dag *Dag) Execute(r *CompositionRequest) (bool, error) {
 		if err != nil {
 			return true, err
 		}
-	} else {
+	} else if len(nextNodes) == 1 {
 		n, ok := dag.Find(nextNodes[0])
 		if !ok {
 			return true, fmt.Errorf("failed to find node %s", n.GetId())
@@ -589,6 +647,14 @@ func (dag *Dag) Execute(r *CompositionRequest) (bool, error) {
 			shouldContinue, err = dag.executeStart(progress, node, r)
 		case *FanOutNode:
 			shouldContinue, err = dag.executeFanOut(progress, node, r)
+		case *PassNode:
+			shouldContinue, err = commonExec(dag, progress, node, r)
+		case *WaitNode:
+			shouldContinue, err = commonExec(dag, progress, node, r)
+		case *FailNode:
+			shouldContinue, err = dag.executeFailNode(progress, node, r) // TODO: use commonExec
+		case *SucceedNode:
+			shouldContinue, err = dag.executeSucceedNode(progress, node, r) // TODO: use commonExec
 		case *EndNode:
 			shouldContinue, err = dag.executeEnd(progress, node, r)
 		}
@@ -597,6 +663,8 @@ func (dag *Dag) Execute(r *CompositionRequest) (bool, error) {
 			r.ExecReport.Progress = progress
 			return true, err
 		}
+	} else {
+		return false, fmt.Errorf("there aren't next nodes")
 	}
 
 	err = SaveProgress(progress, cache.Persist)
@@ -648,7 +716,7 @@ func (dag *Dag) String() string {
 		Nodes: %s,
 		End:   %s,
 		Width: %d,
-	}`, dag.Start.ToString(), dag.Nodes, dag.End.ToString(), dag.Width)
+	}`, dag.Start.String(), dag.Nodes, dag.End.String(), dag.Width)
 }
 
 // MarshalJSON is needed because DagNode is an interface
@@ -664,22 +732,7 @@ func (dag *Dag) MarshalJSON() ([]byte, error) {
 
 	// Marshal the interface and store it as concrete node value in the map
 	for nodeId, node := range dag.Nodes {
-		switch concreteNode := node.(type) {
-		case *StartNode:
-			nodes[nodeId] = concreteNode
-		case *EndNode:
-			nodes[nodeId] = concreteNode
-		case *SimpleNode:
-			nodes[nodeId] = concreteNode
-		case *ChoiceNode:
-			nodes[nodeId] = concreteNode
-		case *FanOutNode:
-			nodes[nodeId] = concreteNode
-		case *FanInNode:
-			nodes[nodeId] = concreteNode
-		default:
-			return nil, fmt.Errorf("unsupported Simpatica type")
-		}
+		nodes[nodeId] = node
 	}
 	data["Nodes"] = nodes
 
@@ -739,20 +792,19 @@ func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
 	if err := json.Unmarshal(value, &tempNodeMap); err != nil {
 		return err
 	}
-	dagNodeType := int(tempNodeMap["NodeType"].(float64))
+	dagNodeType, ok := tempNodeMap["NodeType"].(string)
+	if !ok {
+		return fmt.Errorf("unknown nodeType: %v", tempNodeMap["NodeType"])
+	}
 	var err error
-	switch dagNodeType {
+
+	node := DagNodeFromType(DagNodeType(dagNodeType))
+
+	switch DagNodeType(dagNodeType) {
 	case Start:
 		node := &StartNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Next != "" {
-			dag.Nodes[DagNodeId(nodeId)] = node
-			return nil
-		}
-	case End:
-		node := &EndNode{}
-		err = json.Unmarshal(value, node)
-		if err == nil && node.Id != "" {
 			dag.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
@@ -770,17 +822,9 @@ func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
 			dag.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
-	case FanOut:
-		node := &FanOutNode{}
+	default:
 		err = json.Unmarshal(value, node)
-		if err == nil && node.Id != "" {
-			dag.Nodes[DagNodeId(nodeId)] = node
-			return nil
-		}
-	case FanIn:
-		node := &FanInNode{}
-		err = json.Unmarshal(value, node)
-		if err == nil && node.Id != "" {
+		if err == nil && node.GetId() != "" {
 			dag.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
@@ -792,6 +836,35 @@ func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
 	}
 
 	return fmt.Errorf("failed to decode node")
+}
+
+// IsEmpty returns true if the dag has 0 nodes or exactly one StartNode and one EndNode.
+func (dag *Dag) IsEmpty() bool {
+	if len(dag.Nodes) == 0 {
+		return true
+	}
+
+	onlyTwoNodes := len(dag.Nodes) == 2
+	hasOnlyStartAndEnd := false
+	if onlyTwoNodes {
+		hasStart := 0
+		hasEnd := 0
+		for _, node := range dag.Nodes {
+			if node.GetNodeType() == Start {
+				hasStart++
+			}
+			if node.GetNodeType() == End {
+				hasEnd++
+			}
+		}
+		hasOnlyStartAndEnd = (hasStart == 1) && (hasEnd == 1)
+	}
+
+	if hasOnlyStartAndEnd {
+		return true
+	}
+
+	return false
 }
 
 // Debug can be used to find if expected output of test TestInvokeFC_Concurrent is correct based on requestId of format "goroutine_#" and simple node ids of format "simple #"
@@ -826,4 +899,95 @@ func Debug(r *CompositionRequest, nodeId string, output map[string]interface{}) 
 		}
 	}
 	return nil
+}
+
+func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Dag, error) {
+	builder := NewDagBuilder()
+	isTerminal := false
+	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
+	for !isTerminal {
+
+		switch nextState.GetType() {
+		case asl.Task:
+			taskState := nextState.(*asl.TaskState)
+			b, err := BuildFromTaskState(builder, taskState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimpleNode from task state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(taskState, sm)
+			break
+		case asl.Parallel:
+			parallelState := nextState.(*asl.ParallelState)
+			b, err := BuildFromParallelState(builder, parallelState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building FanInNode and FanOutNode from ParallelState: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(parallelState, sm)
+			break
+		case asl.Map:
+			mapState := nextState.(*asl.MapState)
+			b, err := BuildFromMapState(builder, mapState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building MapNode from Map state: %v", err) // TODO: MapNode doesn't exist
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(mapState, sm)
+			break
+		case asl.Pass:
+			passState := nextState.(*asl.PassState)
+			b, err := BuildFromPassState(builder, passState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimplNode with function 'pass' from Pass state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(passState, sm)
+			break
+		case asl.Wait:
+			waitState := nextState.(*asl.WaitState)
+			b, err := BuildFromWaitState(builder, waitState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimpleNode with function 'wait' from Wait state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(waitState, sm)
+			break
+		case asl.Choice:
+			choiceState := nextState.(*asl.ChoiceState)
+			// In this case, the choice state will automatically build the dag, because it is terminal
+			return BuildFromChoiceState(builder, choiceState, nextStateName, sm)
+		case asl.Succeed:
+			succeed := nextState.(*asl.SucceedState)
+			return BuildFromSucceedState(builder, succeed, nextStateName)
+		case asl.Fail:
+			failState := nextState.(*asl.FailState)
+			return BuildFromFailState(builder, failState, nextStateName)
+		default:
+			return nil, fmt.Errorf("unknown state type %s", nextState.GetType())
+		}
+	}
+	return builder.Build()
+}
+
+func FromStateMachine(sm *asl.StateMachine) (*Dag, error) {
+	nextStateName := sm.StartAt
+	nextState := sm.States[nextStateName]
+	return DagBuildingLoop(sm, nextState, nextStateName)
+}
+
+// findNextOrTerminate returns the State, its name and if it is terminal or not
+func findNextOrTerminate(state asl.CanEnd, sm *asl.StateMachine) (asl.State, string, bool) {
+	isTerminal := state.IsEndState()
+	var nextState asl.State = nil
+	var nextStateName string = ""
+	if !isTerminal {
+		nextName, ok := state.(asl.HasNext).GetNext()
+		if !ok {
+			return nil, "", true
+		}
+		nextStateName = nextName
+		nextState = sm.States[nextStateName]
+	}
+	return nextState, nextStateName, isTerminal
 }

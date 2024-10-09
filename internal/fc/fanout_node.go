@@ -3,17 +3,19 @@ package fc
 import (
 	"errors"
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/types"
-	"github.com/grussorusso/serverledge/utils"
-	"github.com/lithammer/shortuuid"
 	"log"
 	"math"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/grussorusso/serverledge/utils"
+	"github.com/lithammer/shortuuid"
 )
 
+// TODO: when a branch has a fail node, all other branches should terminate immediately and the FanOut, FanIn and all nodes in the branches should be considered failed
 // FanOutNode is a DagNode that receives one input and sends multiple result, produced in parallel
 type FanOutNode struct {
 	Id       DagNodeId
@@ -226,7 +228,7 @@ func (f *FanOutNode) Name() string {
 	}
 }
 
-func (f *FanOutNode) ToString() string {
+func (f *FanOutNode) String() string {
 	outputs := ""
 	for i, outputTo := range f.OutputTo {
 		outputs += string(outputTo)

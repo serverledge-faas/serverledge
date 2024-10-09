@@ -1,0 +1,24 @@
+{
+    "Comment": "A simple state machine with 2 task nodes",
+    "StartAt": "FirstState",
+    "States": {
+      "FirstState": {
+        "Comment": "The first task",
+        "Type": "Task",
+        "Resource": "hello",
+        "Next": "SecondState"
+      },
+      "SecondState": {
+        "Comment": "The second task",
+        "Type": "Task",
+        "Resource": "hello",
+        "Next": "Final"
+      },
+      "Final": {
+        "Comment": "The end task",
+        "Type": "Task",
+        "Resource": "hello",
+        "End": true
+      }
+    }
+  }

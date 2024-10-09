@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cornelk/hashmap"
-	"github.com/grussorusso/serverledge/utils"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/cornelk/hashmap"
+	"github.com/grussorusso/serverledge/utils"
 )
 
 type ProgressId string
@@ -55,13 +56,13 @@ func (ni *DagNodeInfo) Equals(ni2 *DagNodeInfo) bool {
 	return ni.Id == ni2.Id && ni.Type == ni2.Type && ni.Status == ni2.Status && ni.Group == ni2.Group && ni.Branch == ni2.Branch
 }
 
-type DagNodeStatus int
+type DagNodeStatus string
 
 const (
-	Pending = iota
-	Executed
-	Skipped // if a node is skipped, all its children nodes should also be skipped
-	Failed
+	Pending  = "Pending"
+	Executed = "Executed"
+	Skipped  = "Skipped" // if a node is skipped, all its children nodes should also be skipped
+	Failed   = "Failed"
 )
 
 func printStatus(s DagNodeStatus) string {
@@ -78,16 +79,47 @@ func printStatus(s DagNodeStatus) string {
 	return "No Status - Error"
 }
 
-type DagNodeType int
+type DagNodeType string
 
 const (
-	Start = iota
-	End
-	Simple
-	Choice
-	FanOut
-	FanIn
+	Start   DagNodeType = "StartNode"
+	End     DagNodeType = "EndNode"
+	Simple  DagNodeType = "SimpleNode"
+	Choice  DagNodeType = "ChoiceNode"
+	FanOut  DagNodeType = "FanOutNode"
+	FanIn   DagNodeType = "FanInNode"
+	Fail    DagNodeType = "FailNode"
+	Succeed DagNodeType = "SucceedNode"
+	Pass    DagNodeType = "PassNode"
+	Wait    DagNodeType = "WaitNode"
 )
+
+func DagNodeFromType(nodeType DagNodeType) DagNode {
+	switch nodeType {
+	case Start:
+		return &StartNode{}
+	case End:
+		return &EndNode{}
+	case Simple:
+		return &SimpleNode{}
+	case Choice:
+		return &ChoiceNode{}
+	case FanOut:
+		return &FanOutNode{}
+	case FanIn:
+		return &FanInNode{}
+	case Fail:
+		return &FailNode{}
+	case Succeed:
+		return &SucceedNode{}
+	case Pass:
+		return &PassNode{}
+	case Wait:
+		return &WaitNode{}
+	default:
+		return &SimpleNode{}
+	}
+}
 
 func parseType(dNode DagNode) DagNodeType {
 	switch dNode.(type) {
@@ -103,7 +135,16 @@ func parseType(dNode DagNode) DagNodeType {
 		return FanOut
 	case *FanInNode:
 		return FanIn
+	case *FailNode:
+		return Fail
+	case *SucceedNode:
+		return Succeed
+	case *PassNode:
+		return Pass
+	case *WaitNode:
+		return Wait
 	}
+
 	panic("unreachable!")
 }
 func printType(t DagNodeType) string {
@@ -120,6 +161,14 @@ func printType(t DagNodeType) string {
 		return "FanOut"
 	case FanIn:
 		return "FanIn"
+	case Fail:
+		return "Fail"
+	case Succeed:
+		return "Succeed"
+	case Pass:
+		return "Pass"
+	case Wait:
+		return "Wait"
 	}
 	return ""
 }
@@ -190,6 +239,7 @@ func (p *Progress) SkipAll(nodes []DagNode) error {
 	return nil
 }
 
+// FailNode marks a node progress to failed
 func (p *Progress) FailNode(id DagNodeId) error {
 	for _, node := range p.DagNodes {
 		if node.Id == id {
@@ -340,9 +390,9 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 			}
 		}
 		return infos
-	case *SimpleNode:
-		simpleNode, _ := dag.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(dag, simpleNode, group, infos)
+	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
+		dagNode, _ := dag.Find(n.GetNext()[0])
+		toAdd := extractNodeInfo(dag, dagNode, group, infos)
 		for _, add := range toAdd {
 			if !isNodeInfoPresent(add.Id, infos) {
 				infos = append(infos, add)

@@ -2,16 +2,9 @@ package fc
 
 import (
 	"fmt"
+
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
-)
-
-// Reason can be used to parse the success or failure state of AWS State Language
-type Reason int
-
-const (
-	Success Reason = iota
-	Failure
 )
 
 // EndNode is a DagNode that represents the end of the Dag.
@@ -25,16 +18,27 @@ func NewEndNode() *EndNode {
 	return &EndNode{
 		Id:       DagNodeId(shortuuid.New()),
 		NodeType: End,
+		Result:   make(map[string]interface{}),
 	}
 }
 
 func (e *EndNode) Equals(cmp types.Comparable) bool {
-	switch cmp.(type) {
-	case *EndNode:
-		return true
-	default:
+	e2, ok := cmp.(*EndNode)
+	if !ok {
 		return false
 	}
+
+	if len(e.Result) != len(e2.Result) {
+		return false
+	}
+
+	for k := range e.Result {
+		if e.Result[k] != e2.Result[k] {
+			return false
+		}
+	}
+
+	return e.Id == e2.Id && e.NodeType == e2.NodeType
 }
 
 func (e *EndNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[string]interface{}, error) {
@@ -68,7 +72,7 @@ func (e *EndNode) Name() string {
 	return " End  "
 }
 
-func (e *EndNode) ToString() string {
+func (e *EndNode) String() string {
 	return fmt.Sprintf("[EndNode]")
 }
 func (e *EndNode) setBranchId(number int) {

@@ -2,10 +2,11 @@ package fc
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
-	"time"
 )
 
 type MergeMode int
@@ -150,7 +151,7 @@ func (f *FanInNode) Name() string {
 	return "Fan In"
 }
 
-func (f *FanInNode) ToString() string {
+func (f *FanInNode) String() string {
 	return fmt.Sprintf("[FanInNode(%d)]", f.FanInDegree)
 }
 

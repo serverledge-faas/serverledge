@@ -2,19 +2,21 @@ package test
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/utils"
-	"testing"
 )
 
 var Experiment bool //initialized in TestMain
 // create a sequence of varying length and run the experiment for 10 minutes
 
 func TestExperiment1(t *testing.T) {
-	if !Experiment {
-		t.Skip()
-	}
+	/*
+		if !Experiment {
+			t.Skip()
+		}*/
 	lengths := []int{1, 2, 4, 8, 16, 32}
 	for _, length := range lengths {
 		_, err := CreateNoopCompositionSequence(t, fmt.Sprintf("sequence_%d", length), "localhost", 1323, length)
@@ -37,8 +39,10 @@ func CreateNoopCompositionSequence(t *testing.T, fcName string, host string, por
 	}
 
 	dag, err := fc.CreateSequenceDag(fArr...)
-	composition := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	createCompositionApiTest(t, &composition, host, port)
+	utils.AssertNil(t, err)
+	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, false)
+	utils.AssertNil(t, err)
+	createCompositionApiTest(t, composition, host, port)
 
-	return &composition, nil
+	return composition, nil
 }

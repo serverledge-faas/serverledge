@@ -3,9 +3,10 @@ package fc
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
-	"reflect"
 )
 
 // StartNode is a DagNode from which the execution of the Dag starts. Invokes the first DagNode
@@ -77,7 +78,7 @@ func (s *StartNode) Name() string {
 	return "Start "
 }
 
-func (s *StartNode) ToString() string {
+func (s *StartNode) String() string {
 	return fmt.Sprintf("[%s]-next->%s", s.Name(), s.Next)
 }
 

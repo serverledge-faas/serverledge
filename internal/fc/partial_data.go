@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/grussorusso/serverledge/utils"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	"sync"
 	"time"
+
+	"github.com/grussorusso/serverledge/utils"
+	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type PartialDataId string

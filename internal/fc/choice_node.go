@@ -3,11 +3,12 @@ package fc
 import (
 	"errors"
 	"fmt"
+	"math"
+	"time"
+
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
-	"math"
-	"time"
 
 	// "strconv"
 	"strings"
@@ -26,8 +27,9 @@ type ChoiceNode struct {
 
 func NewChoiceNode(conds []Condition) *ChoiceNode {
 	return &ChoiceNode{
-		Id:           DagNodeId(shortuuid.New()),
-		NodeType:     Choice,
+		Id:       DagNodeId(shortuuid.New()),
+		NodeType: Choice,
+		//input         make(map[string]interface{}, )
 		Conditions:   conds,
 		Alternatives: make([]DagNodeId, len(conds)),
 		FirstMatch:   -1,
@@ -66,6 +68,7 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	if len(params) != 1 {
 		return nil, fmt.Errorf("failed to get one input for choice node: received %d inputs", len(params))
 	}
+
 	// simply evalutes the Conditions and set the matching one
 	for i, condition := range c.Conditions {
 		ok, err := condition.Test(params[0])
@@ -96,7 +99,6 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	}
 
 	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(c), execReport)
-	// compRequest.ExecReport.Reports[CreateExecutionReportId(c)] = execReport
 	return output, err
 }
 
@@ -131,6 +133,38 @@ func (c *ChoiceNode) PrepareOutput(dag *Dag, output map[string]interface{}) erro
 	return nil
 }
 
+// MapOutput transforms the output for the next simpleNode, to make it compatible with its Signature
+func (s *ChoiceNode) MapOutput(output map[string]interface{}, sign function.Signature) error {
+
+	// if there are no inputs, we do nothing
+	for _, def := range sign.GetInputs() {
+		// if output has same name as input, we do not need to change name
+		_, present := output[def.Name]
+		if present {
+			continue
+		}
+		// find an entry in the output map that successfully checks the type of the InputDefinition
+		key, ok := def.FindEntryThatTypeChecks(output)
+		if ok {
+			// we get the output value
+			val := output[key]
+			// we remove the output entry ...
+			delete(output, key)
+			// and replace with the input entry
+			output[def.Name] = val
+			// save the output map in the input of the node
+			//s.inputMutex.Lock()
+			//s.input = output
+			//s.inputMutex.Unlock()
+		} else {
+			// otherwise if no one of the entry typechecks we are doomed
+			return fmt.Errorf("no output entry input-checks with the next function")
+		}
+	}
+	// if the outputs are more than the needed input, we do nothing
+	return nil
+}
+
 // GetChoiceBranch returns all node ids of a branch under a choice node; branch number starts from 0
 func (c *ChoiceNode) GetChoiceBranch(dag *Dag, branch int) []DagNode {
 	branchNodes := make([]DagNode, 0)
@@ -142,16 +176,33 @@ func (c *ChoiceNode) GetChoiceBranch(dag *Dag, branch int) []DagNode {
 	return VisitDag(dag, node, branchNodes, true)
 }
 
+// GetNodesToSkip skips all node that are in a branch that will not be executed.
+// If a skipped branch contains one or more node that is used by the current branch, the node,
+// should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
 func (c *ChoiceNode) GetNodesToSkip(dag *Dag) []DagNode {
 	nodesToSkip := make([]DagNode, 0)
 	if c.FirstMatch == -1 || c.FirstMatch >= len(c.Alternatives) {
 		return nodesToSkip
 	}
+
+	nodesToNotSkip := c.GetChoiceBranch(dag, c.FirstMatch)
 	for i := 0; i < len(c.Alternatives); i++ {
 		if i == c.FirstMatch {
 			continue
 		}
-		nodesToSkip = append(nodesToSkip, c.GetChoiceBranch(dag, i)...)
+		branchNodes := c.GetChoiceBranch(dag, i)
+		for _, node := range branchNodes {
+			shouldBeSkipped := true
+			for _, nodeToNotSkip := range nodesToNotSkip {
+				if node.Equals(nodeToNotSkip) {
+					shouldBeSkipped = false
+					break
+				}
+			}
+			if shouldBeSkipped {
+				nodesToSkip = append(nodesToSkip, node)
+			}
+		}
 	}
 	return nodesToSkip
 }
@@ -198,10 +249,10 @@ func (c *ChoiceNode) GetBranchId() int {
 	return c.BranchId
 }
 
-func (c *ChoiceNode) ToString() string {
+func (c *ChoiceNode) String() string {
 	conditions := "<"
 	for i, condFn := range c.Conditions {
-		conditions += condFn.ToString()
+		conditions += condFn.String()
 		if i != len(c.Conditions) {
 			conditions += " | "
 		}

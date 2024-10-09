@@ -1,9 +1,10 @@
 package fc
 
 import (
+	"time"
+
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/function"
-	"time"
 )
 
 type ReqId string
@@ -36,8 +37,10 @@ func NewCompositionRequest(reqId string, composition *FunctionComposition, param
 }
 
 type CompositionResponse struct {
-	Success bool
-	CompositionExecutionReport
+	Success      bool
+	Result       map[string]interface{}
+	Reports      map[string]*function.ExecutionReport
+	ResponseTime float64 // time waited by the user to get the output of the entire composition (in seconds)
 }
 
 type CompositionAsyncResponse struct {

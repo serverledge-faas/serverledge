@@ -2,11 +2,12 @@ package fc_test
 
 import (
 	"fmt"
+	"os"
+	"testing"
+
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/test"
-	"os"
-	"testing"
 )
 
 func InitializeIncFunction(t *testing.T) {
@@ -21,9 +22,10 @@ func InitializeIncFunction(t *testing.T) {
 }
 
 func TestParsingSimple(t *testing.T) {
-	if val, found := os.LookupEnv("INTEGRATION"); !found || val != "1" {
-		t.SkipNow()
-	}
+	/*
+		if val, found := os.LookupEnv("INTEGRATION"); !found || val != "1" {
+			t.SkipNow()
+		}*/
 
 	InitializeIncFunction(t)
 
@@ -31,7 +33,7 @@ func TestParsingSimple(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to read file: %v", err)
 	}
-	comp, err := fc.FromASL("prova", body)
+	comp, err := fc.FromASL("prova", false, body)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		t.Fail()
@@ -56,7 +58,7 @@ func TestParsing(t *testing.T) {
 		t.Fatalf("unable to read file: %v", err)
 	}
 
-	sm, _ := fc.FromASL("prova", body)
+	sm, _ := fc.FromASL("prova", false, body)
 	fmt.Printf("Found state machine:  %v\n", sm)
 
 	fmt.Println()

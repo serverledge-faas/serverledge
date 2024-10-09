@@ -1,0 +1,11 @@
+{
+    "NonExistentKey": "I do not exist",
+    "StartAt": "FirstState",
+    "States": {
+      "Mistake": {
+        "TrueMistake": "error",
+        "ShouldNotWork": 123,
+        "end": true
+      }
+    }
+  }

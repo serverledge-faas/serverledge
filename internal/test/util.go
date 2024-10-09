@@ -4,14 +4,16 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"os"
+	"testing"
+
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/cli"
 	"github.com/grussorusso/serverledge/internal/client"
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/utils"
-	"net/http"
-	"testing"
 )
 
 const PY_MEMORY = 20
@@ -99,6 +101,64 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 		Signature:       sign,
 	}
 	return &f, nil
+}
+
+func initializePyFunctionFromName(t *testing.T, name string) *function.Function {
+	var f *function.Function
+	switch name {
+	case "inc":
+		f1, err := InitializePyFunction(name, "handler", function.NewSignature().
+			AddInput("input", function.Int{}).
+			AddOutput("result", function.Int{}).
+			Build())
+		utils.AssertNil(t, err)
+		f = f1
+	case "double":
+		f2, err := InitializePyFunction(name, "handler", function.NewSignature().
+			AddInput("input", function.Int{}).
+			AddOutput("result", function.Int{}).
+			Build())
+		utils.AssertNil(t, err)
+		f = f2
+	case "hello":
+		f3, err := InitializePyFunction(name, "handler", function.NewSignature().
+			AddInput("input", function.Text{}).
+			Build())
+		utils.AssertNil(t, err)
+		f = f3
+	default: // inc
+		fd, err := InitializePyFunction("inc", "handler", function.NewSignature().
+			AddInput("input", function.Int{}).
+			AddOutput("result", function.Int{}).
+			Build())
+		utils.AssertNil(t, err)
+		f = fd
+	}
+	err := f.SaveToEtcd()
+	utils.AssertNil(t, err)
+	fmt.Printf("Created function %s\n", f.Name)
+	return f
+}
+
+func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function.Function {
+	funcs := make([]*function.Function, 0)
+	for _, name := range names {
+		funcs = append(funcs, initializePyFunctionFromName(t, name))
+	}
+	return funcs
+}
+
+// parseFileName takes the name of the file, without .json and parses it. Produces the composition and a single function (for now)
+func parseFileName(t *testing.T, rmFnOnDeletion bool, aslFileName string) (*fc.FunctionComposition, *function.Function) {
+	f := initializePyFunctionFromName(t, "inc")
+
+	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
+	utils.AssertNilMsg(t, err, "unable to read file")
+
+	// for now, we use the same name as the filename to create the composition
+	comp, err := fc.FromASL(aslFileName, rmFnOnDeletion, body)
+	utils.AssertNilMsg(t, err, "unable to parse json")
+	return comp, f
 }
 
 // initializeSameFunctionSlice is used to easily initialize a function array with one single function
@@ -245,4 +305,8 @@ func newCompositionRequestTest() *fc.CompositionRequest {
 			Reports: hashmap.New[fc.ExecutionReportId, *function.ExecutionReport](), // make(map[fc.ExecutionReportId]*function.ExecutionReport),
 		},
 	}
+}
+
+func IsWindows() bool {
+	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }

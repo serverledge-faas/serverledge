@@ -47,7 +47,13 @@ func main() {
 	// TODO: split Area in Region + Type (e.g., cloud/lb/edge)
 	region := config.GetString(config.REGISTRY_AREA, "ROME")
 	registry := &registration.Registry{Area: "lb/" + region}
-	hostport := fmt.Sprintf("http://%s:%d", utils.GetIpAddress().String(), config.GetInt(config.API_PORT, 1323))
+	ipAddress, err := utils.GetOutboundIp()
+	if err != nil {
+		log.Printf("Could not get ip address: %v\n", err)
+		return
+	}
+
+	hostport := fmt.Sprintf("http://%s:%d", ipAddress.String(), config.GetInt(config.API_PORT, 1323))
 	if _, err := registry.RegisterToEtcd(hostport); err != nil {
 		log.Printf("Could not register to Etcd: %v\n", err)
 	}

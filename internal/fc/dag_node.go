@@ -1,6 +1,8 @@
 package fc
 
 import (
+	"fmt"
+
 	"github.com/grussorusso/serverledge/internal/types"
 )
 
@@ -31,7 +33,7 @@ type HasBranch interface {
 }
 
 type Display interface {
-	ToString() string
+	fmt.Stringer
 	GetId() DagNodeId
 	Name() string
 }
@@ -62,6 +64,10 @@ type HasNext interface {
 
 type HasNodeType interface {
 	GetNodeType() DagNodeType
+}
+
+type Buildable interface {
+	BuildDag(builder *DagBuilder) (*DagBuilder, error)
 }
 
 func Equals[D DagNode](d1 D, d2 D) bool {

@@ -1,0 +1,66 @@
+{
+    "Comment": "An example of the Amazon States Language using a choice state.",
+    "StartAt": "ChoiceState",
+    "States": {
+      "ChoiceState": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Not": {
+              "Variable": "$.type",
+              "StringEquals": "Private"
+            },
+            "Next": "Public"
+          },
+          {
+            "And": [
+              {
+                "Variable": "$.value",
+                "IsPresent": true
+              },
+              {
+                "Variable": "$.value",
+                "IsNumeric": true
+              },
+              {
+                "Variable": "$.value",
+                "NumericGreaterThanEquals": 20
+              },
+              {
+                "Variable": "$.value",
+                "NumericLessThan": 30
+              }
+            ],
+            "Next": "ValueInTwenties"
+          }
+        ],
+        "Default": "DefaultState"
+      },
+      "Public": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "NextState"
+      },
+      "ValueInTwenties": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "NextState"
+      },
+  
+      "DefaultState": {
+        "Comment": "Lang=Javascript",
+        "Type": "Task",
+        "Resource": "hello",
+        "End": true
+      },
+  
+      "NextState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      }
+    }
+  }

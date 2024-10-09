@@ -17,6 +17,7 @@ const (
 	ARRAY_TEXT        = "ArrayText"
 	ARRAY_ARRAY_INT   = "ArrayArrayInt"
 	ARRAY_ARRAY_FLOAT = "ArrayArrayFloat"
+	VOID              = "Void"
 )
 
 // InputDef can be used to represent and check an input type with its name in the map
@@ -33,23 +34,33 @@ func (i InputDef) CheckInput(inputMap map[string]interface{}) error {
 		return fmt.Errorf("no input parameter with name '%s' and type '%s' exists", i.Name, i.Type)
 	}
 
-	t := StringToDataType(i.Type)
+	t, err := StringToDataType(i.Type)
+	if err != nil {
+		return err
+	}
 	if t == nil {
 		return fmt.Errorf("data type is too complex. Available types are Int, Text, Float, Bool, ArrayInt, ArrayText, ArrayFloat, ArrayBool, ArrayArrayInt, ArrayArrayFloat")
 	}
 
-	return StringToDataType(i.Type).TypeCheck(val)
+	dType, err := StringToDataType(i.Type)
+	if err != nil {
+		return fmt.Errorf("data type")
+	}
+	return dType.TypeCheck(val)
 }
 
 func (i InputDef) FindEntryThatTypeChecks(outputMap map[string]interface{}) (string, bool) {
 	for k, v := range outputMap {
 
-		t := StringToDataType(i.Type)
+		t, err := StringToDataType(i.Type)
+		if err != nil {
+			return "", false
+		}
 		if t == nil {
 			return "", false
 		}
 
-		err := t.TypeCheck(v)
+		err = t.TypeCheck(v)
 		if err == nil {
 			return k, true
 		}
@@ -69,7 +80,10 @@ func (o OutputDef) CheckOutput(inputMap map[string]interface{}) error {
 	if !exists {
 		return fmt.Errorf("no output parameter with name '%s' and type '%s' exists", o.Name, reflect.TypeOf(o.Type).Name())
 	}
-	t := StringToDataType(o.Type)
+	t, err := StringToDataType(o.Type)
+	if err != nil {
+		return err
+	}
 	if t != nil {
 		return t.TypeCheck(val)
 	}
@@ -77,9 +91,9 @@ func (o OutputDef) CheckOutput(inputMap map[string]interface{}) error {
 }
 
 func (o OutputDef) TryParse(result string) (interface{}, error) {
-	t := StringToDataType(o.Type)
-	if t == nil {
-		return nil, fmt.Errorf("type %s is not a compatible type", datatypeToString(t))
+	t, err := StringToDataType(o.Type)
+	if err != nil {
+		return nil, fmt.Errorf("type %s is not a compatible type", o.Type)
 	}
 	switch t.(type) {
 	case Int:
@@ -103,6 +117,27 @@ func (o OutputDef) TryParse(result string) (interface{}, error) {
 type Signature struct {
 	Inputs  []*InputDef  // if empty, the function doesn't use parameters
 	Outputs []*OutputDef // if empty, the function doesn't return anything
+}
+
+func (s *Signature) String() string {
+	str := "Inputs: ["
+	for i, input := range s.Inputs {
+		str += fmt.Sprintf("%s:%s", input.Name, input.Type)
+		if i != len(s.Inputs)-1 {
+			str += ", "
+		}
+	}
+	str += "]"
+	str += " Outputs: ["
+	for i, output := range s.Outputs {
+		str += fmt.Sprintf("%s:%s", output.Name, output.Type)
+		if i != len(s.Outputs)-1 {
+			str += ", "
+		}
+	}
+	str += "]"
+
+	return str
 }
 
 // SignatureBuilder can be used to dynamically build a signature
@@ -145,6 +180,12 @@ func (s SignatureBuilder) AddOutput(name string, dataType DataTypeEnum) Signatur
 }
 
 func (s SignatureBuilder) Build() *Signature {
+	if len(s.signature.Inputs) == 0 {
+		s.AddInput("", Void{})
+	}
+	if len(s.signature.Outputs) == 0 {
+		s.AddOutput("", Void{})
+	}
 	return &s.signature
 }
 
@@ -194,30 +235,32 @@ func (s *Signature) GetOutputs() []*OutputDef {
 	return s.Outputs
 }
 
-func StringToDataType(t string) DataTypeEnum {
+func StringToDataType(t string) (DataTypeEnum, error) {
 	switch t {
 	case INT:
-		return Int{}
+		return Int{}, nil
 	case FLOAT:
-		return Float{}
+		return Float{}, nil
 	case BOOL:
-		return Bool{}
+		return Bool{}, nil
 	case TEXT:
-		return Text{}
+		return Text{}, nil
 	case ARRAY_INT:
-		return Array[Int]{DataType: Int{}}
+		return Array[Int]{DataType: Int{}}, nil
 	case ARRAY_FLOAT:
-		return Array[Float]{DataType: Float{}}
+		return Array[Float]{DataType: Float{}}, nil
 	case ARRAY_BOOL:
-		return Array[Bool]{DataType: Bool{}}
+		return Array[Bool]{DataType: Bool{}}, nil
 	case ARRAY_TEXT:
-		return Array[Text]{DataType: Text{}}
+		return Array[Text]{DataType: Text{}}, nil
 	case ARRAY_ARRAY_INT:
-		return Array[Array[Int]]{DataType: Array[Int]{DataType: Int{}}}
+		return Array[Array[Int]]{DataType: Array[Int]{DataType: Int{}}}, nil
 	case ARRAY_ARRAY_FLOAT:
-		return Array[Array[Float]]{DataType: Array[Float]{DataType: Float{}}}
+		return Array[Array[Float]]{DataType: Array[Float]{DataType: Float{}}}, nil
+	case VOID:
+		return Void{}, nil
 	default:
-		return nil
+		return nil, fmt.Errorf("invalid datatype: %s", t)
 	}
 }
 
@@ -243,7 +286,36 @@ func datatypeToString(dataType DataTypeEnum) string {
 		return ARRAY_ARRAY_INT
 	case Array[Array[Float]]:
 		return ARRAY_ARRAY_FLOAT
+	case Void:
+		return VOID
 	default:
 		return ""
 	}
+}
+
+// SignatureInference is a best-effort function that tries to infer signature from a function without a defined signature. Maybe we do not need it.
+func SignatureInference(params map[string]interface{}) *Signature {
+	signatureBuilder := NewSignature()
+
+	for k, v := range params {
+		typeList := []DataTypeEnum{
+			Float{},
+			Int{},
+			Bool{},
+			Text{},
+			Array[Float]{},
+			Array[Int]{},
+			Array[Bool]{},
+			Array[Text]{},
+			Void{},
+		}
+		for _, t := range typeList {
+			if t.TypeCheck(v) == nil {
+				signatureBuilder.AddInput(k, t)
+				break
+			}
+		}
+	}
+
+	return signatureBuilder.AddOutput("result", Text{}).Build()
 }

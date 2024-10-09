@@ -1,0 +1,59 @@
+{
+    "Comment": "An example of the Amazon States Language using a choice state.",
+    "StartAt": "ChoiceState",
+    "States": {
+      "ChoiceState": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.input",
+            "NumericEquals": 1,
+            "Next": "FirstMatchState"
+          },
+          {
+            "Variable": "$.input",
+            "NumericEquals": 2,
+            "Next": "SecondMatchState"
+          },
+          {
+            "Variable": "$.input",
+            "NumericEquals": 3,
+            "Next": "ThirdMatchState"
+          }
+        ],
+        "Default": "DefaultState"
+      },
+      "FirstMatchState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "NextState"
+      },
+      "SecondMatchState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "NextState"
+      },
+      "ThirdMatchState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "NextState"
+      },
+  
+      "DefaultState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "hello",
+        "End": true
+      },
+  
+      "NextState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "End": true
+      }
+    }
+  }

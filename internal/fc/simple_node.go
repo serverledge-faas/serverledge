@@ -3,13 +3,15 @@ package fc
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/grussorusso/serverledge/internal/scheduling"
 	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/labstack/gommon/log"
 	"github.com/lithammer/shortuuid"
-	"sync"
-	"time"
 )
 
 var compositionRequestsPool = sync.Pool{
@@ -35,20 +37,6 @@ func NewSimpleNode(f string) *SimpleNode {
 		NodeType:   Simple,
 		Func:       f,
 		inputMutex: sync.Mutex{},
-	}
-}
-
-func (s *SimpleNode) Equals(cmp types.Comparable) bool {
-	switch cmp.(type) {
-	case *SimpleNode:
-		s2 := cmp.(*SimpleNode)
-		idOk := s.Id == s2.Id
-		// inputOk := s.InputFrom == s2.InputFrom
-		funcOk := s.Func == s2.Func
-		outputOk := s.OutputTo == s2.OutputTo
-		return idOk && funcOk && outputOk // && inputOk
-	default:
-		return false
 	}
 }
 
@@ -96,8 +84,13 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 
 	m := make(map[string]interface{})
 	firstOutputName := ""
+
+	if funct.Signature == nil {
+		return nil, fmt.Errorf("signature of function %s is nil. Recreate the function with a valid signature. Parameters map: %v\n", funct.Name, params)
+	}
 	// extract output map
 	for i, o := range funct.Signature.GetOutputs() {
+
 		if i == 0 {
 			firstOutputName = o.Name
 		}
@@ -106,6 +99,7 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		errNotUnmarshable := json.Unmarshal([]byte(r.ExecReport.Result), &result)
 		if errNotUnmarshable != nil {
 			// if the output is a simple type (e.g. int, bool, string, array) we simply add it to the map
+
 			m[o.Name] = r.ExecReport.Result
 			err1 := o.CheckOutput(m)
 			if err1 != nil {
@@ -121,9 +115,11 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 				return nil, fmt.Errorf("failed to find result with name %s", o.Name)
 			}
 			m[o.Name] = val
+
 		}
 
 	}
+
 	if len(m) == 1 {
 		r.ExecReport.Result = fmt.Sprintf("%v", m[firstOutputName])
 	} else {
@@ -140,6 +136,20 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		fmt.Printf("Function Request %s - result of simple node %s: %v %s\n", r.ReqId, s.Id, r.ExecReport.Result, cs)
 	*/
 	return m, nil
+}
+
+func (s *SimpleNode) Equals(cmp types.Comparable) bool {
+	switch cmp.(type) {
+	case *SimpleNode:
+		s2 := cmp.(*SimpleNode)
+		idOk := s.Id == s2.Id
+		// inputOk := s.InputFrom == s2.InputFrom
+		funcOk := s.Func == s2.Func
+		outputOk := s.OutputTo == s2.OutputTo
+		return idOk && funcOk && outputOk // && inputOk
+	default:
+		return false
+	}
 }
 
 // AddOutput connects the output of the SimpleNode to another DagNode
@@ -169,10 +179,15 @@ func (s *SimpleNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
+// PrepareOutput is used to send the output to the following function and if needed can be used to modify the SimpleNode output representation, like OutputPath
 func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func) // we are getting the function from cache if not already downloaded
 	if !exists {
 		return fmt.Errorf("funtion %s doesn't exists", s.Func)
+	}
+	if funct.Signature == nil {
+		funct.Signature = function.SignatureInference(output)
+		log.Warnf("signature of function %s is nil. Output map: %v\n", funct.Name, output)
 	}
 	err := funct.Signature.CheckAllOutputs(output)
 	if err != nil {
@@ -182,10 +197,16 @@ func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) erro
 	for _, n := range s.GetNext() {
 		// we have only one output node
 		dagNode, _ := dag.Find(n)
+
 		switch nodeType := dagNode.(type) {
+
 		case *SimpleNode:
 			return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks
+		case *ChoiceNode:
+			return nodeType.MapOutput(output, *funct.Signature) // needed to convert type of data from one node to the next so that its signature type-checks
+
 		}
+
 	}
 
 	return nil
@@ -239,7 +260,7 @@ func (s *SimpleNode) Name() string {
 	return "Simple"
 }
 
-func (s *SimpleNode) ToString() string {
+func (s *SimpleNode) String() string {
 	return fmt.Sprintf("[SimpleNode (%s) func %s()]->%s", s.Id, s.Func, s.OutputTo)
 }
 

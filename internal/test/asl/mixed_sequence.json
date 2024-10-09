@@ -1,0 +1,31 @@
+{
+    "Comment": "A sequence, but individual tasks are mixed up",
+    "StartAt": "FirstState",
+    "States": {
+      "SecondState": {
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "ThirdState"
+      },
+      "FourthState": {
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "FifthState"
+      },
+      "FifthState": {
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      },
+      "FirstState": {
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "SecondState"
+      },
+      "ThirdState": {
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "FourthState"
+      }
+    }
+  }

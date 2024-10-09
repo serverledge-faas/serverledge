@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/client"
 	"github.com/grussorusso/serverledge/internal/container"
@@ -14,9 +18,6 @@ import (
 	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
-	"io"
-	"net/http"
-	"time"
 )
 
 // ===== Function Composition =====
@@ -31,7 +32,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 
 	err := json.Unmarshal(body, &creationRequest)
 	if err != nil && err != io.EOF {
-		log.Printf("Could not parse request: %v", err)
+		log.Printf("Could not parse compose request - error during unmarshal: %v", err)
 		return err
 	}
 
@@ -49,7 +50,8 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 		log.Printf("Could not decode composition source ASL: %v", err)
 		return e.JSON(http.StatusBadRequest, "composition already exists")
 	}
-	comp, err := fc.FromASL(creationRequest.Name, decodedSrc[:])
+
+	comp, err := fc.FromASL(creationRequest.Name, creationRequest.RmFnOnDeletionFlag, decodedSrc[:])
 	if err != nil {
 		log.Printf("Could not parse composition from ASL: %v", err)
 		return e.JSON(http.StatusBadRequest, "composition already exists")
@@ -76,7 +78,7 @@ func CreateFunctionComposition(e echo.Context) error {
 
 	err := json.Unmarshal(body, &comp)
 	if err != nil && err != io.EOF {
-		log.Printf("Could not parse request: %v", err)
+		log.Printf("Could not parse composition request - error during unmarshal: %v", err)
 		return err
 	}
 	// checking if the function already exists. If exists we return an error
@@ -97,6 +99,10 @@ func CreateFunctionComposition(e echo.Context) error {
 				log.Printf("Dropping request for composition with non-existing function '%s'", fName)
 				return e.JSON(http.StatusBadRequest, "composition with non-existing function")
 			}
+			if f.Signature == nil {
+				return e.JSON(http.StatusBadRequest, "function "+fName+"has nil signature")
+			}
+
 			funcs[fName] = f
 		}
 		comp.Functions = funcs
@@ -137,7 +143,7 @@ func DeleteFunctionComposition(c echo.Context) error {
 	// here we only need the name of the function composition (and if all function should be deleted with it)
 	err := json.NewDecoder(c.Request().Body).Decode(&comp)
 	if err != nil && err != io.EOF {
-		log.Printf("Could not parse request: %v", err)
+		log.Printf("Could not parse delete request - error during decoding: %v", err)
 		return err
 	}
 
@@ -189,7 +195,7 @@ func InvokeFunctionComposition(e echo.Context) error {
 	var fcInvocationRequest client.CompositionInvocationRequest
 	err := json.NewDecoder(e.Request().Body).Decode(&fcInvocationRequest)
 	if err != nil && err != io.EOF {
-		log.Printf("Could not parse request: %v", err)
+		log.Printf("Could not parse invoke request - error during decoding: %v", err)
 		return e.JSON(http.StatusInternalServerError, "failed to parse composition invocation request. Check parameters and composition definition")
 	}
 	// gets a fc.CompositionRequest from the pool goroutine-safe cache.
@@ -242,6 +248,17 @@ func InvokeFunctionComposition(e echo.Context) error {
 		}
 		return e.JSON(http.StatusInternalServerError, v)
 	} else {
-		return e.JSON(http.StatusOK, fc.CompositionResponse{Success: true, CompositionExecutionReport: fcReq.ExecReport})
+		reports := make(map[string]*function.ExecutionReport)
+		fcReq.ExecReport.Reports.Range(func(id fc.ExecutionReportId, report *function.ExecutionReport) bool {
+			reports[string(id)] = report
+			return true
+		})
+
+		return e.JSON(http.StatusOK, fc.CompositionResponse{
+			Success:      true,
+			Result:       fcReq.ExecReport.Result,
+			Reports:      reports,
+			ResponseTime: fcReq.ExecReport.ResponseTime,
+		})
 	}
 }
