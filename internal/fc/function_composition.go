@@ -200,39 +200,37 @@ func (fc *FunctionComposition) SaveToEtcd() error {
 
 // Invoke schedules each function of the composition and invokes them
 func (fc *FunctionComposition) Invoke(r *CompositionRequest) (CompositionExecutionReport, error) {
+
+	var err error
 	requestId := ReqId(r.ReqId)
 	input := r.Params
-
 	// initialize struct progress from dag
 	progress := InitProgressRecursive(requestId, &fc.Workflow)
-	// initialize partial data cache
-	// partialDataCache.InitNewRequest(requestId)
+
 	// initialize partial data with input, directly from the Start.Next node
 	pd := NewPartialData(requestId, fc.Workflow.Start.Next, "nil", input)
 	pd.Data = input
-	// saving partial data and progress to cache
-	err := SavePartialData(pd, cache.Persist)
-	if err != nil {
-		return CompositionExecutionReport{Result: nil}, fmt.Errorf("failed to save partial data %v", err)
-	}
-	err = SaveProgress(progress, cache.Persist)
-	if err != nil {
-		return CompositionExecutionReport{Result: nil}, fmt.Errorf("failed to save progress: %v", err)
-	}
 
 	shouldContinue := true
 	for shouldContinue {
 		// executing dag
-		shouldContinue, err = fc.Workflow.Execute(r)
+		pd, progress, shouldContinue, err = fc.Workflow.Execute(r, pd, progress)
 		if err != nil {
 			progress.Print()
 			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed dag execution: %v", err)
 		}
 	}
-	// retrieving output of  execution
-	result, err := RetrieveSinglePartialData(requestId, fc.Workflow.End.GetId(), cache.Persist)
-	if err != nil {
-		return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed to retrieve composition result (partial data) %v", err)
+
+	if !shouldContinue {
+		// saving partialData and progress on etcd - implementing workflow offloading policies
+		err := savePartialDataToEtcd(pd)
+		if err != nil {
+			return CompositionExecutionReport{}, err
+		}
+		err = saveProgressToEtcd(progress)
+		if err != nil {
+			return CompositionExecutionReport{}, err
+		}
 	}
 
 	// deleting progresses and partial datas from cache and etcd
@@ -245,7 +243,9 @@ func (fc *FunctionComposition) Invoke(r *CompositionRequest) (CompositionExecuti
 		return CompositionExecutionReport{}, errDel
 	}
 	// fmt.Printf("Succesfully deleted %d partial datas and progress for request %s\n", removed, requestId)
-	r.ExecReport.Result = result.Data
+	//r.ExecReport.Result = result.Data
+	r.ExecReport.Result = pd.Data
+
 	//progress.NextGroup = -1
 	//r.ExecReport.Progress = progress
 	return r.ExecReport, nil

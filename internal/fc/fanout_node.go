@@ -91,7 +91,6 @@ func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		output = broadcast
 	} else if f.Type == Scatter { // scatter only accepts an array with exactly fanOutDegree elements. However, multiple input values are allowed
 		// get inputs
-
 		output = make(map[string]interface{})
 		for inputName, inputToScatter := range params[0] {
 			inputArrayToScatter, errNotSlice := utils.ConvertToSlice(inputToScatter)

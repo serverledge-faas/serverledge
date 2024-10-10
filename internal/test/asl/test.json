@@ -1,0 +1,88 @@
+{
+    "Comment": "An example of the Amazon States Language using a choice state.",
+    "StartAt": "FirstState",
+    "States": {
+      "FirstState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "ChoiceState"
+      },
+      "ChoiceState": {
+        "Type": "Choice",
+        "Choices": [{
+            "Variable": "$.input",
+            "NumericEquals": 1,
+            "Next": "FirstMatchState"
+          },
+          {
+            "Variable": "$.input",
+            "NumericEquals": 2,
+            "Next": "SecondMatchState"
+          }
+        ],
+        "Default": "DefaultState"
+      },
+  
+      "FirstMatchState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "ChoiceState2"
+      },
+
+      "SecondMatchState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "ChoiceState2"
+      },
+
+      "ChoiceState2": {
+        "Type": "Choice",
+        "Choices": [{
+            "Variable": "$.input",
+            "NumericEquals": 2,
+            "Next": "NextState"
+          },
+          {
+            "Variable": "$.input",
+            "NumericEquals": 4,
+            "Next": "NextState"
+          }
+        ],
+        "Default": "DefaultState2"
+      },
+  
+      "SucceedState": {
+        "Type": "Succeed"
+      },
+  
+      "DefaultState": {
+        "Type": "Fail",
+        "Error": "DefaultStateError",
+        "Cause": "No Matches!"
+      },
+
+      "DefaultState2": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      },
+      
+      "NextState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "Next": "NextState2"
+      },
+
+      "NextState2": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      }
+    }
+  }

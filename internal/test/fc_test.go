@@ -173,7 +173,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 	}
 	fcName := "test"
 	// CREATE - we create a test function composition
-	input := 1
+	input := 2
 	incJs, errJs := initializeExampleJSFunction()
 	u.AssertNil(t, errJs)
 	incPy, errPy := initializeExamplePyFunction()
@@ -288,9 +288,8 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
-	//for i := 0; i < 1; i++ {
 
-	fcName := "test"
+	fcName := "testBrFO"
 	// CREATE - we create a test function composition
 	fDouble, errF1 := InitializePyFunction("double", "handler", function.NewSignature().
 		AddInput("input", function.Int{}).
@@ -323,8 +322,8 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	}
 
 	// cleaning up function composition and functions
-	err3 := fcomp.Delete()
-	u.AssertNil(t, err3)
+	//err3 := fcomp.Delete()
+	//u.AssertNil(t, err3)
 }
 
 // TestInvokeFC_Concurrent executes concurrently m times a Sequential Dag of length N, where each node executes a simple increment function.

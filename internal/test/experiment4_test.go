@@ -9,10 +9,9 @@ import (
 	"github.com/grussorusso/serverledge/utils"
 )
 
-var Experiment bool //initialized in TestMain
 // create a sequence of varying length and run the experiment for 10 minutes
 
-func TestExperiment1(t *testing.T) {
+func TestExperiment4(t *testing.T) {
 	/*
 		if !Experiment {
 			t.Skip()
@@ -20,7 +19,7 @@ func TestExperiment1(t *testing.T) {
 	lengths := []int{1, 2, 4, 8, 16, 32}
 
 	for _, length := range lengths {
-		_, err := CreateNoopCompositionSequence(t, fmt.Sprintf("sequence_%d", length), "localhost", 1323, length)
+		_, err := CreateIncCompositionSequence(t, fmt.Sprintf("sequence_inc_%d", length), "localhost", 1323, length)
 		utils.AssertNilMsg(t, err, "failed to create composition")
 
 	}
@@ -31,8 +30,11 @@ func TestExperiment1(t *testing.T) {
 }
 
 // TestCreateComposition tests the compose REST API that creates a new function composition
-func CreateNoopCompositionSequence(t *testing.T, fcName string, host string, port int, length int) (*fc.FunctionComposition, error) {
-	fn, err := InitializePyFunction("noop", "handler", function.NewSignature().Build())
+func CreateIncCompositionSequence(t *testing.T, fcName string, host string, port int, length int) (*fc.FunctionComposition, error) {
+	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
+		AddInput("input", function.Int{}).
+		AddOutput("output", function.Int{}).
+		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function noop")
 
 	fArr := make([]*function.Function, 0, length)

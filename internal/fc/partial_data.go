@@ -78,10 +78,10 @@ func SavePartialData(pd *PartialData, saveAlsoOnEtcd bool) error {
 			return err
 		}
 	}
-	inCache := savePartialDataInCache(pd)
-	if !inCache {
-		return errors.New("failed to save partialData in cache")
-	}
+	//inCache := savePartialDataInCache(pd)
+	//if !inCache {
+	//	return errors.New("failed to save partialData in cache")
+	//}
 	return nil
 }
 

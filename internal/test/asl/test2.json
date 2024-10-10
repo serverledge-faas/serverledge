@@ -1,0 +1,69 @@
+{
+    "Comment": "An example of the Amazon States Language using a choice state.",
+    "StartAt": "FirstState",
+    "States": {
+      "FirstState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "ChoiceState"
+      },
+      "ChoiceState": {
+        "Type": "Choice",
+        "Choices": [{
+            "Variable": "$.input",
+            "NumericEquals": 1,
+            "Next": "ChoiceState2"
+          },
+          {
+            "Variable": "$.input",
+            "NumericEquals": 2,
+            "Next": "SucceedState"
+          }
+        ],
+        "Default": "DefaultState"
+      },
+
+      "ChoiceState2": {
+        "Type": "Choice",
+        "Choices": [{
+            "Variable": "$.input",
+            "NumericEquals": 1,
+            "Next": "NextState"
+          }
+        ],
+        "Default": "DefaultState2"
+      },
+  
+      "SucceedState": {
+        "Type": "Succeed"
+      },
+  
+      "DefaultState": {
+        "Type": "Fail",
+        "Error": "DefaultStateError",
+        "Cause": "No Matches!"
+      },
+
+      "DefaultState2": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "End": true
+      },
+
+      "NextState": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "NextState2"
+      },
+  
+      "NextState2": {
+        "Comment": "Lang=Python",
+        "Type": "Task",
+        "Resource": "double",
+        "End": true
+      }
+    }
+  }

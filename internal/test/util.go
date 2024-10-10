@@ -248,7 +248,7 @@ func createCompositionApiTest(t *testing.T, fc *fc.FunctionComposition, host str
 
 func invokeCompositionApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
 	qosMap := make(map[string]function.RequestQoS)
-	qosMap["inc"] = function.RequestQoS{
+	qosMap["grep"] = function.RequestQoS{
 		Class:    0,
 		MaxRespT: 500,
 	}

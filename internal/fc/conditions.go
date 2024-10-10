@@ -185,9 +185,17 @@ func (c Condition) findInputs(input map[string]interface{}) ([]interface{}, bool
 				ops = append(ops, nil)
 			} else {
 				var value2 interface{}
+				/* handling of numeric strings */
 				_, err := value.(string)
 				if !err {
-					value2 = strconv.Itoa(value.(int))
+					_, err := value.(int)
+					if !err {
+						ops = append(ops, value)
+						continue
+					} else {
+						value2 = strconv.Itoa(value.(int))
+					}
+
 				} else {
 					value2 = value
 				}
@@ -895,7 +903,6 @@ func parseFloat(num interface{}) (float64, bool) {
 	case string:
 		num, err := strconv.Atoi(n)
 		if err != nil {
-			fmt.Println("Error during strconv.Atoi():", err)
 			return 0.0, false
 		}
 		return float64(num), true

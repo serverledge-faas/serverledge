@@ -3,10 +3,11 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/fc"
-	u "github.com/grussorusso/serverledge/utils"
 	"math/rand"
 	"testing"
+
+	"github.com/grussorusso/serverledge/internal/fc"
+	u "github.com/grussorusso/serverledge/utils"
 )
 
 func TestDagMarshaling(t *testing.T) {

@@ -220,11 +220,6 @@ func InvokeFunctionComposition(e echo.Context) error {
 			OffloadLatency: 0,
 			SchedAction:    "",
 		})
-
-		//fcReq.ExecReport.Reports[execReportId] = &function.ExecutionReport{
-		//	SchedAction:    "",
-		//	OffloadLatency: 0.0,
-		//}
 	}
 
 	if fcReq.Async {

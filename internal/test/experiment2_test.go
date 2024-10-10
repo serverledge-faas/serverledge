@@ -9,9 +9,9 @@ import (
 )
 
 func TestExperiment2(t *testing.T) {
-	if !Experiment {
+	/*if !Experiment {
 		t.Skip()
-	}
+	}*/
 	_, err := createComplexComposition(t)
 	utils.AssertNilMsg(t, err, "failed to create composition")
 
@@ -68,8 +68,9 @@ func createComplexComposition(t *testing.T) (*fc.FunctionComposition, error) {
 			Build()).
 		EndChoiceAndBuild()
 
-	composition, err := fc.NewFC("complex", *dag, []*function.Function{fnWordCount, fnSummarize, fnGrep}, true)
+	composition, err := fc.NewFC("complexText", *dag, []*function.Function{fnWordCount, fnSummarize, fnGrep}, true)
 	utils.AssertNil(t, err)
 	createCompositionApiTest(t, composition, "127.0.0.1", 1323)
+
 	return composition, nil
 }

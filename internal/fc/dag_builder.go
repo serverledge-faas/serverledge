@@ -215,11 +215,16 @@ func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Dag, err1 error) *ChoiceBra
 					c.dagBuilder.dag.addNode(n)
 					n.setBranchId(n.GetBranchId() + baseBranchNumber)
 					continue
+				case *ChoiceNode:
+					c.dagBuilder.dag.addNode(n)
+					n.setBranchId(n.GetBranchId() + baseBranchNumber)
+					continue
 				default:
 					c.dagBuilder.dag.addNode(n)
 					n.setBranchId(n.GetBranchId() + baseBranchNumber)
 					nextNode, _ := dagToChain.Find(n.GetNext()[0])
 					// chain the last node(s) of the input dag to the end node of the building dag
+
 					if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == dagToChain.End {
 						errEnd := c.dagBuilder.dag.ChainToEndNode(n)
 						if errEnd != nil {
@@ -705,6 +710,15 @@ func CreateBroadcastDag(dagger func() (*Dag, error), fanOutDegree int) (*Dag, er
 		AddBroadcastFanOutNode(fanOutDegree).
 		ForEachParallelBranch(dagger).
 		AddFanInNode(AddNewMapEntry).
+		Build()
+}
+
+func CreateAdHOCBroadcastDag(dagger func() (*Dag, error), fanOutDegree int, funct *function.Function) (*Dag, error) {
+	return NewDagBuilder().
+		AddBroadcastFanOutNode(fanOutDegree).
+		ForEachParallelBranch(dagger).
+		AddFanInNode(AddNewMapEntry).
+		AddSimpleNode(funct).
 		Build()
 }
 

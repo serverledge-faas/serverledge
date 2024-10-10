@@ -62,6 +62,7 @@ func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, 
 			nextState = c.Choices[i].GetNextState()
 		} else {
 			// we add one more branch to the ChoiceNode to handle the default branch
+
 			nextState = c.Default
 		}
 		dag, errBranch := GetBranchForChoiceFromStates(entireSM, nextState, i)
