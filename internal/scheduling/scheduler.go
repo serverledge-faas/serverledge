@@ -38,7 +38,9 @@ func Run(p Policy) {
 	node.Resources.ContainerPools = make(map[string]*node.ContainerPool)
 	log.Printf("Current resources: %v\n", &node.Resources)
 
-	container.InitDockerContainerFactory()
+	// TODO: handle both factories
+	// container.InitDockerContainerFactory()
+	container.InitWasiFactory()
 
 	//janitor periodically remove expired warm container
 	node.GetJanitorInstance()

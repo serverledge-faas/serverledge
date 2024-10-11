@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os/exec"
+	"reflect"
 	"time"
 
 	"github.com/grussorusso/serverledge/internal/executor"
@@ -38,9 +40,97 @@ func NewContainer(image, codeTar string, opts *ContainerOptions) (ContainerID, e
 	return contID, nil
 }
 
+func Execute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
+	switch cf.(type) {
+	case *DockerFactory:
+		return dockerExecute(contID, req)
+	case *WasiFactory:
+		return wasiExecute(contID, req)
+	default:
+		return nil, 0, fmt.Errorf("Unrecognized Factory type: %s", reflect.TypeOf(cf).Name())
+	}
+}
+
+func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
+	wasiRunner := cf.(*WasiFactory).runners[contID]
+	t0 := time.Now()
+
+	if wasiRunner.wasiType == WasiModule {
+		// Create an instance of the module
+		instance, err := wasiRunner.linker.Instantiate(wasiRunner.store, wasiRunner.module)
+		if err != nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to instantiate WASI module: %v", err)
+		}
+
+		// Get the _start function (entrypoint of any wasm module)
+		start := instance.GetFunc(wasiRunner.store, "_start")
+		if start == nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("WASI Module does not have a _start function")
+		}
+
+		// Call the _start function
+		if _, err := start.Call(wasiRunner.store); err != nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to run WASI module: %v", err)
+		}
+
+		// Read stdout from the temp file
+		stdout, err := io.ReadAll(wasiRunner.stdout)
+		if err != nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stdout for WASI: %v", err)
+		}
+
+		// Read stderr from the temp file
+		stderr, err := io.ReadAll(wasiRunner.stderr)
+		if err != nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stderr for WASI: %v", err)
+		}
+
+		// Populate result
+		res := &executor.InvocationResult{Success: true, Result: string(stdout)}
+		if req.ReturnOutput {
+			res.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
+		}
+		return res, time.Now().Sub(t0), nil
+	} else if wasiRunner.wasiType == WasiComponent {
+		// Create wasmtime CLI command
+		execCmd := exec.Command("wasmtime", wasiRunner.cliArgs...)
+
+		// Save stdout and stderr to another buffer
+		var stdoutBuffer, stderrBuffer bytes.Buffer
+		execCmd.Stdout = &stdoutBuffer
+		execCmd.Stderr = &stderrBuffer
+		// Execute wasmtime CLI
+		err := execCmd.Run()
+		if err != nil {
+			log.Printf("wasmtime failed with %v\n", err)
+		}
+
+		// Read stdout from temporary buffer
+		stdout, err := io.ReadAll(&stdoutBuffer)
+		if err != nil {
+			log.Printf("Failed to read stdout: %v", err)
+		}
+
+		// Read stderr from temporary buffer
+		stderr, err := io.ReadAll(&stderrBuffer)
+		if err != nil {
+			log.Printf("Failed to read stderr: %v", err)
+		}
+
+		// Create response
+		resp := &executor.InvocationResult{Success: err == nil, Result: string(stdout)}
+		if req.ReturnOutput {
+			resp.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
+		}
+		return resp, time.Now().Sub(t0), nil
+	} else {
+		return nil, 0, fmt.Errorf("Unrecognized WASI Type")
+	}
+}
+
 // Execute interacts with the Executor running in the container to invoke the
 // function through a HTTP request.
-func Execute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
+func dockerExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
 	ipAddr, err := cf.GetIPAddress(contID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("Failed to retrieve IP address for container: %v", err)
