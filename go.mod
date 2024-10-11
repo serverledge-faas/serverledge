@@ -6,6 +6,7 @@ toolchain go1.22.5
 
 require (
 	github.com/LK4D4/trylock v0.0.0-20191027065348-ff7e133a5c54
+	github.com/bytecodealliance/wasmtime-go/v25 v25.0.0
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/hexablock/vivaldi v0.0.0-20180727225019-07adad3f2b5f
 	github.com/labstack/echo/v4 v4.6.1
@@ -17,6 +18,7 @@ require (
 	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.28.0
 	go.opentelemetry.io/otel/sdk v1.28.0
+	go.opentelemetry.io/otel/trace v1.28.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 )
 
@@ -65,7 +67,6 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.1 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
