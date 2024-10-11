@@ -15,8 +15,8 @@ import (
 
 type WasiType string
 
-const WasiModule WasiType = "module"
-const WasiComponent WasiType = "component"
+const WASI_TYPE_MODULE WasiType = "module"
+const WASI_TYPE_COMPONENT WasiType = "component"
 
 type WasiFactory struct {
 	ctx     context.Context
@@ -174,20 +174,20 @@ func (wf *WasiFactory) Start(contID ContainerID) error {
 				wasiRunner.cliArgs = append(wasiRunner.cliArgs, v)
 			}
 			wasiRunner.cliArgs = append(wasiRunner.cliArgs, wasmFileName)
-			wasiRunner.wasiType = WasiComponent
+			wasiRunner.wasiType = WASI_TYPE_COMPONENT
 			return nil
 		}
 		wasiRunner.Close()
 		return fmt.Errorf("[WasiFactory] Failed to create WASI Module for %s: %v", contID, err)
 	}
 	wasiRunner.module = module
-	wasiRunner.wasiType = WasiModule
+	wasiRunner.wasiType = WASI_TYPE_MODULE
 	return nil
 }
 
 func (wf *WasiFactory) Destroy(id ContainerID) error {
 	wasiRunner := wf.runners[id]
-	if wasiRunner.wasiType == WasiModule {
+	if wasiRunner.wasiType == WASI_TYPE_MODULE {
 		wasiRunner.Close()
 	}
 	delete(wf.runners, id)

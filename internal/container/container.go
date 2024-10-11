@@ -53,7 +53,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	wasiRunner := factories[WASI_FACTORY_KEY].(*WasiFactory).runners[contID]
 	t0 := time.Now()
 
-	if wasiRunner.wasiType == WasiModule {
+	if wasiRunner.wasiType == WASI_TYPE_MODULE {
 		// Create an instance of the module
 		instance, err := wasiRunner.linker.Instantiate(wasiRunner.store, wasiRunner.module)
 		if err != nil {
@@ -89,7 +89,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 			res.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
 		}
 		return res, time.Now().Sub(t0), nil
-	} else if wasiRunner.wasiType == WasiComponent {
+	} else if wasiRunner.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
 		execCmd := exec.Command("wasmtime", wasiRunner.cliArgs...)
 
