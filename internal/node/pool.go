@@ -181,7 +181,7 @@ func NewContainer(fun *function.Function) (container.ContainerID, error) {
 
 func getImageForFunction(fun *function.Function) (string, error) {
 	var image string
-	if fun.Runtime == container.CUSTOM_RUNTIME {
+	if fun.Runtime == container.CUSTOM_RUNTIME || fun.Runtime == container.WASI_RUNTIME {
 		image = fun.CustomImage
 	} else {
 		runtime, ok := container.RuntimeToInfo[fun.Runtime]

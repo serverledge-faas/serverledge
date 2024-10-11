@@ -16,7 +16,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	//log.Printf("[%s] Executing on container: %v", r.Fun, contID)
 
 	var req executor.InvocationRequest
-	if r.Fun.Runtime == container.CUSTOM_RUNTIME {
+	if r.Fun.Runtime == container.CUSTOM_RUNTIME || r.Fun.Runtime == container.WASI_RUNTIME {
 		req = executor.InvocationRequest{
 			Params:       r.Params,
 			ReturnOutput: r.ReturnOutput,

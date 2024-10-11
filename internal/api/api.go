@@ -143,7 +143,7 @@ func CreateFunction(c echo.Context) error {
 	log.Printf("New request: creation of %s\n", f.Name)
 
 	// Check that the selected runtime exists
-	if f.Runtime != container.CUSTOM_RUNTIME {
+	if f.Runtime != container.CUSTOM_RUNTIME && f.Runtime != container.WASI_RUNTIME {
 		_, ok := container.RuntimeToInfo[f.Runtime]
 		if !ok {
 			return c.JSON(http.StatusNotFound, "Invalid runtime.")

@@ -7,6 +7,7 @@ type RuntimeInfo struct {
 }
 
 const CUSTOM_RUNTIME = "custom"
+const WASI_RUNTIME = "wasi"
 
 var refreshedImages = map[string]bool{}
 
