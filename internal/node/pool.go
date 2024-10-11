@@ -206,7 +206,7 @@ func NewContainerWithAcquiredResources(fun *function.Function) (container.Contai
 	contID, err := container.NewContainer(image, fun.TarFunctionCode, &container.ContainerOptions{
 		MemoryMB: fun.MemoryMB,
 		CPUQuota: fun.CPUDemand,
-	})
+	}, fun)
 
 	if err != nil {
 		log.Printf("Failed container creation: %v\n", err)
@@ -230,6 +230,7 @@ type itemToDismiss struct {
 	pool   *ContainerPool
 	elem   *list.Element
 	memory int64
+	fun    *function.Function
 }
 
 // dismissContainer ... this function is used to get free memory used for a new container
@@ -241,17 +242,18 @@ func dismissContainer(requiredMemoryMB int64) (bool, error) {
 	res := false
 
 	//first phase, research
-	for _, funPool := range Resources.ContainerPools {
+	for fun, funPool := range Resources.ContainerPools {
+		functionDescriptor, _ := function.GetFunction(fun)
 		if funPool.ready.Len() > 0 {
 			// every container into the funPool has the same memory (same function)
 			//so it is not important which one you destroy
 			elem := funPool.ready.Front()
 			contID := elem.Value.(warmContainer).contID
 			// container in the same pool need same memory
-			memory, _ := container.GetMemoryMB(contID)
+			memory, _ := container.GetMemoryMB(contID, functionDescriptor)
 			for ok := true; ok; ok = elem != nil {
 				containerToDismiss = append(containerToDismiss,
-					itemToDismiss{contID: contID, pool: funPool, elem: elem, memory: memory})
+					itemToDismiss{contID: contID, pool: funPool, elem: elem, memory: memory, fun: functionDescriptor})
 				cleanedMB += memory
 				if cleanedMB >= requiredMemoryMB {
 					goto cleanup
@@ -266,8 +268,8 @@ cleanup: // second phase, cleanup
 	// memory check
 	if cleanedMB >= requiredMemoryMB {
 		for _, item := range containerToDismiss {
-			item.pool.ready.Remove(item.elem)     // remove the container from the funPool
-			err := container.Destroy(item.contID) // destroy the container
+			item.pool.ready.Remove(item.elem)               // remove the container from the funPool
+			err := container.Destroy(item.contID, item.fun) // destroy the container
 			if err != nil {
 				res = false
 				return res, nil
@@ -288,8 +290,10 @@ func DeleteExpiredContainer() {
 	Resources.Lock()
 	defer Resources.Unlock()
 
-	for _, pool := range Resources.ContainerPools {
+	for fun, pool := range Resources.ContainerPools {
 		elem := pool.ready.Front()
+		functionDescriptor, _ := function.GetFunction(fun)
+
 		for ok := elem != nil; ok; ok = elem != nil {
 			warmed := elem.Value.(warmContainer)
 			if now > warmed.Expiration {
@@ -298,9 +302,9 @@ func DeleteExpiredContainer() {
 				log.Printf("cleaner: Removing container %s\n", warmed.contID)
 				pool.ready.Remove(temp) // remove the expired element
 
-				memory, _ := container.GetMemoryMB(warmed.contID)
+				memory, _ := container.GetMemoryMB(warmed.contID, functionDescriptor)
 				releaseResources(0, memory)
-				err := container.Destroy(warmed.contID)
+				err := container.Destroy(warmed.contID, functionDescriptor)
 				if err != nil {
 					log.Printf("Error while destroying container %s: %s\n", warmed.contID, err)
 				}
@@ -334,7 +338,7 @@ func ShutdownWarmContainersFor(f *function.Function) {
 		log.Printf("Removing container with ID %s\n", warmed.contID)
 		fp.ready.Remove(temp)
 
-		memory, _ := container.GetMemoryMB(warmed.contID)
+		memory, _ := container.GetMemoryMB(warmed.contID, f)
 		Resources.AvailableMemMB += memory
 		containersToDelete = append(containersToDelete, warmed.contID)
 	}
@@ -342,7 +346,7 @@ func ShutdownWarmContainersFor(f *function.Function) {
 	go func(contIDs []container.ContainerID) {
 		for _, contID := range contIDs {
 			// No need to update available resources here
-			if err := container.Destroy(contID); err != nil {
+			if err := container.Destroy(contID, f); err != nil {
 				log.Printf("An error occurred while deleting %s: %v\n", contID, err)
 			} else {
 				log.Printf("Deleted %s\n", contID)
@@ -358,6 +362,8 @@ func ShutdownAllContainers() {
 
 	for fun, pool := range Resources.ContainerPools {
 		elem := pool.ready.Front()
+		functionDescriptor, _ := function.GetFunction(fun)
+
 		for ok := elem != nil; ok; ok = elem != nil {
 			warmed := elem.Value.(warmContainer)
 			temp := elem
@@ -365,15 +371,13 @@ func ShutdownAllContainers() {
 			log.Printf("Removing container with ID %s\n", warmed.contID)
 			pool.ready.Remove(temp)
 
-			memory, _ := container.GetMemoryMB(warmed.contID)
-			err := container.Destroy(warmed.contID)
+			memory, _ := container.GetMemoryMB(warmed.contID, functionDescriptor)
+			err := container.Destroy(warmed.contID, functionDescriptor)
 			if err != nil {
 				log.Printf("Error while destroying container %s: %s", warmed.contID, err)
 			}
 			Resources.AvailableMemMB += memory
 		}
-
-		functionDescriptor, _ := function.GetFunction(fun)
 
 		elem = pool.busy.Front()
 		for ok := elem != nil; ok; ok = elem != nil {
@@ -383,8 +387,8 @@ func ShutdownAllContainers() {
 			log.Printf("Removing container with ID %s\n", contID)
 			pool.ready.Remove(temp)
 
-			memory, _ := container.GetMemoryMB(contID)
-			err := container.Destroy(contID)
+			memory, _ := container.GetMemoryMB(contID, functionDescriptor)
+			err := container.Destroy(contID, functionDescriptor)
 			if err != nil {
 				log.Printf("Error while destroying container %s: %s", contID, err)
 			}
@@ -411,7 +415,7 @@ func PrewarmInstances(f *function.Function, count int64, forcePull bool) (int64,
 	if err != nil {
 		return 0, err
 	}
-	err = container.DownloadImage(image, forcePull)
+	err = container.DownloadImage(image, forcePull, f.Runtime)
 	if err != nil {
 		return 0, err
 	}

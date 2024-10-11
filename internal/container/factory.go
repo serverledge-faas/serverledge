@@ -4,6 +4,9 @@ import (
 	"io"
 )
 
+const WASI_FACTORY_KEY = "wasi"
+const DOCKER_FACTORY_KEY = "docker"
+
 // A Factory to create and manage container.
 type Factory interface {
 	Create(string, *ContainerOptions) (ContainerID, error)
@@ -26,10 +29,19 @@ type ContainerOptions struct {
 
 type ContainerID = string
 
-// cf is the container factory for the node
-var cf Factory
+// Factories for this node; currently supporting only Docker and WASI
+var factories map[string]Factory
 
-func DownloadImage(image string, forceRefresh bool) error {
+func GetFactoryFromRuntime(runtime string) Factory {
+	if runtime == WASI_RUNTIME {
+		return factories[WASI_FACTORY_KEY]
+	} else {
+		return factories[DOCKER_FACTORY_KEY]
+	}
+}
+
+func DownloadImage(image string, forceRefresh bool, runtime string) error {
+	cf := GetFactoryFromRuntime(runtime)
 	if forceRefresh || !cf.HasImage(image) {
 		return cf.PullImage(image)
 	}

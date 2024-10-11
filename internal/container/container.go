@@ -9,14 +9,15 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"reflect"
 	"time"
 
 	"github.com/grussorusso/serverledge/internal/executor"
+	"github.com/grussorusso/serverledge/internal/function"
 )
 
 // NewContainer creates and starts a new container.
-func NewContainer(image, codeTar string, opts *ContainerOptions) (ContainerID, error) {
+func NewContainer(image, codeTar string, opts *ContainerOptions, f *function.Function) (ContainerID, error) {
+	cf := GetFactoryFromRuntime(f.Runtime)
 	contID, err := cf.Create(image, opts)
 	if err != nil {
 		log.Printf("Failed container creation\n")
@@ -40,19 +41,16 @@ func NewContainer(image, codeTar string, opts *ContainerOptions) (ContainerID, e
 	return contID, nil
 }
 
-func Execute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
-	switch cf.(type) {
-	case *DockerFactory:
-		return dockerExecute(contID, req)
-	case *WasiFactory:
+func Execute(contID ContainerID, req *executor.InvocationRequest, f *function.Function) (*executor.InvocationResult, time.Duration, error) {
+	if f.Runtime == WASI_RUNTIME {
 		return wasiExecute(contID, req)
-	default:
-		return nil, 0, fmt.Errorf("Unrecognized Factory type: %s", reflect.TypeOf(cf).Name())
+	} else {
+		return dockerExecute(contID, req)
 	}
 }
 
 func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
-	wasiRunner := cf.(*WasiFactory).runners[contID]
+	wasiRunner := factories[WASI_FACTORY_KEY].(*WasiFactory).runners[contID]
 	t0 := time.Now()
 
 	if wasiRunner.wasiType == WasiModule {
@@ -131,7 +129,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 // Execute interacts with the Executor running in the container to invoke the
 // function through a HTTP request.
 func dockerExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
-	ipAddr, err := cf.GetIPAddress(contID)
+	ipAddr, err := factories[DOCKER_FACTORY_KEY].GetIPAddress(contID)
 	if err != nil {
 		return nil, 0, fmt.Errorf("Failed to retrieve IP address for container: %v", err)
 	}
@@ -160,12 +158,12 @@ func dockerExecute(contID ContainerID, req *executor.InvocationRequest) (*execut
 	return response, waitDuration, nil
 }
 
-func GetMemoryMB(id ContainerID) (int64, error) {
-	return cf.GetMemoryMB(id)
+func GetMemoryMB(id ContainerID, f *function.Function) (int64, error) {
+	return GetFactoryFromRuntime(f.Runtime).GetMemoryMB(id)
 }
 
-func Destroy(id ContainerID) error {
-	return cf.Destroy(id)
+func Destroy(id ContainerID, f *function.Function) error {
+	return GetFactoryFromRuntime(f.Runtime).Destroy(id)
 }
 
 func sendPostRequestWithRetries(url string, body *bytes.Buffer) (*http.Response, time.Duration, error) {

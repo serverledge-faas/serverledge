@@ -35,7 +35,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	t0 := time.Now()
 	initTime := t0.Sub(r.Arrival).Seconds()
 
-	response, invocationWait, err := container.Execute(contID, &req)
+	response, invocationWait, err := container.Execute(contID, &req, r.Fun)
 	if err != nil {
 		// notify scheduler
 		completions <- &completionNotification{fun: r.Fun, contID: contID, executionReport: nil}

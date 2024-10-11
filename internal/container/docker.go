@@ -27,7 +27,10 @@ func InitDockerContainerFactory() *DockerFactory {
 	}
 
 	dockerFact := &DockerFactory{cli, ctx}
-	cf = dockerFact
+	if factories == nil {
+		factories = make(map[string]Factory)
+	}
+	factories[DOCKER_FACTORY_KEY] = dockerFact
 	return dockerFact
 }
 

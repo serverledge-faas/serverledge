@@ -63,7 +63,10 @@ func (wr *wasiRunner) Close() {
 func InitWasiFactory() *WasiFactory {
 	ctx := context.Background()
 	wasiFactory := &WasiFactory{ctx, make(map[string]*wasiRunner)}
-	cf = wasiFactory
+	if factories == nil {
+		factories = make(map[string]Factory)
+	}
+	factories[WASI_FACTORY_KEY] = wasiFactory
 	return wasiFactory
 }
 
