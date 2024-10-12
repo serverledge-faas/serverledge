@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 )
 
 // NewContainer creates and starts a new container.
-func NewContainer(image, codeTar string, opts *ContainerOptions, f *function.Function) (ContainerID, error) {
+func NewContainer(image, base64Src string, opts *ContainerOptions, f *function.Function) (ContainerID, error) {
 	cf := GetFactoryFromRuntime(f.Runtime)
 	contID, err := cf.Create(image, opts)
 	if err != nil {
@@ -24,9 +25,25 @@ func NewContainer(image, codeTar string, opts *ContainerOptions, f *function.Fun
 		return "", err
 	}
 
-	if len(codeTar) > 0 {
-		decodedCode, _ := base64.StdEncoding.DecodeString(codeTar)
-		err = cf.CopyToContainer(contID, bytes.NewReader(decodedCode), "/app/")
+	if len(base64Src) > 0 {
+		var r io.Reader
+		// Decoding src
+		decodedSrc, _ := base64.StdEncoding.DecodeString(base64Src)
+		// Check if decoded src is a url
+		u, err := url.ParseRequestURI(string(decodedSrc))
+		if err == nil && u.Scheme != "" && u.Host != "" {
+			// src is url; it has to be downloaded
+			resp, err := http.Get(string(decodedSrc))
+			if err != nil {
+				log.Printf("Failed to download code %s", decodedSrc)
+				return "", err
+			}
+			r = resp.Body
+		} else {
+			// assuming decodedSrc is Base64 encoded tar
+			r = bytes.NewReader(decodedSrc)
+		}
+		err = cf.CopyToContainer(contID, r, "/app/")
 		if err != nil {
 			log.Printf("Failed code copy\n")
 			return "", err
