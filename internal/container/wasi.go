@@ -21,6 +21,7 @@ const WASI_TYPE_COMPONENT WasiType = "component"
 type WasiFactory struct {
 	ctx     context.Context
 	runners map[string]*wasiRunner
+	engine  *wasmtime.Engine
 }
 
 type wasiRunner struct {
@@ -36,10 +37,6 @@ type wasiRunner struct {
 	stderr *os.File         // Temporary file for the stderr
 	// WASI Component Specifics
 	cliArgs []string
-
-	// TODO: check if it's possible to set RAM and CPU quota in CLI and wasmtime-go
-	// - config.SetMaxWasmStack can be used to set the max "RAM"
-	// - fuel or epoch interruption can probably be used to simulate the CPU quota
 }
 
 func (wr *wasiRunner) Close() {
@@ -62,7 +59,18 @@ func (wr *wasiRunner) Close() {
 
 func InitWasiFactory() *WasiFactory {
 	ctx := context.Background()
-	wasiFactory := &WasiFactory{ctx, make(map[string]*wasiRunner)}
+	// Create Engine configuration
+	engineConfig := wasmtime.NewConfig()
+	engineConfig.SetWasmRelaxedSIMD(true)
+	engineConfig.SetWasmBulkMemory(true)
+	engineConfig.SetWasmMultiValue(true)
+	engineConfig.SetCraneliftOptLevel(wasmtime.OptLevelSpeed)
+	engineConfig.SetStrategy(wasmtime.StrategyCranelift)
+
+	// Create wasmtime engine, shared for all modules
+	engine := wasmtime.NewEngineWithConfig(engineConfig)
+
+	wasiFactory := &WasiFactory{ctx, make(map[string]*wasiRunner), engine}
 	if factories == nil {
 		factories = make(map[string]Factory)
 	}
@@ -93,18 +101,8 @@ func (wf *WasiFactory) Start(contID ContainerID) error {
 		return fmt.Errorf("[WasiFactory]: no runner with %s found", contID)
 	}
 
-	// Create Store configuration
-	storeConfig := wasmtime.NewConfig()
-	storeConfig.SetWasmRelaxedSIMD(true)
-	storeConfig.SetWasmBulkMemory(true)
-	storeConfig.SetWasmMultiValue(true)
-	// NOTE: this can probably be the RAM limit
-	// storeConfig.SetMaxWasmStack()
-
-	// Create wasmtime engine
-	engine := wasmtime.NewEngineWithConfig(storeConfig)
 	// Create new store
-	wasiRunner.store = wasmtime.NewStore(engine)
+	wasiRunner.store = wasmtime.NewStore(wf.engine)
 	// Create WASI Configuration
 	wasiConfig := wasmtime.NewWasiConfig()
 
@@ -144,7 +142,7 @@ func (wf *WasiFactory) Start(contID ContainerID) error {
 	wasiRunner.store.SetWasi(wasiConfig)
 
 	// Create a linker
-	wasiRunner.linker = wasmtime.NewLinker(engine)
+	wasiRunner.linker = wasmtime.NewLinker(wf.engine)
 	if err := wasiRunner.linker.DefineWasi(); err != nil {
 		wasiRunner.Close()
 		return fmt.Errorf("[WasiFactory] Failed to define WASI in the linker for %s: %v", contID, err)
@@ -164,7 +162,7 @@ func (wf *WasiFactory) Start(contID ContainerID) error {
 		return fmt.Errorf("[WasiFactory] Failed to read the WASI code for %s: %v", contID, err)
 	}
 	// Compile the WASI Module
-	module, err := wasmtime.NewModule(engine, moduleData)
+	module, err := wasmtime.NewModule(wf.engine, moduleData)
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "failed to parse WebAssembly module") {
 			// File is a WASI Component
