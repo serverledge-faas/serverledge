@@ -18,7 +18,7 @@ import (
 
 // NewContainer creates and starts a new container.
 func NewContainer(image, base64Src string, opts *ContainerOptions, f *function.Function) (ContainerID, error) {
-	cf := GetFactoryFromRuntime(f.Runtime)
+	cf := GetFactoryFromFunction(f)
 	contID, err := cf.Create(image, opts)
 	if err != nil {
 		log.Printf("Failed container creation\n")
@@ -176,11 +176,11 @@ func dockerExecute(contID ContainerID, req *executor.InvocationRequest) (*execut
 }
 
 func GetMemoryMB(id ContainerID, f *function.Function) (int64, error) {
-	return GetFactoryFromRuntime(f.Runtime).GetMemoryMB(id)
+	return GetFactoryFromFunction(f).GetMemoryMB(id)
 }
 
 func Destroy(id ContainerID, f *function.Function) error {
-	return GetFactoryFromRuntime(f.Runtime).Destroy(id)
+	return GetFactoryFromFunction(f).Destroy(id)
 }
 
 func sendPostRequestWithRetries(url string, body *bytes.Buffer) (*http.Response, time.Duration, error) {

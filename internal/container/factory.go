@@ -2,6 +2,8 @@ package container
 
 import (
 	"io"
+
+	"github.com/grussorusso/serverledge/internal/function"
 )
 
 const WASI_FACTORY_KEY = "wasi"
@@ -32,16 +34,16 @@ type ContainerID = string
 // Factories for this node; currently supporting only Docker and WASI
 var factories map[string]Factory
 
-func GetFactoryFromRuntime(runtime string) Factory {
-	if runtime == WASI_RUNTIME {
+func GetFactoryFromFunction(f *function.Function) Factory {
+	if f.Runtime == WASI_RUNTIME {
 		return factories[WASI_FACTORY_KEY]
 	} else {
 		return factories[DOCKER_FACTORY_KEY]
 	}
 }
 
-func DownloadImage(image string, forceRefresh bool, runtime string) error {
-	cf := GetFactoryFromRuntime(runtime)
+func DownloadImage(image string, forceRefresh bool, f *function.Function) error {
+	cf := GetFactoryFromFunction(f)
 	if forceRefresh || !cf.HasImage(image) {
 		return cf.PullImage(image)
 	}

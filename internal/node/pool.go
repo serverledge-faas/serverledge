@@ -415,7 +415,7 @@ func PrewarmInstances(f *function.Function, count int64, forcePull bool) (int64,
 	if err != nil {
 		return 0, err
 	}
-	err = container.DownloadImage(image, forcePull, f.Runtime)
+	err = container.DownloadImage(image, forcePull, f)
 	if err != nil {
 		return 0, err
 	}
