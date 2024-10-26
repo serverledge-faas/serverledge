@@ -51,9 +51,20 @@ func (wr *wasiRunner) Close() {
 	}
 	if wr.stdout != nil {
 		wr.stdout.Close()
+		if err := os.Remove(wr.stdout.Name()); err != nil {
+			log.Printf("[WasiFactory] Failed to delete temporary stdout file: %v", err)
+		}
 	}
 	if wr.stderr != nil {
 		wr.stderr.Close()
+		if err := os.Remove(wr.stderr.Name()); err != nil {
+			log.Printf("[WasiFactory] Failed to delete temporary stderr file: %v", err)
+		}
+	}
+	if wr.dir != "" {
+		if err := os.RemoveAll(wr.dir); err != nil {
+			log.Printf("[WasiFactory] Failed to delete temporary directory: %v", err)
+		}
 	}
 }
 
