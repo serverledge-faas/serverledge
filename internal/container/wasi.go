@@ -216,7 +216,7 @@ func (wf *WasiFactory) GetMemoryMB(id ContainerID) (int64, error) {
 
 // Utility function to create a Wasi Configuration for this runner
 // The WasiConfiguration cannot be shared among threads because it's not thread-safe
-func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID) (*wasmtime.WasiConfig, error) {
+func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID, handler string) (*wasmtime.WasiConfig, error) {
 	// Create new Wasi Configuration
 	wasiConfig := wasmtime.NewWasiConfig()
 	// Set environment variables
@@ -232,14 +232,22 @@ func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID) (*wasmtime.Wasi
 		return nil, fmt.Errorf("[WasiRunner]: failed to create temp stderr file for %s: %v", contID, err)
 	}
 	// Set wasmtime to use the temporary files for stdout and stderr
-	wasiConfig.SetStdoutFile(stdout.Name())
-	wasiConfig.SetStderrFile(stderr.Name())
+	if err := wasiConfig.SetStdoutFile(stdout.Name()); err != nil {
+		return nil, fmt.Errorf("[WasiRunner] Failed to set stdout file: %v", err)
+	}
+	if err := wasiConfig.SetStderrFile(stderr.Name()); err != nil {
+		return nil, fmt.Errorf("[WasiRunner] Failed to set stderr file: %v", err)
+	}
 	// Save the references to the temporary files
 	wr.stdout = stdout
 	wr.stderr = stderr
 	// Mount the temporary directory to the specified mount point
 	if err := wasiConfig.PreopenDir(wr.dir, wr.mount); err != nil {
 		return nil, fmt.Errorf("[WasiRunner] Failed to preopen %s: %v", wr.mount, err)
+	}
+
+	if handler != "" {
+		wasiConfig.SetArgv([]string{"", handler})
 	}
 
 	return wasiConfig, nil

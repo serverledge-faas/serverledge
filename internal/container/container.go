@@ -74,7 +74,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
-		wasiConfig, err := wr.BuildWasiConfiguration(contID)
+		wasiConfig, err := wr.BuildWasiConfiguration(contID, req.Handler)
 		if err != nil {
 			return nil, time.Now().Sub(t0), err
 		}
@@ -122,7 +122,8 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		return res, time.Now().Sub(t0), nil
 	} else if wr.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
-		execCmd := exec.Command("wasmtime", wr.cliArgs...)
+		args := append(wr.cliArgs, req.Handler)
+		execCmd := exec.Command("wasmtime", args...)
 
 		// Save stdout and stderr to another buffer
 		var stdoutBuffer, stderrBuffer bytes.Buffer

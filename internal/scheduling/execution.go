@@ -20,6 +20,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 		req = executor.InvocationRequest{
 			Params:       r.Params,
 			ReturnOutput: r.ReturnOutput,
+			Handler:      r.Fun.Handler, // NOTE: this is required by Wasi for Python
 		}
 	} else {
 		cmd := container.RuntimeToInfo[r.Fun.Runtime].InvocationCmd
