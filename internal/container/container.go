@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/bytecodealliance/wasmtime-go/v25"
 	"github.com/grussorusso/serverledge/internal/executor"
 	"github.com/grussorusso/serverledge/internal/function"
 )
@@ -67,35 +68,48 @@ func Execute(contID ContainerID, req *executor.InvocationRequest, f *function.Fu
 }
 
 func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
-	wasiRunner := factories[WASI_FACTORY_KEY].(*WasiFactory).runners[contID]
+	wf := factories[WASI_FACTORY_KEY].(*WasiFactory)
+	wr := wf.runners[contID]
 	t0 := time.Now()
 
-	if wasiRunner.wasiType == WASI_TYPE_MODULE {
+	if wr.wasiType == WASI_TYPE_MODULE {
+		// Create a new Wasi Configuration
+		wasiConfig, err := wr.BuildWasiConfiguration(contID)
+		if err != nil {
+			return nil, time.Now().Sub(t0), err
+		}
+		defer wasiConfig.Close()
+
+		// Create new store for this module
+		store := wasmtime.NewStore(wf.engine)
+		store.SetWasi(wasiConfig)
+		defer store.Close()
+
 		// Create an instance of the module
-		instance, err := wasiRunner.linker.Instantiate(wasiRunner.store, wasiRunner.module)
+		instance, err := wr.linker.Instantiate(store, wr.module)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to instantiate WASI module: %v", err)
 		}
 
 		// Get the _start function (entrypoint of any wasm module)
-		start := instance.GetFunc(wasiRunner.store, "_start")
+		start := instance.GetFunc(store, "_start")
 		if start == nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("WASI Module does not have a _start function")
 		}
 
 		// Call the _start function
-		if _, err := start.Call(wasiRunner.store); err != nil {
+		if _, err := start.Call(store); err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to run WASI module: %v", err)
 		}
 
 		// Read stdout from the temp file
-		stdout, err := io.ReadAll(wasiRunner.stdout)
+		stdout, err := io.ReadAll(wr.stdout)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stdout for WASI: %v", err)
 		}
 
 		// Read stderr from the temp file
-		stderr, err := io.ReadAll(wasiRunner.stderr)
+		stderr, err := io.ReadAll(wr.stderr)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stderr for WASI: %v", err)
 		}
@@ -106,9 +120,9 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 			res.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
 		}
 		return res, time.Now().Sub(t0), nil
-	} else if wasiRunner.wasiType == WASI_TYPE_COMPONENT {
+	} else if wr.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
-		execCmd := exec.Command("wasmtime", wasiRunner.cliArgs...)
+		execCmd := exec.Command("wasmtime", wr.cliArgs...)
 
 		// Save stdout and stderr to another buffer
 		var stdoutBuffer, stderrBuffer bytes.Buffer

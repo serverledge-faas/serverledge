@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/bytecodealliance/wasmtime-go/v25"
 	"github.com/grussorusso/serverledge/utils"
@@ -17,6 +18,7 @@ type WasiType string
 
 const WASI_TYPE_MODULE WasiType = "module"
 const WASI_TYPE_COMPONENT WasiType = "component"
+const WASI_TYPE_UNDEFINED WasiType = "undefined"
 
 type WasiFactory struct {
 	ctx     context.Context
@@ -25,16 +27,15 @@ type WasiFactory struct {
 }
 
 type wasiRunner struct {
-	wasiType WasiType // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
-	env      []string // List of KEY=VALUE pairs
-	dir      string   // Wasm Directory
-	mount    string   // Wasm Directory is preloaded to this mount-point
+	lock     sync.Mutex // Mutex used to have a single untar-ed copy of the runner
+	wasiType WasiType   // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
 	// WASI Module Specifics
-	store  *wasmtime.Store  // Group of WASM instances
-	linker *wasmtime.Linker // Used to instantiate module
-	module *wasmtime.Module // Compiled WASM
-	stdout *os.File         // Temporary file for the stdout
-	stderr *os.File         // Temporary file for the stderr
+	envKeys, envValues []string         // List of environment variables keys and values
+	dir, mount         string           // Wasm Directory and its mount point
+	linker             *wasmtime.Linker // Used to instantiate module
+	module             *wasmtime.Module // Compiled WASM
+	stdout             *os.File         // Temporary file for the stdout
+	stderr             *os.File         // Temporary file for the stderr
 	// WASI Component Specifics
 	cliArgs []string
 }
@@ -45,9 +46,6 @@ func (wr *wasiRunner) Close() {
 	}
 	if wr.linker != nil {
 		wr.linker.Close()
-	}
-	if wr.store != nil {
-		wr.store.Close()
 	}
 	if wr.stdout != nil {
 		wr.stdout.Close()
@@ -93,27 +91,53 @@ func InitWasiFactory() *WasiFactory {
 // Image is the ID
 // NOTE: this approach requires Runtime to be set to wasi and CustomImage to an identifier (e.g. function name)
 func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	// Create the new runner
-	wf.runners[image] = &wasiRunner{env: opts.Env}
+	// Create new runner if it does not exists
+	if _, ok := wf.runners[image]; !ok {
+		var envKeys, envVals, cliArgs []string
+		for _, v := range opts.Env {
+			cliArgs = append(cliArgs, "--env", v)
+			// Splitting the env array to separate keys and values
+			// Assuming env is formatted correctly: KEY=VALUE
+			split := strings.Split(v, "=")
+			key := split[0]
+			value := split[1]
+			envKeys = append(envKeys, key)
+			envVals = append(envVals, value)
+		}
+
+		wf.runners[image] = &wasiRunner{
+			envKeys:   envKeys,
+			envValues: envVals,
+			cliArgs:   cliArgs,
+			wasiType:  WASI_TYPE_UNDEFINED,
+		}
+	}
 	return image, nil
 }
 
 // Untar the decoded function code into a temporary directory
 func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, destPath string) error {
+	wr := wf.runners[contID]
+	wr.lock.Lock()
+	defer wr.lock.Unlock()
+	// Code was already copied by another thread
+	if wr.dir != "" {
+		return nil
+	}
 	// Create temporary directory to store untar-ed wasm file
 	dir, err := os.MkdirTemp("", contID)
 	if err != nil {
 		return fmt.Errorf("[WasiFactory] Failed to create temporary directory for %s: %v", contID, err)
 	}
-	// Save directory name
-	wf.runners[contID].dir = dir
 	// Untar code
 	if err := utils.Untar(content, dir); err != nil {
 		return fmt.Errorf("[WasiFactory] Failed to untar code for %s: %v", contID, err)
 	}
 	// NOTE: hard-coding `destPath` as `/`
 	// this is required to correctly use the official Python interpreter
-	wf.runners[contID].mount = "/"
+	wr.mount = "/"
+	wr.dir = dir
+	wr.cliArgs = append(wr.cliArgs, "--dir", wr.dir+"::"+wr.mount)
 	return nil
 }
 
@@ -122,90 +146,43 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 // NOTE: using contID (set as custom_image from CLI as the wasm filename inside the tar)
 func (wf *WasiFactory) Start(contID ContainerID) error {
 	// Get the wasi runner
-	wasiRunner, ok := wf.runners[contID]
+	wr, ok := wf.runners[contID]
 	if !ok {
 		return fmt.Errorf("[WasiFactory]: no runner with %s found", contID)
 	}
-
-	// Create new store
-	wasiRunner.store = wasmtime.NewStore(wf.engine)
-	// Create WASI Configuration
-	wasiConfig := wasmtime.NewWasiConfig()
-
-	// Create temporary files for stdout and stderr for this function
-	stdout, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
-	if err != nil {
-		return fmt.Errorf("[WasiFactory]: failed to create temp stdout file for %s: %v", contID, err)
+	wr.lock.Lock()
+	defer wr.lock.Unlock()
+	// File was already compiled by another thread
+	if wr.wasiType != WASI_TYPE_UNDEFINED {
+		return nil
 	}
-	stderr, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
-	if err != nil {
-		return fmt.Errorf("[WasiFactory]: failed to create temp stderr file for %s: %v", contID, err)
-	}
-	// Set wasmtime to use the temporary files for stdout and stderr
-	wasiConfig.SetStdoutFile(stdout.Name())
-	wasiConfig.SetStderrFile(stderr.Name())
-	// Save the references to the temporary files
-	wasiRunner.stdout = stdout
-	wasiRunner.stderr = stderr
-
-	// Mount the temporary directory to the specified mount point
-	if err := wasiConfig.PreopenDir(wasiRunner.dir, wasiRunner.mount); err != nil {
-		return fmt.Errorf("[WasiFactory] Failed to preopen %s: %v", wasiRunner.mount, err)
-	}
-
-	// Splitting the env array to separate keys and values
-	// Assuming env is formatted correctly: KEY=VALUE
-	var envKeys, envVals []string
-	for _, v := range wasiRunner.env {
-		split := strings.Split(v, "=")
-		key := split[0]
-		value := split[1]
-		envKeys = append(envKeys, key)
-		envVals = append(envVals, value)
-	}
-	// Set environment variables in WASI
-	wasiConfig.SetEnv(envKeys, envVals)
-
-	// Save the WASI Configuration to the store
-	wasiRunner.store.SetWasi(wasiConfig)
 
 	// Create a linker
-	wasiRunner.linker = wasmtime.NewLinker(wf.engine)
-	if err := wasiRunner.linker.DefineWasi(); err != nil {
-		wasiRunner.Close()
+	wr.linker = wasmtime.NewLinker(wf.engine)
+	if err := wr.linker.DefineWasi(); err != nil {
+		wr.Close()
 		return fmt.Errorf("[WasiFactory] Failed to define WASI in the linker for %s: %v", contID, err)
 	}
 
 	// Determine wasm file name
-	wasmFileName := filepath.Join(wasiRunner.dir, contID+".wasm")
+	wasmFileName := filepath.Join(wr.dir, contID+".wasm")
 
-	// Read module code
-	moduleData, err := os.ReadFile(wasmFileName)
-	if err != nil {
-		wasiRunner.Close()
-		return fmt.Errorf("[WasiFactory] Failed to read the WASI code for %s: %v", contID, err)
-	}
 	// Try to compile the WASI Module
-	module, err := wasmtime.NewModule(wf.engine, moduleData)
+	module, err := wasmtime.NewModuleFromFile(wf.engine, wasmFileName)
 	if err != nil {
-		if strings.HasPrefix(err.Error(), "failed to parse WebAssembly module") {
+		if strings.HasPrefix(err.Error(), "expected a WebAssembly module but was given a WebAssembly component") {
 			// File is a WASI Component
-			wasiRunner.cliArgs = append(wasiRunner.cliArgs, "--dir", wasiRunner.dir+"::"+wasiRunner.mount)
-			for _, v := range wasiRunner.env {
-				wasiRunner.cliArgs = append(wasiRunner.cliArgs, "--env")
-				wasiRunner.cliArgs = append(wasiRunner.cliArgs, v)
-			}
-			wasiRunner.cliArgs = append(wasiRunner.cliArgs, wasmFileName)
-			wasiRunner.wasiType = WASI_TYPE_COMPONENT
+			wr.cliArgs = append(wr.cliArgs, wasmFileName)
+			wr.wasiType = WASI_TYPE_COMPONENT
 			return nil
 		}
 		// There was another error; wasm file is incorrect
-		wasiRunner.Close()
+		wr.Close()
 		return fmt.Errorf("[WasiFactory] Failed to create WASI Module for %s: %v", contID, err)
 	}
 	// File was compiled successfully
-	wasiRunner.module = module
-	wasiRunner.wasiType = WASI_TYPE_MODULE
+	wr.module = module
+	wr.wasiType = WASI_TYPE_MODULE
 	return nil
 }
 
@@ -235,4 +212,35 @@ func (wf *WasiFactory) GetIPAddress(ContainerID) (string, error) {
 func (wf *WasiFactory) GetMemoryMB(id ContainerID) (int64, error) {
 	log.Println("[WasiFactory] GetMemoryMB unimplemented")
 	return 0, nil
+}
+
+// Utility function to create a Wasi Configuration for this runner
+// The WasiConfiguration cannot be shared among threads because it's not thread-safe
+func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID) (*wasmtime.WasiConfig, error) {
+	// Create new Wasi Configuration
+	wasiConfig := wasmtime.NewWasiConfig()
+	// Set environment variables
+	wasiConfig.SetEnv(wr.envKeys, wr.envValues)
+
+	// Create temporary files for stdout and stderr for this function
+	stdout, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
+	if err != nil {
+		return nil, fmt.Errorf("[WasiRunner]: failed to create temp stdout file for %s: %v", contID, err)
+	}
+	stderr, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
+	if err != nil {
+		return nil, fmt.Errorf("[WasiRunner]: failed to create temp stderr file for %s: %v", contID, err)
+	}
+	// Set wasmtime to use the temporary files for stdout and stderr
+	wasiConfig.SetStdoutFile(stdout.Name())
+	wasiConfig.SetStderrFile(stderr.Name())
+	// Save the references to the temporary files
+	wr.stdout = stdout
+	wr.stderr = stderr
+	// Mount the temporary directory to the specified mount point
+	if err := wasiConfig.PreopenDir(wr.dir, wr.mount); err != nil {
+		return nil, fmt.Errorf("[WasiRunner] Failed to preopen %s: %v", wr.mount, err)
+	}
+
+	return wasiConfig, nil
 }
