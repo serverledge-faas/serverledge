@@ -74,15 +74,15 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
-		wasiConfig, err := wr.BuildWasiConfiguration(contID, req.Handler)
+		wcc, err := wr.BuildWasiConfiguration(contID, req.Handler)
 		if err != nil {
 			return nil, time.Now().Sub(t0), err
 		}
-		defer wasiConfig.Close()
+		defer wcc.Close()
 
 		// Create new store for this module
 		store := wasmtime.NewStore(wf.engine)
-		store.SetWasi(wasiConfig)
+		store.SetWasi(wcc.wasiConfig)
 		defer store.Close()
 
 		// Create an instance of the module
@@ -103,13 +103,13 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 
 		// Read stdout from the temp file
-		stdout, err := io.ReadAll(wr.stdout)
+		stdout, err := io.ReadAll(wcc.stdout)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stdout for WASI: %v", err)
 		}
 
 		// Read stderr from the temp file
-		stderr, err := io.ReadAll(wr.stderr)
+		stderr, err := io.ReadAll(wcc.stderr)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stderr for WASI: %v", err)
 		}
