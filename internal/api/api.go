@@ -142,6 +142,11 @@ func CreateFunction(c echo.Context) error {
 
 	log.Printf("New request: creation of %s\n", f.Name)
 
+	if f.Runtime == container.WASI_RUNTIME {
+		// Dropping memory requirements because it cannot be enforced in Wasi
+		f.MemoryMB = 0
+	}
+
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME && f.Runtime != container.WASI_RUNTIME {
 		_, ok := container.RuntimeToInfo[f.Runtime]
