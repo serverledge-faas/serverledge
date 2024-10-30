@@ -226,7 +226,7 @@ func (wf *WasiFactory) GetMemoryMB(id ContainerID) (int64, error) {
 
 // Utility function to create a Wasi Configuration for this runner
 // The WasiConfiguration cannot be shared among threads because it's not thread-safe
-func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID, handler string) (wasiCustomConfig, error) {
+func (wr *wasiRunner) BuildWasiConfig(contID ContainerID, handler string, params string) (wasiCustomConfig, error) {
 	var wcc wasiCustomConfig
 	// Create new Wasi Configuration
 	wasiConfig := wasmtime.NewWasiConfig()
@@ -256,9 +256,17 @@ func (wr *wasiRunner) BuildWasiConfiguration(contID ContainerID, handler string)
 		return wcc, fmt.Errorf("[WasiRunner] Failed to preopen %s: %v", wr.mount, err)
 	}
 
+	// Create argv (first element is usually the program name, leaving empty)
+	argv := []string{""}
 	if handler != "" {
-		wasiConfig.SetArgv([]string{"", handler})
+		// Add handler if available (used in Python for the source file)
+		argv = append(argv, handler)
 	}
+	// Add additional params as a JSON string
+	argv = append(argv, params)
+
+	// Set argv in Wasi
+	wasiConfig.SetArgv(argv)
 
 	// Save references into custom configuration
 	wcc.wasiConfig = wasiConfig

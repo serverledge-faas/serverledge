@@ -72,9 +72,18 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	wr := wf.runners[contID]
 	t0 := time.Now()
 
+	var paramsBytes []byte
+	if req.Params != nil {
+		var err error
+		paramsBytes, err = json.Marshal(req.Params)
+		if err != nil {
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to convert params to JSON: %v", err)
+		}
+	}
+
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
-		wcc, err := wr.BuildWasiConfiguration(contID, req.Handler)
+		wcc, err := wr.BuildWasiConfig(contID, req.Handler, string(paramsBytes))
 		if err != nil {
 			return nil, time.Now().Sub(t0), err
 		}
@@ -123,6 +132,9 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	} else if wr.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
 		args := append(wr.cliArgs, req.Handler)
+		if len(paramsBytes) > 0 {
+			args = append(args, string(paramsBytes))
+		}
 		execCmd := exec.Command("wasmtime", args...)
 
 		// Save stdout and stderr to another buffer
