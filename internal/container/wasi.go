@@ -1,10 +1,13 @@
 package container
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,11 +27,12 @@ type WasiFactory struct {
 	ctx     context.Context
 	runners map[string]*wasiRunner
 	engine  *wasmtime.Engine
+	lock    sync.RWMutex
 }
 
 type wasiRunner struct {
-	lock     sync.Mutex // Mutex used to have a single untar-ed copy of the runner
-	wasiType WasiType   // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
+	lock     sync.RWMutex // Mutex used to have a single untar-ed copy of the runner
+	wasiType WasiType     // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
 	// WASI Module Specifics
 	envKeys, envValues []string         // List of environment variables keys and values
 	dir, mount         string           // Wasm Directory and its mount point
@@ -90,7 +94,11 @@ func InitWasiFactory() *WasiFactory {
 	engine := wasmtime.NewEngineWithConfig(engineConfig)
 
 	// Create the factory
-	wasiFactory := &WasiFactory{ctx, make(map[string]*wasiRunner), engine}
+	wasiFactory := &WasiFactory{
+		ctx:     ctx,
+		runners: make(map[string]*wasiRunner),
+		engine:  engine,
+	}
 	if factories == nil {
 		factories = make(map[string]Factory)
 	}
@@ -101,26 +109,36 @@ func InitWasiFactory() *WasiFactory {
 // Image is the ID
 // NOTE: this approach requires Runtime to be set to wasi and CustomImage to an identifier (e.g. function name)
 func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	// Create new runner if it does not exists
-	if _, ok := wf.runners[image]; !ok {
-		var envKeys, envVals, cliArgs []string
-		for _, v := range opts.Env {
-			cliArgs = append(cliArgs, "--env", v)
-			// Splitting the env array to separate keys and values
-			// Assuming env is formatted correctly: KEY=VALUE
-			split := strings.Split(v, "=")
-			key := split[0]
-			value := split[1]
-			envKeys = append(envKeys, key)
-			envVals = append(envVals, value)
-		}
+	// Check if runner already exists
+	wf.lock.RLock()
+	_, ok := wf.runners[image]
+	if ok {
+		wf.lock.RUnlock()
+		return image, nil
+	}
+	wf.lock.RUnlock()
 
-		wf.runners[image] = &wasiRunner{
-			envKeys:   envKeys,
-			envValues: envVals,
-			cliArgs:   cliArgs,
-			wasiType:  WASI_TYPE_UNDEFINED,
-		}
+	// Runner does not exists, creating new one
+	wf.lock.Lock()
+	defer wf.lock.Unlock()
+	// Create new runner if it does not exists
+	var envKeys, envVals, cliArgs []string
+	for _, v := range opts.Env {
+		cliArgs = append(cliArgs, "--env", v)
+		// Splitting the env array to separate keys and values
+		// Assuming env is formatted correctly: KEY=VALUE
+		split := strings.Split(v, "=")
+		key := split[0]
+		value := split[1]
+		envKeys = append(envKeys, key)
+		envVals = append(envVals, value)
+	}
+
+	wf.runners[image] = &wasiRunner{
+		envKeys:   envKeys,
+		envValues: envVals,
+		cliArgs:   cliArgs,
+		wasiType:  WASI_TYPE_UNDEFINED,
 	}
 	return image, nil
 }
@@ -128,12 +146,46 @@ func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID
 // Untar the decoded function code into a temporary directory
 func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, destPath string) error {
 	wr := wf.runners[contID]
-	wr.lock.Lock()
-	defer wr.lock.Unlock()
+	wr.lock.RLock()
 	// Code was already copied by another thread
 	if wr.dir != "" {
+		wr.lock.RUnlock()
 		return nil
 	}
+	wr.lock.RUnlock()
+
+	// Code has to be downloaded, getting a write lock
+	wr.lock.Lock()
+	defer wr.lock.Unlock()
+
+	// Additional buffer, used to determine if it's a URL or not
+	var buffer bytes.Buffer
+
+	// Create new reader that reads from content and writes to buffer
+	teeReader := io.TeeReader(content, &buffer)
+
+	// Read from the newly created reader
+	data, err := io.ReadAll(teeReader)
+	if err != nil {
+		return fmt.Errorf("[WasiFactory] Failed to read content: %v", err)
+	}
+	// Restore content value (assuming code is a tar)
+	content = &buffer
+
+	// Check if data is a url
+	u, err := url.ParseRequestURI(string(data))
+	if err == nil && u.Scheme != "" && u.Host != "" {
+		// data is url; it has to be downloaded
+		resp, err := http.Get(string(data))
+		if err != nil {
+			return fmt.Errorf("[WasiFactory] Failed to download code for %s: %v", contID, err)
+		}
+		defer resp.Body.Close()
+
+		// Content is now the downloaded tar file
+		content = resp.Body
+	}
+
 	// Create temporary directory to store untar-ed wasm file
 	dir, err := os.MkdirTemp("", contID)
 	if err != nil {
@@ -156,16 +208,18 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 // NOTE: using contID (set as custom_image from CLI as the wasm filename inside the tar)
 func (wf *WasiFactory) Start(contID ContainerID) error {
 	// Get the wasi runner
-	wr, ok := wf.runners[contID]
-	if !ok {
-		return fmt.Errorf("[WasiFactory]: no runner with %s found", contID)
-	}
-	wr.lock.Lock()
-	defer wr.lock.Unlock()
+	wr := wf.runners[contID]
+	wr.lock.RLock()
+
 	// File was already compiled by another thread
 	if wr.wasiType != WASI_TYPE_UNDEFINED {
+		wr.lock.RUnlock()
 		return nil
 	}
+	wr.lock.RUnlock()
+
+	wr.lock.Lock()
+	defer wr.lock.Unlock()
 
 	// Create a linker
 	wr.linker = wasmtime.NewLinker(wf.engine)
