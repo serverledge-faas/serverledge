@@ -260,7 +260,7 @@ func (wr *wasiRunner) BuildWasiConfig(contID ContainerID, handler string, params
 	argv := []string{""}
 	if handler != "" {
 		// Add handler if available (used in Python for the source file)
-		argv = append(argv, handler)
+		argv = append(argv, wr.mount+handler)
 	}
 	// Add additional params as a JSON string
 	argv = append(argv, params)

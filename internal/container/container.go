@@ -131,7 +131,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		return res, time.Now().Sub(t0), nil
 	} else if wr.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
-		args := append(wr.cliArgs, req.Handler)
+		args := append(wr.cliArgs, wr.mount+req.Handler)
 		if len(paramsBytes) > 0 {
 			args = append(args, string(paramsBytes))
 		}
