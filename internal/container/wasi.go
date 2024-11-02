@@ -25,14 +25,14 @@ const WASI_TYPE_UNDEFINED WasiType = "undefined"
 
 type WasiFactory struct {
 	ctx     context.Context
-	runners map[string]*wasiRunner
+	runners sync.Map // ContainerID -> *wasiRunner
 	engine  *wasmtime.Engine
-	lock    sync.RWMutex
 }
 
 type wasiRunner struct {
-	lock     sync.RWMutex // Mutex used to have a single untar-ed copy of the runner
-	wasiType WasiType     // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
+	copyInit, startInit sync.Once // Single initialization
+
+	wasiType WasiType // WasiModule is executed using wasmtime-go; WasiComponent using Wasmtime CLI
 	// WASI Module Specifics
 	envKeys, envValues []string         // List of environment variables keys and values
 	dir, mount         string           // Wasm Directory and its mount point
@@ -94,11 +94,7 @@ func InitWasiFactory() *WasiFactory {
 	engine := wasmtime.NewEngineWithConfig(engineConfig)
 
 	// Create the factory
-	wasiFactory := &WasiFactory{
-		ctx:     ctx,
-		runners: make(map[string]*wasiRunner),
-		engine:  engine,
-	}
+	wasiFactory := &WasiFactory{ctx: ctx, engine: engine}
 	if factories == nil {
 		factories = make(map[string]Factory)
 	}
@@ -109,19 +105,10 @@ func InitWasiFactory() *WasiFactory {
 // Image is the ID
 // NOTE: this approach requires Runtime to be set to wasi and CustomImage to an identifier (e.g. function name)
 func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID, error) {
-	// Check if runner already exists
-	wf.lock.RLock()
-	_, ok := wf.runners[image]
+	_, ok := wf.runners.Load(image)
 	if ok {
-		wf.lock.RUnlock()
 		return image, nil
 	}
-	wf.lock.RUnlock()
-
-	// Runner does not exists, creating new one
-	wf.lock.Lock()
-	defer wf.lock.Unlock()
-	// Create new runner if it does not exists
 	var envKeys, envVals, cliArgs []string
 	for _, v := range opts.Env {
 		cliArgs = append(cliArgs, "--env", v)
@@ -134,73 +121,73 @@ func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID
 		envVals = append(envVals, value)
 	}
 
-	wf.runners[image] = &wasiRunner{
+	wasiConfig := wasmtime.NewWasiConfig()
+	wasiConfig.SetEnv(envKeys, envVals)
+
+	wf.runners.Store(image, &wasiRunner{
 		envKeys:   envKeys,
 		envValues: envVals,
 		cliArgs:   cliArgs,
 		wasiType:  WASI_TYPE_UNDEFINED,
-	}
+	})
 	return image, nil
 }
 
 // Untar the decoded function code into a temporary directory
 func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, destPath string) error {
-	wr := wf.runners[contID]
-	wr.lock.RLock()
-	// Code was already copied by another thread
-	if wr.dir != "" {
-		wr.lock.RUnlock()
-		return nil
-	}
-	wr.lock.RUnlock()
+	wrValue, _ := wf.runners.Load(contID) // assuming runners already exists
+	wr := wrValue.(*wasiRunner)
+	externalError := *new(error)
+	wr.copyInit.Do(func() {
+		// Additional buffer, used to determine if it's a URL or not
+		var buffer bytes.Buffer
 
-	// Code has to be downloaded, getting a write lock
-	wr.lock.Lock()
-	defer wr.lock.Unlock()
+		// Create new reader that reads from content and writes to buffer
+		teeReader := io.TeeReader(content, &buffer)
 
-	// Additional buffer, used to determine if it's a URL or not
-	var buffer bytes.Buffer
-
-	// Create new reader that reads from content and writes to buffer
-	teeReader := io.TeeReader(content, &buffer)
-
-	// Read from the newly created reader
-	data, err := io.ReadAll(teeReader)
-	if err != nil {
-		return fmt.Errorf("[WasiFactory] Failed to read content: %v", err)
-	}
-	// Restore content value (assuming code is a tar)
-	content = &buffer
-
-	// Check if data is a url
-	u, err := url.ParseRequestURI(string(data))
-	if err == nil && u.Scheme != "" && u.Host != "" {
-		// data is url; it has to be downloaded
-		resp, err := http.Get(string(data))
+		// Read from the newly created reader
+		data, err := io.ReadAll(teeReader)
 		if err != nil {
-			return fmt.Errorf("[WasiFactory] Failed to download code for %s: %v", contID, err)
+			externalError = fmt.Errorf("[WasiFactory] Failed to read content: %v", err)
+			return
 		}
-		defer resp.Body.Close()
+		// Restore content value (assuming code is a tar)
+		content = &buffer
 
-		// Content is now the downloaded tar file
-		content = resp.Body
-	}
+		// Check if data is a url
+		u, err := url.ParseRequestURI(string(data))
+		if err == nil && u.Scheme != "" && u.Host != "" {
+			// data is url; it has to be downloaded
+			resp, err := http.Get(string(data))
+			if err != nil {
+				externalError = fmt.Errorf("[WasiFactory] Failed to download code for %s: %v", contID, err)
+				return
+			}
+			defer resp.Body.Close()
 
-	// Create temporary directory to store untar-ed wasm file
-	dir, err := os.MkdirTemp("", contID)
-	if err != nil {
-		return fmt.Errorf("[WasiFactory] Failed to create temporary directory for %s: %v", contID, err)
-	}
-	// Untar code
-	if err := utils.Untar(content, dir); err != nil {
-		return fmt.Errorf("[WasiFactory] Failed to untar code for %s: %v", contID, err)
-	}
-	// NOTE: hard-coding `destPath` as `/`
-	// this is required to correctly use the official Python interpreter
-	wr.mount = "/"
-	wr.dir = dir
-	wr.cliArgs = append(wr.cliArgs, "--dir", wr.dir+"::"+wr.mount)
-	return nil
+			// Content is now the downloaded tar file
+			content = resp.Body
+		}
+
+		// Create temporary directory to store untar-ed wasm file
+		dir, err := os.MkdirTemp("", contID)
+		if err != nil {
+			externalError = fmt.Errorf("[WasiFactory] Failed to create temporary directory for %s: %v", contID, err)
+			return
+		}
+		// Untar code
+		if err := utils.Untar(content, dir); err != nil {
+			externalError = fmt.Errorf("[WasiFactory] Failed to untar code for %s: %v", contID, err)
+			return
+		}
+		// NOTE: hard-coding `destPath` as `/`
+		// this is required to correctly use the official Python interpreter
+		wr.mount = "/"
+		wr.dir = dir
+		wr.cliArgs = append(wr.cliArgs, "--dir", wr.dir+"::"+wr.mount)
+	})
+
+	return externalError
 }
 
 // WASI Module: compiles the module
@@ -208,53 +195,49 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 // NOTE: using contID (set as custom_image from CLI as the wasm filename inside the tar)
 func (wf *WasiFactory) Start(contID ContainerID) error {
 	// Get the wasi runner
-	wr := wf.runners[contID]
-	wr.lock.RLock()
+	wrValue, _ := wf.runners.Load(contID)
+	wr := wrValue.(*wasiRunner)
 
-	// File was already compiled by another thread
-	if wr.wasiType != WASI_TYPE_UNDEFINED {
-		wr.lock.RUnlock()
-		return nil
-	}
-	wr.lock.RUnlock()
-
-	wr.lock.Lock()
-	defer wr.lock.Unlock()
-
-	// Create a linker
-	wr.linker = wasmtime.NewLinker(wf.engine)
-	if err := wr.linker.DefineWasi(); err != nil {
-		wr.Close()
-		return fmt.Errorf("[WasiFactory] Failed to define WASI in the linker for %s: %v", contID, err)
-	}
-
-	// Determine wasm file name
-	wasmFileName := filepath.Join(wr.dir, contID+".wasm")
-
-	// Try to compile the WASI Module
-	module, err := wasmtime.NewModuleFromFile(wf.engine, wasmFileName)
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "expected a WebAssembly module but was given a WebAssembly component") {
-			// File is a WASI Component
-			wr.cliArgs = append(wr.cliArgs, wasmFileName)
-			wr.wasiType = WASI_TYPE_COMPONENT
-			return nil
+	externalError := *new(error)
+	wr.startInit.Do(func() {
+		// Create a linker
+		wr.linker = wasmtime.NewLinker(wf.engine)
+		if err := wr.linker.DefineWasi(); err != nil {
+			wr.Close()
+			externalError = fmt.Errorf("[WasiFactory] Failed to define WASI in the linker for %s: %v", contID, err)
+			return
 		}
-		// There was another error; wasm file is incorrect
-		wr.Close()
-		return fmt.Errorf("[WasiFactory] Failed to create WASI Module for %s: %v", contID, err)
-	}
-	// File was compiled successfully
-	wr.module = module
-	wr.wasiType = WASI_TYPE_MODULE
-	return nil
+
+		// Determine wasm file name
+		wasmFileName := filepath.Join(wr.dir, contID+".wasm")
+
+		// Try to compile the WASI Module
+		module, err := wasmtime.NewModuleFromFile(wf.engine, wasmFileName)
+		if err != nil {
+			if strings.HasPrefix(err.Error(), "expected a WebAssembly module but was given a WebAssembly component") {
+				// File is a WASI Component
+				wr.cliArgs = append(wr.cliArgs, wasmFileName)
+				wr.wasiType = WASI_TYPE_COMPONENT
+				return
+			}
+			// There was another error; wasm file is incorrect
+			wr.Close()
+			externalError = fmt.Errorf("[WasiFactory] Failed to create WASI Module for %s: %v", contID, err)
+			return
+		}
+		// File was compiled successfully
+		wr.module = module
+		wr.wasiType = WASI_TYPE_MODULE
+	})
+	return externalError
 }
 
 func (wf *WasiFactory) Destroy(id ContainerID) error {
-	if wasiRunner, ok := wf.runners[id]; ok {
-		wasiRunner.Close()
+	wrValue, ok := wf.runners.Load(id)
+	if ok {
+		wrValue.(*wasiRunner).Close()
+		wf.runners.Delete(id)
 	}
-	delete(wf.runners, id)
 	return nil
 }
 

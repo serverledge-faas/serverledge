@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/bytecodealliance/wasmtime-go/v25"
@@ -52,18 +53,24 @@ func Execute(contID ContainerID, req *executor.InvocationRequest, f *function.Fu
 
 func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor.InvocationResult, time.Duration, error) {
 	wf := factories[WASI_FACTORY_KEY].(*WasiFactory)
-	wr := wf.runners[contID]
-	t0 := time.Now()
+	wrValue, _ := wf.runners.Load(contID)
+	wr := wrValue.(*wasiRunner)
+
+	if wr.wasiType == WASI_TYPE_UNDEFINED {
+		return nil, 0, fmt.Errorf("Unrecognized WASI Type")
+	}
 
 	var paramsBytes []byte
 	if req.Params != nil {
 		var err error
 		paramsBytes, err = json.Marshal(req.Params)
 		if err != nil {
-			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to convert params to JSON: %v", err)
+			return nil, 0, fmt.Errorf("Failed to convert params to JSON: %v", err)
 		}
 	}
 
+	res := &executor.InvocationResult{Success: false}
+	t0 := time.Now()
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
 		wcc, err := wr.BuildWasiConfig(contID, req.Handler, string(paramsBytes))
@@ -107,11 +114,11 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 
 		// Populate result
-		res := &executor.InvocationResult{Success: true, Result: string(stdout)}
+		res.Success = true
+		res.Result = string(stdout)
 		if req.ReturnOutput {
 			res.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
 		}
-		return res, time.Now().Sub(t0), nil
 	} else if wr.wasiType == WASI_TYPE_COMPONENT {
 		// Create wasmtime CLI command
 		args := append(wr.cliArgs, wr.mount+req.Handler)
@@ -143,14 +150,14 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 
 		// Create response
-		resp := &executor.InvocationResult{Success: err == nil, Result: string(stdout)}
+		res.Success = err == nil
+		res.Result = string(stdout)
 		if req.ReturnOutput {
-			resp.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
+			res.Output = fmt.Sprintf("%s\n%s", string(stdout), string(stderr))
 		}
-		return resp, time.Now().Sub(t0), nil
-	} else {
-		return nil, 0, fmt.Errorf("Unrecognized WASI Type")
 	}
+
+	return res, time.Now().Sub(t0), nil
 }
 
 // Execute interacts with the Executor running in the container to invoke the
