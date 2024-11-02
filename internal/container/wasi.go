@@ -43,8 +43,9 @@ type wasiRunner struct {
 }
 
 // Utility struct to keep configuration and temporary files
-type wasiCustomConfig struct {
-	wasiConfig     *wasmtime.WasiConfig // Actual Configuration
+type wasiInternalStore struct {
+	store          *wasmtime.Store      // Actual Store
+	config         *wasmtime.WasiConfig // Wasi Config
 	stdout, stderr *os.File             // Temporary files for stdout and stderr
 }
 
@@ -62,21 +63,17 @@ func (wr *wasiRunner) Close() {
 	}
 }
 
-func (wcc *wasiCustomConfig) Close() {
-	if wcc.wasiConfig != nil {
-		wcc.wasiConfig.Close()
+func (wcc *wasiInternalStore) Close() {
+	wcc.store.Close()
+	wcc.config.Close()
+	wcc.stdout.Close()
+	wcc.stderr.Close()
+
+	if err := os.Remove(wcc.stdout.Name()); err != nil {
+		log.Printf("[WasiCustomConfig] Failed to remove stdout %s: %v", wcc.stdout.Name(), err)
 	}
-	if wcc.stdout != nil {
-		wcc.stdout.Close()
-		if err := os.Remove(wcc.stdout.Name()); err != nil {
-			log.Printf("[WasiCustomConfig] Failed to remove stdout %s: %v", wcc.stdout.Name(), err)
-		}
-	}
-	if wcc.stderr != nil {
-		wcc.stderr.Close()
-		if err := os.Remove(wcc.stderr.Name()); err != nil {
-			log.Printf("[WasiCustomConfig] Failed to remove stderr %s: %v", wcc.stderr.Name(), err)
-		}
+	if err := os.Remove(wcc.stderr.Name()); err != nil {
+		log.Printf("[WasiCustomConfig] Failed to remove stderr %s: %v", wcc.stderr.Name(), err)
 	}
 }
 
@@ -263,33 +260,33 @@ func (wf *WasiFactory) GetMemoryMB(id ContainerID) (int64, error) {
 
 // Utility function to create a Wasi Configuration for this runner
 // The WasiConfiguration cannot be shared among threads because it's not thread-safe
-func (wr *wasiRunner) BuildWasiConfig(contID ContainerID, handler string, params string) (wasiCustomConfig, error) {
-	var wcc wasiCustomConfig
+func (wr *wasiRunner) BuildStore(contID ContainerID, engine *wasmtime.Engine, handler, params string) (wasiInternalStore, error) {
+	var wcc wasiInternalStore
 	// Create new Wasi Configuration
-	wasiConfig := wasmtime.NewWasiConfig()
+	wcc.config = wasmtime.NewWasiConfig()
 	// Set environment variables
-	wasiConfig.SetEnv(wr.envKeys, wr.envValues)
+	wcc.config.SetEnv(wr.envKeys, wr.envValues)
 
 	// Create temporary files for stdout and stderr for this function
-	stdout, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
+	stdout, err := os.CreateTemp("", fmt.Sprintf("%s-stdout-*", contID))
 	if err != nil {
 		return wcc, fmt.Errorf("[WasiRunner]: failed to create temp stdout file for %s: %v", contID, err)
 	}
-	stderr, err := os.CreateTemp("", fmt.Sprintf("%s-stdout", contID))
+	stderr, err := os.CreateTemp("", fmt.Sprintf("%s-stderr-*", contID))
 	if err != nil {
 		return wcc, fmt.Errorf("[WasiRunner]: failed to create temp stderr file for %s: %v", contID, err)
 	}
 
 	// Set wasmtime to use the temporary files for stdout and stderr
-	if err := wasiConfig.SetStdoutFile(stdout.Name()); err != nil {
+	if err := wcc.config.SetStdoutFile(stdout.Name()); err != nil {
 		return wcc, fmt.Errorf("[WasiRunner] Failed to set stdout file: %v", err)
 	}
-	if err := wasiConfig.SetStderrFile(stderr.Name()); err != nil {
+	if err := wcc.config.SetStderrFile(stderr.Name()); err != nil {
 		return wcc, fmt.Errorf("[WasiRunner] Failed to set stderr file: %v", err)
 	}
 
 	// Mount the temporary directory to the specified mount point
-	if err := wasiConfig.PreopenDir(wr.dir, wr.mount); err != nil {
+	if err := wcc.config.PreopenDir(wr.dir, wr.mount); err != nil {
 		return wcc, fmt.Errorf("[WasiRunner] Failed to preopen %s: %v", wr.mount, err)
 	}
 
@@ -303,11 +300,13 @@ func (wr *wasiRunner) BuildWasiConfig(contID ContainerID, handler string, params
 	argv = append(argv, params)
 
 	// Set argv in Wasi
-	wasiConfig.SetArgv(argv)
+	wcc.config.SetArgv(argv)
 
 	// Save references into custom configuration
-	wcc.wasiConfig = wasiConfig
 	wcc.stdout = stdout
 	wcc.stderr = stderr
+
+	wcc.store = wasmtime.NewStore(engine)
+	wcc.store.SetWasi(wcc.config)
 	return wcc, nil
 }

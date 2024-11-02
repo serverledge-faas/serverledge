@@ -9,10 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
-	"runtime"
 	"time"
 
-	"github.com/bytecodealliance/wasmtime-go/v25"
 	"github.com/grussorusso/serverledge/internal/executor"
 	"github.com/grussorusso/serverledge/internal/function"
 )
@@ -73,31 +71,26 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	t0 := time.Now()
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
-		wcc, err := wr.BuildWasiConfig(contID, req.Handler, string(paramsBytes))
+		wcc, err := wr.BuildStore(contID, wf.engine, req.Handler, string(paramsBytes))
 		if err != nil {
 			return nil, time.Now().Sub(t0), err
 		}
 		defer wcc.Close()
 
-		// Create new store for this module
-		store := wasmtime.NewStore(wf.engine)
-		store.SetWasi(wcc.wasiConfig)
-		defer store.Close()
-
 		// Create an instance of the module
-		instance, err := wr.linker.Instantiate(store, wr.module)
+		instance, err := wr.linker.Instantiate(wcc.store, wr.module)
 		if err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to instantiate WASI module: %v", err)
 		}
 
 		// Get the _start function (entrypoint of any wasm module)
-		start := instance.GetFunc(store, "_start")
+		start := instance.GetFunc(wcc.store, "_start")
 		if start == nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("WASI Module does not have a _start function")
 		}
 
 		// Call the _start function
-		if _, err := start.Call(store); err != nil {
+		if _, err := start.Call(wcc.store); err != nil {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to run WASI module: %v", err)
 		}
 
