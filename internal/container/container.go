@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/grussorusso/serverledge/internal/executor"
@@ -90,7 +91,8 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 
 		// Call the _start function
-		if _, err := start.Call(wcc.store); err != nil {
+		if _, err := start.Call(wcc.store); err != nil &&
+			!strings.Contains(err.Error(), "exit status 0") {
 			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to run WASI module: %v", err)
 		}
 
