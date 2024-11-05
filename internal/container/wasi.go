@@ -115,9 +115,6 @@ func (wf *WasiFactory) Create(image string, opts *ContainerOptions) (ContainerID
 		envVals = append(envVals, value)
 	}
 
-	wasiConfig := wasmtime.NewWasiConfig()
-	wasiConfig.SetEnv(envKeys, envVals)
-
 	wf.runners.Store(image, &wasiRunner{
 		envKeys:   envKeys,
 		envValues: envVals,
