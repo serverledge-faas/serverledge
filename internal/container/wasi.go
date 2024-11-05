@@ -1,13 +1,10 @@
 package container
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -136,36 +133,6 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 	wr := wrValue.(*wasiRunner)
 	externalError := *new(error)
 	wr.copyInit.Do(func() {
-		// Additional buffer, used to determine if it's a URL or not
-		var buffer bytes.Buffer
-
-		// Create new reader that reads from content and writes to buffer
-		teeReader := io.TeeReader(content, &buffer)
-
-		// Read from the newly created reader
-		data, err := io.ReadAll(teeReader)
-		if err != nil {
-			externalError = fmt.Errorf("[WasiFactory] Failed to read content: %v", err)
-			return
-		}
-		// Restore content value (assuming code is a tar)
-		content = &buffer
-
-		// Check if data is a url
-		u, err := url.ParseRequestURI(string(data))
-		if err == nil && u.Scheme != "" && u.Host != "" {
-			// data is url; it has to be downloaded
-			resp, err := http.Get(string(data))
-			if err != nil {
-				externalError = fmt.Errorf("[WasiFactory] Failed to download code for %s: %v", contID, err)
-				return
-			}
-			defer resp.Body.Close()
-
-			// Content is now the downloaded tar file
-			content = resp.Body
-		}
-
 		// Create temporary directory to store untar-ed wasm file
 		dir, err := os.MkdirTemp("", contID)
 		if err != nil {
@@ -254,7 +221,6 @@ func (wf *WasiFactory) GetIPAddress(ContainerID) (string, error) {
 }
 
 func (wf *WasiFactory) GetMemoryMB(id ContainerID) (int64, error) {
-	log.Println("[WasiFactory] GetMemoryMB unimplemented")
 	return 0, nil
 }
 

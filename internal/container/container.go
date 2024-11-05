@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"time"
@@ -26,8 +27,25 @@ func NewContainer(image, codeTar string, opts *ContainerOptions, f *function.Fun
 	}
 
 	if len(codeTar) > 0 {
+		var r io.Reader
+		// Decoding codeTar
 		decodedCode, _ := base64.StdEncoding.DecodeString(codeTar)
-		err = cf.CopyToContainer(contID, bytes.NewReader(decodedCode), "/app/")
+		// Check if decoded src is a url
+		u, err := url.ParseRequestURI(string(decodedCode))
+		if err == nil && u.Scheme != "" && u.Host != "" {
+			// codeTar is an URL; it has to be downloaded
+			resp, err := http.Get(string(decodedCode))
+			if err != nil {
+				log.Printf("Failed to download code %s", decodedCode)
+				return "", err
+			}
+			defer resp.Body.Close()
+			r = resp.Body
+		} else {
+			// assuming decodedCode is base64 encoded tar
+			r = bytes.NewReader(decodedCode)
+		}
+		err = cf.CopyToContainer(contID, r, "/app/")
 		if err != nil {
 			log.Printf("Failed code copy\n")
 			return "", err
