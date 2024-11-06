@@ -7,11 +7,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/bytecodealliance/wasmtime-go/v25"
 	"github.com/grussorusso/serverledge/utils"
+	"golang.org/x/sys/cpu"
 )
 
 type WasiType string
@@ -76,13 +78,20 @@ func (wcc *wasiInternalStore) Close() {
 
 func InitWasiFactory() *WasiFactory {
 	ctx := context.Background()
+
 	// Create Engine configuration
 	engineConfig := wasmtime.NewConfig()
 	engineConfig.SetWasmRelaxedSIMD(true)
 	engineConfig.SetWasmBulkMemory(true)
 	engineConfig.SetWasmMultiValue(true)
+	engineConfig.SetWasmThreads(true)
 	engineConfig.SetStrategy(wasmtime.StrategyCranelift)
 	engineConfig.SetCraneliftOptLevel(wasmtime.OptLevelSpeed)
+	engineConfig.SetCraneliftDebugVerifier(false)
+	enableCraneliftFlags(engineConfig)
+	if err := engineConfig.CacheConfigLoadDefault(); err != nil {
+		log.Printf("Failed to setup cache: %v", err)
+	}
 
 	// Create wasmtime engine, shared for all modules
 	engine := wasmtime.NewEngineWithConfig(engineConfig)
@@ -272,4 +281,57 @@ func (wr *wasiRunner) BuildStore(contID ContainerID, engine *wasmtime.Engine, ha
 	wcc.store = wasmtime.NewStore(engine)
 	wcc.store.SetWasi(wcc.config)
 	return wcc, nil
+}
+
+func enableCraneliftFlags(config *wasmtime.Config) {
+	// Cranelift only supports x86 and x86-64 compilation flags
+	if runtime.GOARCH == "386" || runtime.GOARCH == "amd64" {
+		if cpu.X86.HasSSE3 {
+			config.EnableCraneliftFlag("has_sse3")
+		}
+		if cpu.X86.HasSSSE3 {
+			config.EnableCraneliftFlag("has_ssse3")
+		}
+		if cpu.X86.HasSSE41 {
+			config.EnableCraneliftFlag("has_sse41")
+		}
+		if cpu.X86.HasSSE42 {
+			config.EnableCraneliftFlag("has_sse42")
+		}
+		if cpu.X86.HasAVX {
+			config.EnableCraneliftFlag("has_avx")
+		}
+		if cpu.X86.HasAVX2 {
+			config.EnableCraneliftFlag("has_avx2")
+		}
+		if cpu.X86.HasFMA {
+			config.EnableCraneliftFlag("has_fma")
+		}
+		if cpu.X86.HasAVX512BITALG {
+			config.EnableCraneliftFlag("has_avx512bitalg")
+		}
+		if cpu.X86.HasAVX512DQ {
+			config.EnableCraneliftFlag("has_avx512dq")
+		}
+		if cpu.X86.HasAVX512VL {
+			config.EnableCraneliftFlag("has_avx512vl")
+		}
+		if cpu.X86.HasAVX512VBMI {
+			config.EnableCraneliftFlag("has_avx512vbmi")
+		}
+		if cpu.X86.HasAVX512F {
+			config.EnableCraneliftFlag("has_avx512f")
+		}
+		if cpu.X86.HasPOPCNT {
+			config.EnableCraneliftFlag("has_popcnt")
+		}
+		if cpu.X86.HasBMI1 {
+			config.EnableCraneliftFlag("has_bmi1")
+			config.EnableCraneliftFlag("has_lzcnt")
+		}
+		if cpu.X86.HasBMI2 {
+			config.EnableCraneliftFlag("has_bmi2")
+			config.EnableCraneliftFlag("has_lzcnt")
+		}
+	}
 }
