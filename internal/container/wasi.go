@@ -184,7 +184,7 @@ func (wf *WasiFactory) Start(contID ContainerID) error {
 		// Try to compile the WASI Module
 		module, err := wasmtime.NewModuleFromFile(wf.engine, wasmFileName)
 		if err != nil {
-			if strings.HasPrefix(err.Error(), "expected a WebAssembly module but was given a WebAssembly component") {
+			if strings.Contains(err.Error(), "expected a WebAssembly module but was given a WebAssembly component") {
 				// File is a WASI Component
 				wr.cliArgs = append(wr.cliArgs, wasmFileName)
 				wr.wasiType = WASI_TYPE_COMPONENT
