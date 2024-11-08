@@ -154,7 +154,10 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 		// this is required to correctly use the official Python interpreter
 		wr.mount = "/"
 		wr.dir = dir
-		wr.cliArgs = append(wr.cliArgs, "--dir", wr.dir+"::"+wr.mount)
+		wr.cliArgs = append(wr.cliArgs,
+			"--wasi", "preview2",
+			"--wasi", "inherit-network",
+			"--dir", wr.dir+"::"+wr.mount)
 	})
 
 	return externalError
