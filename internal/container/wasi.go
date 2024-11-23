@@ -151,7 +151,9 @@ func (wf *WasiFactory) CopyToContainer(contID ContainerID, content io.Reader, de
 			return
 		}
 		// NOTE: hard-coding `destPath` as `/`
-		// this is required to correctly use the official Python interpreter
+		// This is required to correctly use the official Python interpreter
+		// In the future this won't be necessary as python.wasm will be distribuited
+		// as a self-contained WebAssembly file
 		wr.mount = "/"
 		wr.dir = dir
 		wr.cliArgs = append(wr.cliArgs,
