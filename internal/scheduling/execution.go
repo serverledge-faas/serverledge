@@ -53,7 +53,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 		Output:       response.Output,
 		IsWarmStart:  isWarm,
 		Duration:     time.Now().Sub(t0).Seconds() - invocationWait.Seconds(),
-		ResponseTime: time.Now().Sub(t0).Seconds() - invocationWait.Seconds()}
+		ResponseTime: time.Now().Sub(r.Arrival).Seconds()}
 
 	// initializing containers may require invocation retries, adding
 	// latency
