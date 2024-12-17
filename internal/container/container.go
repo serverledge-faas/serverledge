@@ -87,42 +87,45 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	}
 
 	res := &executor.InvocationResult{Success: false}
+	t0 := time.Now()
+	var invocationWait time.Duration
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
 		wcc, err := wr.BuildStore(contID, wf.engine, req.Handler, string(paramsBytes))
 		if err != nil {
-			return nil, 0, err
+			return nil, time.Now().Sub(t0), err
 		}
 		defer wcc.Close()
 
 		// Create an instance of the module
 		instance, err := wr.linker.Instantiate(wcc.store, wr.module)
 		if err != nil {
-			return nil, 0, fmt.Errorf("Failed to instantiate WASI module: %v", err)
+			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to instantiate WASI module: %v", err)
 		}
 
 		// Get the _start function (entrypoint of any wasm module)
 		start := instance.GetFunc(wcc.store, "_start")
 		if start == nil {
-			return nil, 0, fmt.Errorf("WASI Module does not have a _start function")
+			return nil, time.Now().Sub(t0), fmt.Errorf("WASI Module does not have a _start function")
 		}
 
+		invocationWait = time.Now().Sub(t0)
 		// Call the _start function
 		if _, err := start.Call(wcc.store); err != nil &&
 			!strings.Contains(err.Error(), "exit status 0") {
-			return nil, 0, fmt.Errorf("Failed to run WASI module: %v", err)
+			return nil, invocationWait, fmt.Errorf("Failed to run WASI module: %v", err)
 		}
 
 		// Read stdout from the temp file
 		stdout, err := io.ReadAll(wcc.stdout)
 		if err != nil {
-			return nil, 0, fmt.Errorf("Failed to read stdout for WASI: %v", err)
+			return nil, invocationWait, fmt.Errorf("Failed to read stdout for WASI: %v", err)
 		}
 
 		// Read stderr from the temp file
 		stderr, err := io.ReadAll(wcc.stderr)
 		if err != nil {
-			return nil, 0, fmt.Errorf("Failed to read stderr for WASI: %v", err)
+			return nil, invocationWait, fmt.Errorf("Failed to read stderr for WASI: %v", err)
 		}
 
 		// Populate result
@@ -143,6 +146,9 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		var stdoutBuffer, stderrBuffer bytes.Buffer
 		execCmd.Stdout = &stdoutBuffer
 		execCmd.Stderr = &stderrBuffer
+
+		invocationWait = time.Now().Sub(t0)
+
 		// Execute wasmtime CLI
 		err := execCmd.Run()
 		if err != nil {
@@ -169,7 +175,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 	}
 
-	return res, 0, nil
+	return res, invocationWait, nil
 }
 
 // Execute interacts with the Executor running in the container to invoke the
