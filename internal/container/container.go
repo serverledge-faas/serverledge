@@ -87,43 +87,42 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 	}
 
 	res := &executor.InvocationResult{Success: false}
-	t0 := time.Now()
 	if wr.wasiType == WASI_TYPE_MODULE {
 		// Create a new Wasi Configuration
 		wcc, err := wr.BuildStore(contID, wf.engine, req.Handler, string(paramsBytes))
 		if err != nil {
-			return nil, time.Now().Sub(t0), err
+			return nil, 0, err
 		}
 		defer wcc.Close()
 
 		// Create an instance of the module
 		instance, err := wr.linker.Instantiate(wcc.store, wr.module)
 		if err != nil {
-			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to instantiate WASI module: %v", err)
+			return nil, 0, fmt.Errorf("Failed to instantiate WASI module: %v", err)
 		}
 
 		// Get the _start function (entrypoint of any wasm module)
 		start := instance.GetFunc(wcc.store, "_start")
 		if start == nil {
-			return nil, time.Now().Sub(t0), fmt.Errorf("WASI Module does not have a _start function")
+			return nil, 0, fmt.Errorf("WASI Module does not have a _start function")
 		}
 
 		// Call the _start function
 		if _, err := start.Call(wcc.store); err != nil &&
 			!strings.Contains(err.Error(), "exit status 0") {
-			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to run WASI module: %v", err)
+			return nil, 0, fmt.Errorf("Failed to run WASI module: %v", err)
 		}
 
 		// Read stdout from the temp file
 		stdout, err := io.ReadAll(wcc.stdout)
 		if err != nil {
-			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stdout for WASI: %v", err)
+			return nil, 0, fmt.Errorf("Failed to read stdout for WASI: %v", err)
 		}
 
 		// Read stderr from the temp file
 		stderr, err := io.ReadAll(wcc.stderr)
 		if err != nil {
-			return nil, time.Now().Sub(t0), fmt.Errorf("Failed to read stderr for WASI: %v", err)
+			return nil, 0, fmt.Errorf("Failed to read stderr for WASI: %v", err)
 		}
 
 		// Populate result
@@ -170,7 +169,7 @@ func wasiExecute(contID ContainerID, req *executor.InvocationRequest) (*executor
 		}
 	}
 
-	return res, time.Now().Sub(t0), nil
+	return res, 0, nil
 }
 
 // Execute interacts with the Executor running in the container to invoke the
