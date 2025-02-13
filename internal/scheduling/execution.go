@@ -16,10 +16,11 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	//log.Printf("[%s] Executing on container: %v", r.Fun, contID)
 
 	var req executor.InvocationRequest
-	if r.Fun.Runtime == container.CUSTOM_RUNTIME {
+	if r.Fun.Runtime == container.CUSTOM_RUNTIME || r.Fun.Runtime == container.WASI_RUNTIME {
 		req = executor.InvocationRequest{
 			Params:       r.Params,
 			ReturnOutput: r.ReturnOutput,
+			Handler:      r.Fun.Handler, // NOTE: this is required by Wasi for Python
 		}
 	} else {
 		cmd := container.RuntimeToInfo[r.Fun.Runtime].InvocationCmd
@@ -35,7 +36,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	t0 := time.Now()
 	initTime := t0.Sub(r.Arrival).Seconds()
 
-	response, invocationWait, err := container.Execute(contID, &req)
+	response, invocationWait, err := container.Execute(contID, &req, r.Fun)
 	if err != nil {
 		// notify scheduler
 		completions <- &completionNotification{fun: r.Fun, contID: contID, executionReport: nil}
