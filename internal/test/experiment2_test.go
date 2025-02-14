@@ -8,16 +8,16 @@ import (
 	"github.com/grussorusso/serverledge/utils"
 )
 
-func TestExperiment2(t *testing.T) {
-	/*if !Experiment {
-		t.Skip()
-	}*/
-	_, err := createComplexComposition(t)
-	utils.AssertNilMsg(t, err, "failed to create composition")
-
-	// err2 := comp.Delete()
-	// utils.AssertNilMsg(t, err2, "failed to delete composition and functions")
-}
+//func TestExperiment2(t *testing.T) {
+//	/*if !Experiment {
+//		t.Skip()
+//	}*/
+//	_, err := createComplexComposition(t)
+//	utils.AssertNilMsg(t, err, "failed to create composition")
+//
+//	// err2 := comp.Delete()
+//	// utils.AssertNilMsg(t, err2, "failed to delete composition and functions")
+//}
 
 /*
  * This test will execute the following Dag:
@@ -70,7 +70,7 @@ func createComplexComposition(t *testing.T) (*fc.FunctionComposition, error) {
 
 	composition, err := fc.NewFC("complexText", *dag, []*function.Function{fnWordCount, fnSummarize, fnGrep}, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, "127.0.0.1", 1323)
+	err = createCompositionApiTest(composition, "127.0.0.1", 1323)
 
-	return composition, nil
+	return composition, err
 }

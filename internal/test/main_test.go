@@ -147,9 +147,9 @@ func startReliably(startScript string, stopScript string, msg string) error {
 
 // run the bash script to initialize serverledge
 func setupServerledge(outboundIp string) (*registration.Registry, *echo.Echo, error) {
-	err1 := startReliably("../../scripts/start-etcd"+getShellExt(), "../../scripts/stop-etcd"+getShellExt(), "ETCD")
+	//err1 := startReliably("../../scripts/start-etcd"+getShellExt(), "../../scripts/stop-etcd"+getShellExt(), "ETCD")
 	registry, echoServer := testStartServerledge(false, outboundIp)
-	return registry, echoServer, u.ReturnNonNilErr(err1)
+	return registry, echoServer, nil
 }
 
 // run the bash script to stop serverledge

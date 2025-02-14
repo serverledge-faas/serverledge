@@ -81,7 +81,8 @@ func InitializePyFunction(name string, handler string, sign *function.Signature)
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func initializeJsFunction(name string, sign *function.Signature) (*function.Function, error) {
@@ -123,6 +124,7 @@ func initializePyFunctionFromName(t *testing.T, name string) *function.Function 
 	case "hello":
 		f3, err := InitializePyFunction(name, "handler", function.NewSignature().
 			AddInput("input", function.Text{}).
+			AddOutput("result", function.Text{}).
 			Build())
 		utils.AssertNil(t, err)
 		f = f3
@@ -148,17 +150,16 @@ func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function
 	return funcs
 }
 
-// parseFileName takes the name of the file, without .json and parses it. Produces the composition and a single function (for now)
-func parseFileName(t *testing.T, rmFnOnDeletion bool, aslFileName string) (*fc.FunctionComposition, *function.Function) {
-	f := initializePyFunctionFromName(t, "inc")
-
+// parseFileName takes the name of the file, without .json and parses it
+func parseFileName(t *testing.T, rmFnOnDeletion bool, aslFileName string) *fc.FunctionComposition {
 	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
 	utils.AssertNilMsg(t, err, "unable to read file")
 
 	// for now, we use the same name as the filename to create the composition
 	comp, err := fc.FromASL(aslFileName, rmFnOnDeletion, body)
+	fmt.Println(err)
 	utils.AssertNilMsg(t, err, "unable to parse json")
-	return comp, f
+	return comp
 }
 
 // initializeSameFunctionSlice is used to easily initialize a function array with one single function
@@ -187,6 +188,16 @@ func createApiTest(t *testing.T, fn *function.Function, host string, port int) {
 	utils.AssertNil(t, err)
 	url := fmt.Sprintf("http://%s:%d/create", host, port)
 	postJson, err := utils.PostJson(url, marshaledFunc)
+	utils.AssertNil(t, err)
+
+	utils.PrintJsonResponse(postJson.Body)
+}
+
+func createApiIfNotExistsTest(t *testing.T, fn *function.Function, host string, port int) {
+	marshaledFunc, err := json.Marshal(fn)
+	utils.AssertNil(t, err)
+	url := fmt.Sprintf("http://%s:%d/create", host, port)
+	postJson, err := utils.PostJsonIgnore409(url, marshaledFunc)
 	utils.AssertNil(t, err)
 
 	utils.PrintJsonResponse(postJson.Body)
@@ -236,14 +247,14 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(t *testing.T, fc *fc.FunctionComposition, host string, port int) {
+func createCompositionApiTest(fc *fc.FunctionComposition, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
-	utils.AssertNilMsg(t, err, "failed to marshal composition")
+	if err != nil {
+		return err
+	}
 	url := fmt.Sprintf("http://%s:%d/compose", host, port)
-	postJson, err := utils.PostJson(url, marshaledFunc)
-	utils.AssertNilMsg(t, err, "failed to create composition")
-
-	utils.PrintJsonResponse(postJson.Body)
+	_, err = utils.PostJsonIgnore409(url, marshaledFunc)
+	return err
 }
 
 func invokeCompositionApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {

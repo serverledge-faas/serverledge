@@ -57,7 +57,7 @@ func TestPrintPredicate(t *testing.T) {
 	predicate3.Print()
 
 	str4 := predicate4.LogicString()
-	utils.AssertEquals(t, "!(empty input)", str4)
+	utils.AssertEquals(t, "!(IsEmpty(1))", str4)
 	predicate4.Print()
 }
 

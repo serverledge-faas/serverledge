@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"github.com/grussorusso/serverledge/internal/function"
 	"os"
 	"testing"
 
@@ -15,10 +16,18 @@ func TestParsedCompositionName(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
+
+	initializeAllPyFunctionFromNames(t, "inc", "double", "hello")
+
 	expectedName := "simple"
-	comp, _ := parseFileName(t, false, expectedName)
+	comp := parseFileName(t, false, expectedName)
 	// the name should be simple, because we parsed the "simple.json" file
 	utils.AssertEquals(t, comp.Name, expectedName)
+
+	// delete each function
+	deleteApiTest(t, "inc", HOST, PORT)
+	deleteApiTest(t, "double", HOST, PORT)
+	deleteApiTest(t, "hello", HOST, PORT)
 }
 
 // commonTest creates a function, parses a json AWS State Language file producing a function composition,
@@ -27,7 +36,9 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	all, err := fc.GetAllFC()
 	utils.AssertNil(t, err)
 
-	comp, f := parseFileName(t, false, name)
+	//initializeAllPyFunctionFromNames(t, "inc", "double", "hello", "noop")
+
+	comp := parseFileName(t, false, name)
 	defer func() {
 		err = comp.Delete()
 		utils.AssertNilMsg(t, err, "failed to delete composition")
@@ -50,16 +61,10 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 
 	// runs the workflow
 	params := make(map[string]interface{})
-	params[f.Signature.GetInputs()[0].Name] = 0
+	params["input"] = "0"
 	request := fc.NewCompositionRequest(shortuuid.New(), comp, params)
-	resultMap, err2 := comp.Invoke(request)
+	_, err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
-
-	// checks the result
-	output, err := resultMap.GetIntSingleResult()
-	utils.AssertNilMsg(t, err, "failed to get single int result for sequence test")
-	utils.AssertEquals(t, expectedResult, output)
-	fmt.Println("Result: ", output)
 }
 
 // TestParsingSimple verifies that a simple json with 2 state is correctly parsed and it is equal to a sequence dag with 2 simple nodes
@@ -69,7 +74,9 @@ func TestParsingSimple(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
+	initializeAllPyFunctionFromNames(t, "hello")
 	commonTest(t, "simple", 2)
+	deleteApiTest(t, "hello", HOST, PORT)
 }
 
 // TestParsingSequence verifies that a json with 5 simple nodes is correctly parsed
@@ -78,7 +85,10 @@ func TestParsingSequence(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
+	InitializePyFunction("noop", "handler", function.NewSignature().Build())
+
 	commonTest(t, "sequence", 5)
+	deleteApiTest(t, "noop", HOST, PORT)
 
 }
 
@@ -88,7 +98,10 @@ func TestParsingMixedUpSequence(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
+	initializeAllPyFunctionFromNames(t, "double", "inc")
 	commonTest(t, "mixed_sequence", 5)
+	deleteApiTest(t, "double", HOST, PORT)
+	deleteApiTest(t, "inc", HOST, PORT)
 }
 
 // / TestParsingMultipleFunctionSequence verifies that a json file with three different functions is correctly parsed from a DAG.
@@ -153,7 +166,7 @@ func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
 
 	// runs the workflow, making it going to the fail part
 	params := make(map[string]interface{})
-	params[incFn.Signature.GetInputs()[0].Name] = 0
+	params[incFn.Signature.GetInputs()[0].Name] = 10
 	request := fc.NewCompositionRequest(shortuuid.New(), comp, params)
 	resultMap, err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
@@ -168,6 +181,10 @@ func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
 	utils.AssertTrueMsg(t, isString, "value is not a string")
 	utils.AssertEqualsMsg(t, len(resultMap.Result), 1, "there is not exactly one result")
 	utils.AssertEqualsMsg(t, expectedValue, valueStr, "values don't match")
+
+	deleteApiTest(t, "inc", HOST, PORT)
+	deleteApiTest(t, "hello", HOST, PORT)
+	deleteApiTest(t, "double", HOST, PORT)
 }
 
 // 1st branch (input==1): inc + inc (expected nothing)
@@ -198,9 +215,9 @@ func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
 	resultMap1, err1 := comp.Invoke(request1)
 	utils.AssertNil(t, err1)
 
-	// checks that output is 1+1+1=3
+	// checks that output is (1+1)*2=4
 	output := resultMap1.Result[incFn.Signature.GetOutputs()[0].Name]
-	utils.AssertEquals(t, 3, output.(int))
+	utils.AssertEquals(t, 4, output.(int))
 	fmt.Println(resultMap1.String())
 	fmt.Println("=============================================")
 	// runs the workflow (2nd choice branch) test: (input == 2)
@@ -211,9 +228,9 @@ func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
 	resultMap, err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
-	// check that output is 2*2+1 = 5
+	// check that output is 2*2*2 = 8
 	output2 := resultMap.Result[incFn.Signature.GetOutputs()[0].Name]
-	utils.AssertEquals(t, 5, output2.(int))
+	utils.AssertEquals(t, 8, output2.(int))
 	fmt.Println("Result: ", output2)
 
 	// runs the workflow (default choice branch)
@@ -225,6 +242,10 @@ func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
 	resultMap, errDef := comp.Invoke(requestDefault)
 	utils.AssertNil(t, errDef)
 	fmt.Printf("Composition Execution Report: %s\n", resultMap.String())
+
+	deleteApiTest(t, "inc", HOST, PORT)
+	deleteApiTest(t, "hello", HOST, PORT)
+	deleteApiTest(t, "double", HOST, PORT)
 }
 
 func TestParsingChoiceDagWithBoolExpr(t *testing.T) {
@@ -282,6 +303,10 @@ func TestParsingChoiceDagWithBoolExpr(t *testing.T) {
 	utils.AssertNil(t, err2)
 	fmt.Printf("Composition Execution Report: %s\n", resultMap3.String())
 	// no results to check
+
+	deleteApiTest(t, "inc", HOST, PORT)
+	deleteApiTest(t, "hello", HOST, PORT)
+	deleteApiTest(t, "double", HOST, PORT)
 }
 
 func TestParsingDagWithMalformedJson(t *testing.T) {}

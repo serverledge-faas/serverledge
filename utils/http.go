@@ -21,6 +21,17 @@ func PostJson(url string, body []byte) (*http.Response, error) {
 	return resp, nil
 }
 
+func PostJsonIgnore409(url string, body []byte) (*http.Response, error) {
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusConflict {
+		return resp, fmt.Errorf("Server response: %v", resp.Status)
+	}
+	return resp, nil
+}
+
 func PrintJsonResponse(resp io.ReadCloser) {
 	defer func(resp io.ReadCloser) {
 		err := resp.Close()

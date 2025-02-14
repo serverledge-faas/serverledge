@@ -46,7 +46,7 @@ func CreateIncCompositionSequence(t *testing.T, fcName string, host string, port
 	utils.AssertNil(t, err)
 	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, false)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, host, port)
+	err = createCompositionApiTest(composition, host, port)
 
-	return composition, nil
+	return composition, err
 }

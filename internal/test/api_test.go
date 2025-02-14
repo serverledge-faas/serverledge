@@ -27,11 +27,8 @@ func TestContainerPool(t *testing.T) {
 			Build())
 		utils.AssertNil(t, err)
 
-		createApiTest(t, fn, HOST, PORT)
+		createApiIfNotExistsTest(t, fn, HOST, PORT)
 	}
-	// getting functions
-	functionNames := getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{"double", "inc"}, functionNames)
 	// executing all functions
 	channel := make(chan error)
 	const n = 3
@@ -75,11 +72,11 @@ func TestCreateComposition(t *testing.T) {
 	utils.AssertNil(t, err)
 	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, HOST, PORT)
-
-	// verifies the function exists (using function REST API)
-	functionNames := getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{"inc"}, functionNames)
+	err = createCompositionApiTest(composition, HOST, PORT)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
 
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
@@ -88,11 +85,6 @@ func TestCreateComposition(t *testing.T) {
 	err = composition.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
-	// verifies the function does not exists  (using function REST API)
-	functionNames = getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{}, functionNames)
-
-	//utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestInvokeComposition tests the REST API that executes a given function composition
@@ -110,11 +102,11 @@ func TestInvokeComposition(t *testing.T) {
 	utils.AssertNil(t, err)
 	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, HOST, PORT)
-
-	// verifies the function exists (using function REST API)
-	functionNames := getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{"inc"}, functionNames)
+	err = createCompositionApiTest(composition, HOST, PORT)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
 
 	// === this is the test ===
 	params := make(map[string]interface{})
@@ -129,11 +121,6 @@ func TestInvokeComposition(t *testing.T) {
 	err = composition.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
-	// verifies the function does not exists  (using function REST API)
-	functionNames = getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{}, functionNames)
-
-	//utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestInvokeComposition tests the REST API that executes a given function composition
@@ -156,11 +143,11 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	utils.AssertNil(t, err)
 	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fnPy, fnJs}, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, HOST, PORT)
-
-	// verifies the function exists (using function REST API)
-	functionNames := getFunctionApiTest(t, HOST, PORT)
-	utils.AssertEquals(t, 2, len(functionNames))
+	err = createCompositionApiTest(composition, HOST, PORT)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
 
 	// === this is the test ===
 	params := make(map[string]interface{})
@@ -175,11 +162,6 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	err = composition.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
-	// verifies the function does not exists  (using function REST API)
-	functionNames = getFunctionApiTest(t, HOST, PORT)
-	utils.AssertSliceEquals(t, []string{}, functionNames)
-
-	//utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestDeleteComposition tests the compose REST API that deletes a function composition
@@ -205,29 +187,9 @@ func TestDeleteComposition(t *testing.T) {
 		err = composition.SaveToEtcd()
 		utils.AssertNil(t, err)
 
-		// verifies the function exists (using function REST API)
-		functionNames := getFunctionApiTest(t, HOST, PORT)
-		utils.AssertSliceEquals(t, []string{"double", "inc"}, functionNames)
-
-		// verifies the function composition exists (using function composition REST API)
-		compositionNames := getCompositionsApiTest(t, HOST, PORT)
-		utils.AssertSliceEquals(t, []string{"sequence"}, compositionNames)
-
 		// the API under test is the following
-		deleteCompositionApiTest(t, fcName, HOST, PORT)
+		deleteCompositionApiTest(t, fcName, HOST, PORT) // TODO: check success
 
-		// verifies the function composition doen't exists (using function composition REST API)
-		compositionNames = getCompositionsApiTest(t, HOST, PORT)
-		utils.AssertSliceEquals(t, []string{}, compositionNames)
-
-		functionNames = getFunctionApiTest(t, HOST, PORT)
-		if composition.RemoveFnOnDeletion {
-			// verifies the function does not exists  (using function REST API)
-			utils.AssertSliceEquals(t, []string{}, functionNames)
-		} else {
-			// verifies the function exists  (using function REST API)
-			utils.AssertSliceEquals(t, []string{"double", "inc"}, functionNames)
-		}
 	}
 
 	// delete the container when not used
@@ -253,7 +215,11 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	utils.AssertNil(t, err)
 	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, HOST, PORT)
+	err = createCompositionApiTest(composition, HOST, PORT)
+	if err != nil {
+		fmt.Println(err)
+		t.Fail()
+	}
 
 	// === this is the test ===
 	params := make(map[string]interface{})

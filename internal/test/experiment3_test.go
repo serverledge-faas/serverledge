@@ -34,8 +34,8 @@ func createMultiFnComposition(t *testing.T) (*fc.FunctionComposition, error) {
 
 	composition, err := fc.NewFC("complex", *dag, funSlice, true)
 	utils.AssertNil(t, err)
-	createCompositionApiTest(t, composition, "127.0.0.1", 1323)
-	return composition, nil
+	err = createCompositionApiTest(composition, "127.0.0.1", 1323)
+	return composition, err
 }
 
 func initializePyFunctionWithName(fnName string, fileName string, handler string, sign *function.Signature) (*function.Function, error) {

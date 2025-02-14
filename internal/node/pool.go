@@ -59,6 +59,8 @@ func (fp *ContainerPool) getWarmContainer(f *function.Function) (container.Conta
 	}
 
 	if elem.Value.(warmContainer).Runtime != f.Runtime {
+		fmt.Println(f.Runtime)
+		fmt.Println(elem.Value.(warmContainer).Runtime)
 		return "no runtime", false
 	}
 

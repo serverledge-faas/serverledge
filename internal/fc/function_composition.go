@@ -354,69 +354,6 @@ func (fc *FunctionComposition) String() string {
 	}`, fc.Name, functions, workflow, fc.RemoveFnOnDeletion)
 }
 
-// MarshalJSON for CompositionExecutionReport is necessary as the hashmap cannot be directly marshaled
-func (cer CompositionExecutionReport) MarshalJSON() ([]byte, error) {
-	// Create a map to hold the JSON representation of the FunctionComposition
-	data := make(map[string]interface{})
-	data["Result"] = cer.Result // al posto del nome potrebbe essere un id da mettere in etcd
-	data["ResponseTime"] = cer.ResponseTime
-
-	reports := make(map[ExecutionReportId]*function.ExecutionReport)
-
-	cer.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
-		reports[id] = report
-		return true
-	})
-	data["Reports"] = reports
-
-	return json.Marshal(data)
-}
-
-func (cer CompositionExecutionReport) UnmarshalJSON(data []byte) error {
-	var tempMap map[string]json.RawMessage
-	if err := json.Unmarshal(data, &tempMap); err != nil {
-		return err
-	}
-
-	if rawResult, ok := tempMap["Result"]; ok {
-		if err := json.Unmarshal(rawResult, &cer.Result); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("missing 'Result' field in JSON")
-	}
-
-	if rawResponseTime, ok := tempMap["ResponseTime"]; ok {
-		if err := json.Unmarshal(rawResponseTime, &cer.ResponseTime); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("missing 'ResponseTime' field in JSON")
-	}
-
-	//if rawProgress, ok := tempMap["Progress"]; ok {
-	//	if err := json.Unmarshal(rawProgress, &cer.Progress); err != nil {
-	//		return err
-	//	}
-	//} else {
-	//	return fmt.Errorf("missing 'Progress' field in JSON")
-	//}
-	var tempReportsMap map[string]json.RawMessage
-	if err := json.Unmarshal(tempMap["Reports"], &tempReportsMap); err != nil {
-		return err
-	}
-	cer.Reports = hashmap.New[ExecutionReportId, *function.ExecutionReport]()
-	for id, execReport := range tempReportsMap {
-		var execReportVar function.ExecutionReport
-		err := json.Unmarshal(execReport, &execReportVar)
-		if err != nil {
-			return err
-		}
-		cer.Reports.Set(ExecutionReportId(id), &execReportVar)
-	}
-	return nil
-}
-
 func (cer *CompositionExecutionReport) String() string {
 	str := "["
 	str += fmt.Sprintf("\n\tResponseTime: %f,", cer.ResponseTime)
@@ -473,6 +410,7 @@ func (cer *CompositionExecutionReport) Equals(other types.Comparable) bool {
 
 	allEquals := true
 	cer.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
+		fmt.Println("Range ")
 		report2, isPresent := cer2.Reports.Get(id)
 		if !isPresent {
 			fmt.Printf("element %s is not present in the other report", id)

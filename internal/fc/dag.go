@@ -378,6 +378,8 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	var node DagNode
 	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
 
+	fmt.Println(nextNodes)
+
 	for _, nodeId := range nextNodes {
 		node, ok := dag.Find(nodeId)
 		if ok {
@@ -387,6 +389,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 		}
 		// for simple node we also retrieve the partial data and receive input
 		if simple, isSimple := node.(*SimpleNode); isSimple {
+			fmt.Println(partialData.Data[fmt.Sprintf("%s", nodeId)])
 			errInput := simple.CheckInput(partialData.Data[fmt.Sprintf("%s", nodeId)].(map[string]interface{}))
 			if errInput != nil {
 				return pd, progress, errInput
@@ -401,6 +404,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			// for simple node, we also prepare output
 			if simpleNode, isSimple := node.(*SimpleNode); isSimple {
 				errSend := simpleNode.PrepareOutput(dag, output)
+				fmt.Printf("errSend: %v, node: %v, output: %v\n", errSend, simpleNode, output)
 				if errSend != nil {
 					errorChannels[i] <- err
 					outputChannels[i] <- nil
@@ -436,6 +440,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			parallelOutputs = append(parallelOutputs, out)
 		}
 	}
+	fmt.Printf("parallelOutputs: %v\n", parallelOutputs)
 	// returning errors
 	if len(parallelErrors) > 0 {
 		return pd, progress, fmt.Errorf("errors in parallel execution: %v", parallelErrors)
@@ -455,8 +460,11 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	 * output of the nth-parallel node */
 	//pd := NewPartialData(requestId, node.GetNext()[0], "", outputMap)
 	// setting the remaining fields of pd
+	// TODO: node is updated within the previous loop, hence we only get the next node for 1 of the parallel nodes
 	pd.ForNode = node.GetNext()[0]
 	pd.Data = outputMap
+	fmt.Println(outputMap)
+	fmt.Println(node.GetNext())
 	return pd, progress, nil
 }
 

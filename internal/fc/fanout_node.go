@@ -95,6 +95,7 @@ func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		for inputName, inputToScatter := range params[0] {
 			inputArrayToScatter, errNotSlice := utils.ConvertToSlice(inputToScatter)
 			if errNotSlice != nil {
+				//fmt.Println(errNotSlice)
 				continue
 			}
 
