@@ -4,9 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/grussorusso/serverledge/internal/types"
-
-	// "github.com/grussorusso/serverledge/internal/fc"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/cache"
@@ -135,8 +132,7 @@ func (f *Function) Delete() error {
 	return nil
 }
 
-func (f *Function) Equals(cmp types.Comparable) bool {
-	f2 := cmp.(*Function)
+func (f *Function) Equals(f2 *Function) bool {
 	return (f == nil && f2 == nil) || (f.Name == f2.Name &&
 		f.CustomImage == f2.CustomImage &&
 		f.CPUDemand == f2.CPUDemand &&
@@ -157,7 +153,7 @@ func GetAll() ([]string, error) {
 	return GetAllWithPrefix("/function")
 }
 
-// GetAllWithPrefix is used to get all /function or /fc currently registered in etcd
+// GetAllWithPrefix is used to get all /function or /workflow currently registered in etcd
 func GetAllWithPrefix(prefix string) ([]string, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {

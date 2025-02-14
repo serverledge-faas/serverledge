@@ -7,7 +7,7 @@ your function code, as explained below.
 
 The easiest way to build a custom function image is by leveraging the
 Serverledge base runtime image, i.e., `grussorusso/serverledge-base`.
-This image contains a simple implementation of the [Executor](https://github.com/grussorusso/serverledge/blob/main/docs/executor.md)
+This image contains a simple implementation of the [Executor](https://github.com/serverledge-faas/serverledge/blob/main/docs/executor.md)
 server. When the function is invoked, the Executor runs a user-specified
 command as a new process and sets a few environment variables that may be
 used by the called process:

@@ -4,22 +4,29 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"net/http"
 	"os"
 	"testing"
 
-	"github.com/cornelk/hashmap"
-	"github.com/grussorusso/serverledge/internal/cli"
-	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/fc"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/cli"
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/workflow"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
 const PY_MEMORY = 20
 const JS_MEMORY = 50
 
 func initializeExamplePyFunction() (*function.Function, error) {
+	oldF, found := function.GetFunction("inc")
+	if found {
+		// the function already exists; we delete it
+		oldF.Delete()
+		node.ShutdownWarmContainersFor(oldF)
+	}
+
 	srcPath := "../../examples/inc.py"
 	srcContent, err := cli.ReadSourcesAsTar(srcPath)
 	if err != nil {
@@ -38,11 +45,19 @@ func initializeExamplePyFunction() (*function.Function, error) {
 			AddOutput("result", function.Int{}).
 			Build(),
 	}
+	err = f.SaveToEtcd()
 
-	return &f, nil
+	return &f, err
 }
 
 func initializeExampleJSFunction() (*function.Function, error) {
+	oldF, found := function.GetFunction("inc")
+	if found {
+		// the function already exists; we delete it
+		oldF.Delete()
+		node.ShutdownWarmContainersFor(oldF)
+	}
+
 	srcPath := "../../examples/inc.js"
 	srcContent, err := cli.ReadSourcesAsTar(srcPath)
 	if err != nil {
@@ -61,11 +76,19 @@ func initializeExampleJSFunction() (*function.Function, error) {
 			AddOutput("result", function.Int{}).
 			Build(),
 	}
-
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func InitializePyFunction(name string, handler string, sign *function.Signature) (*function.Function, error) {
+
+	oldF, found := function.GetFunction(name)
+	if found {
+		// the function already exists; we delete it
+		oldF.Delete()
+		node.ShutdownWarmContainersFor(oldF)
+	}
+
 	srcPath := "../../examples/" + name + ".py"
 	srcContent, err := cli.ReadSourcesAsTar(srcPath)
 	if err != nil {
@@ -81,10 +104,18 @@ func InitializePyFunction(name string, handler string, sign *function.Signature)
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func initializeJsFunction(name string, sign *function.Signature) (*function.Function, error) {
+	oldF, found := function.GetFunction(name)
+	if found {
+		// the function already exists; we delete it
+		oldF.Delete()
+		node.ShutdownWarmContainersFor(oldF)
+	}
+
 	srcPath := "../../examples/" + name + ".js"
 	srcContent, err := cli.ReadSourcesAsTar(srcPath)
 	if err != nil {
@@ -100,7 +131,8 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func initializePyFunctionFromName(t *testing.T, name string) *function.Function {
@@ -123,6 +155,7 @@ func initializePyFunctionFromName(t *testing.T, name string) *function.Function 
 	case "hello":
 		f3, err := InitializePyFunction(name, "handler", function.NewSignature().
 			AddInput("input", function.Text{}).
+			AddOutput("result", function.Text{}).
 			Build())
 		utils.AssertNil(t, err)
 		f = f3
@@ -148,17 +181,16 @@ func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function
 	return funcs
 }
 
-// parseFileName takes the name of the file, without .json and parses it. Produces the composition and a single function (for now)
-func parseFileName(t *testing.T, rmFnOnDeletion bool, aslFileName string) (*fc.FunctionComposition, *function.Function) {
-	f := initializePyFunctionFromName(t, "inc")
-
+// parseFileName takes the name of the file, without .json and parses it
+func parseFileName(t *testing.T, aslFileName string) *workflow.Workflow {
 	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
 	utils.AssertNilMsg(t, err, "unable to read file")
 
 	// for now, we use the same name as the filename to create the composition
-	comp, err := fc.FromASL(aslFileName, rmFnOnDeletion, body)
+	comp, err := workflow.FromASL(aslFileName, body)
+	fmt.Println(err)
 	utils.AssertNilMsg(t, err, "unable to parse json")
-	return comp, f
+	return comp
 }
 
 // initializeSameFunctionSlice is used to easily initialize a function array with one single function
@@ -182,11 +214,11 @@ func initializeSameFunctionSlice(length int, jsOrPy string) (*function.Function,
 	return f, fArr, nil
 }
 
-func createApiTest(t *testing.T, fn *function.Function, host string, port int) {
+func createApiIfNotExistsTest(t *testing.T, fn *function.Function, host string, port int) {
 	marshaledFunc, err := json.Marshal(fn)
 	utils.AssertNil(t, err)
 	url := fmt.Sprintf("http://%s:%d/create", host, port)
-	postJson, err := utils.PostJson(url, marshaledFunc)
+	postJson, err := utils.PostJsonIgnore409(url, marshaledFunc)
 	utils.AssertNil(t, err)
 
 	utils.PrintJsonResponse(postJson.Body)
@@ -194,8 +226,7 @@ func createApiTest(t *testing.T, fn *function.Function, host string, port int) {
 
 func invokeApiTest(fn string, params map[string]interface{}, host string, port int) error {
 	request := client.InvocationRequest{
-		Params: params,
-		// QoSClass:        qosClass,
+		Params:          params,
 		QoSMaxRespT:     250,
 		CanDoOffloading: true,
 		Async:           false,
@@ -209,19 +240,7 @@ func invokeApiTest(fn string, params map[string]interface{}, host string, port i
 	if err2 != nil {
 		return err2
 	}
-	// utils.PrintJsonResponse(resp.Body)
 	return nil
-}
-
-func getFunctionApiTest(t *testing.T, host string, port int) []string {
-	url := fmt.Sprintf("http://%s:%d/function", host, port)
-	resp, err := http.Get(url)
-	utils.AssertNil(t, err)
-	var functionNames []string
-	functionListJson := utils.GetJsonResponse(resp.Body)
-	err = json.Unmarshal([]byte(functionListJson), &functionNames)
-	utils.AssertNil(t, err)
-	return functionNames
 }
 
 func deleteApiTest(t *testing.T, fn string, host string, port int) {
@@ -236,77 +255,126 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(t *testing.T, fc *fc.FunctionComposition, host string, port int) {
+func createWorkflowApiTest(fc *workflow.Workflow, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
-	utils.AssertNilMsg(t, err, "failed to marshal composition")
-	url := fmt.Sprintf("http://%s:%d/compose", host, port)
-	postJson, err := utils.PostJson(url, marshaledFunc)
-	utils.AssertNilMsg(t, err, "failed to create composition")
-
-	utils.PrintJsonResponse(postJson.Body)
+	if err != nil {
+		return err
+	}
+	url := fmt.Sprintf("http://%s:%d/workflow/import", host, port)
+	_, err = utils.PostJsonIgnore409(url, marshaledFunc)
+	return err
 }
 
-func invokeCompositionApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
-	qosMap := make(map[string]function.RequestQoS)
-	qosMap["grep"] = function.RequestQoS{
-		Class:    0,
-		MaxRespT: 500,
-	}
-	request := client.CompositionInvocationRequest{
-		Params:          params,
-		RequestQoSMap:   qosMap,
+func invokeWorkflowApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
+	request := client.WorkflowInvocationRequest{
+		Params: params,
+		QoS: function.RequestQoS{
+			Class:    0,
+			MaxRespT: 500,
+		},
 		CanDoOffloading: true,
 		Async:           async,
 	}
 	invocationBody, err1 := json.Marshal(request)
 	utils.AssertNilMsg(t, err1, "error while marshaling invocation request for composition")
 
-	url := fmt.Sprintf("http://%s:%d/play/%s", host, port, fc)
+	url := fmt.Sprintf("http://%s:%d/workflow/invoke/%s", host, port, fc)
 	resp, err2 := utils.PostJson(url, invocationBody)
 	utils.AssertNilMsg(t, err2, "error while posting json request for invoking a composition")
 	return utils.GetJsonResponse(resp.Body)
 }
 
-func getCompositionsApiTest(t *testing.T, host string, port int) []string {
-	url := fmt.Sprintf("http://%s:%d/fc", host, port)
-	resp, err := http.Get(url)
-	utils.AssertNil(t, err)
-	var fcNames []string
-	functionListJson := utils.GetJsonResponse(resp.Body)
-	err = json.Unmarshal([]byte(functionListJson), &fcNames)
-	utils.AssertNilMsg(t, err, "failed to get compositions")
-	return fcNames
-}
-
-func deleteCompositionApiTest(t *testing.T, fcName string, host string, port int) {
-	request := fc.FunctionComposition{Name: fcName}
+func deleteWorkflowApiTest(t *testing.T, fcName string, host string, port int) {
+	request := workflow.Workflow{Name: fcName}
 	requestBody, err := json.Marshal(request)
 	utils.AssertNilMsg(t, err, "failed to marshal composition to delete")
 
-	url := fmt.Sprintf("http://%s:%d/uncompose", host, port)
+	url := fmt.Sprintf("http://%s:%d/workflow/delete", host, port)
 	resp, err := utils.PostJson(url, requestBody)
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func pollCompositionTest(t *testing.T, requestId string, host string, port int) string {
+func pollWorkflowTest(t *testing.T, requestId string, host string, port int) string {
 	url := fmt.Sprintf("http://%s:%d/poll/%s", host, port, requestId)
 	resp, err := http.Get(url)
 	utils.AssertNilMsg(t, err, "failed to poll invocation result")
 	return utils.GetJsonResponse(resp.Body)
 }
 
-func newCompositionRequestTest() *fc.CompositionRequest {
-
-	return &fc.CompositionRequest{
-		ReqId: "test",
-		ExecReport: fc.CompositionExecutionReport{
-			Reports: hashmap.New[fc.ExecutionReportId, *function.ExecutionReport](), // make(map[fc.ExecutionReportId]*function.ExecutionReport),
-		},
-	}
-}
-
 func IsWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
+}
+
+// CreateSequenceWorkflow if successful, returns a workflow pointer with a sequence of Simple Tasks
+func CreateSequenceWorkflow(funcs ...*function.Function) (*workflow.Workflow, error) {
+	builder := workflow.NewBuilder()
+	for _, f := range funcs {
+		builder = builder.AddSimpleNode(f)
+	}
+	return builder.Build()
+}
+
+// CreateChoiceWorkflow if successful, returns a workflow with one Choice Node with each branch consisting of the same sub-workflow
+func CreateChoiceWorkflow(dagger func() (*workflow.Workflow, error), condArr ...workflow.Condition) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddChoiceNode(condArr...).
+		ForEachBranch(dagger).
+		EndChoiceAndBuild()
+}
+
+// CreateScatterSingleFunctionWorkflow if successful, returns a workflow with one fan out, N simple node with the same function
+// and then a fan in node that merges all the result in an array.
+func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree int) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddScatterFanOutNode(fanOutDegree).
+		ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fun) }).
+		AddFanInNode().
+		Build()
+}
+
+// CreateBroadcastWorkflow if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
+// The number of branches is defined by the number of given functions
+func CreateBroadcastWorkflow(dagger func() (*workflow.Workflow, error), fanOutDegree int) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddBroadcastFanOutNode(fanOutDegree).
+		ForEachParallelBranch(dagger).
+		AddFanInNode().
+		Build()
+}
+
+// CreateBroadcastMultiFunctionWorkflow if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
+// The number of branch is defined as the number of dagger functions.
+func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*workflow.Workflow, error)) (*workflow.Workflow, error) {
+	builder := workflow.NewBuilder().
+		AddBroadcastFanOutNode(len(dagger))
+	for _, dagFn := range dagger {
+		builder = builder.NextFanOutBranch(dagFn())
+	}
+	return builder.
+		AddFanInNode().
+		Build()
+}
+
+func GetSingleResult(cer *workflow.ExecutionReport) (string, error) {
+	if len(cer.Result) == 1 {
+		for _, value := range cer.Result {
+			return fmt.Sprintf("%v", value), nil
+		}
+	}
+	return "", fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
+}
+
+func GetIntSingleResult(cer *workflow.ExecutionReport) (int, error) {
+	if len(cer.Result) == 1 {
+		for _, value := range cer.Result {
+			valueInt, ok := value.(int)
+			if !ok {
+				return 0, fmt.Errorf("value %v cannot be casted to int", value)
+			}
+			return valueInt, nil
+		}
+	}
+	return 0, fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
 }

@@ -1,14 +1,13 @@
 package test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/asl"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/asl"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
-// TestParseTerminalChoiceWithThreeBranches tests that the following dag...
+// TestParseTerminalChoiceWithThreeBranches tests that the following workflow...
 //
 //	   			[ Task ]
 //	   			   |
@@ -116,14 +115,10 @@ func TestParseChoiceWithDataTestExpr(t *testing.T) {
 		},
 	}
 	ok := smExpected.Equals(sm)
-	if !ok {
-		fmt.Println("smExpected: ", smExpected)
-		fmt.Println("smActual: ", sm)
-	}
 	utils.AssertTrueMsg(t, ok, "state machines differs")
 }
 
-// TestParseTerminalChoiceWithThreeBranches tests that the following dag...
+// TestParseTerminalChoiceWithThreeBranches tests that the following workflow...
 //
 //	   [ Task ]
 //	      |
@@ -282,9 +277,5 @@ func TestParseChoiceWithBooleanExpr(t *testing.T) {
 		},
 	}
 	ok := smExpected.Equals(sm)
-	if !ok {
-		fmt.Println("smExpected: ", smExpected)
-		fmt.Println("smActual: ", sm)
-	}
 	utils.AssertTrueMsg(t, ok, "state machines differs")
 }

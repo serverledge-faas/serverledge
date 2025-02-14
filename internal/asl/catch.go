@@ -1,7 +1,7 @@
 package asl
 
 import (
-	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/serverledge-faas/serverledge/internal/types"
 	"golang.org/x/exp/slices"
 )
 

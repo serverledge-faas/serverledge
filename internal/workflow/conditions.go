@@ -1,4 +1,4 @@
-package fc
+package workflow
 
 import (
 	"fmt"
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
 type Predicate struct {
@@ -44,7 +44,7 @@ const (
 )
 
 func (p Predicate) Test(input map[string]interface{}) bool {
-	ok, err := p.Root.Test(input)
+	ok, err := p.Root.Evaluate(input)
 	if err != nil {
 		fmt.Printf("%s\n", err.Error())
 	}
@@ -210,12 +210,12 @@ func (c Condition) findInputs(input map[string]interface{}) ([]interface{}, bool
 	return ops, isNumber, nil
 }
 
-func (c Condition) Test(input map[string]interface{}) (bool, error) {
+func (c Condition) Evaluate(input map[string]interface{}) (bool, error) {
 	switch c.Type {
 	case And:
 		and := true
 		for _, condition := range c.Sub {
-			ok, err := condition.Test(input)
+			ok, err := condition.Evaluate(input)
 			if err != nil {
 				return false, err
 			}
@@ -225,7 +225,7 @@ func (c Condition) Test(input map[string]interface{}) (bool, error) {
 	case Or:
 		or := false
 		for _, condition := range c.Sub {
-			ok, err := condition.Test(input)
+			ok, err := condition.Evaluate(input)
 			if err != nil {
 				return false, err
 			}
@@ -237,7 +237,7 @@ func (c Condition) Test(input map[string]interface{}) (bool, error) {
 			return false, fmt.Errorf("you need exactly one condition to check if it is Not satisfied")
 		}
 
-		test, err := c.Sub[0].Test(input)
+		test, err := c.Sub[0].Evaluate(input)
 		return !test, err
 	case Const:
 		if len(c.Op) == 0 {

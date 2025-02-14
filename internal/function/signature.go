@@ -34,17 +34,9 @@ func (i InputDef) CheckInput(inputMap map[string]interface{}) error {
 		return fmt.Errorf("no input parameter with name '%s' and type '%s' exists", i.Name, i.Type)
 	}
 
-	t, err := StringToDataType(i.Type)
-	if err != nil {
-		return err
-	}
-	if t == nil {
-		return fmt.Errorf("data type is too complex. Available types are Int, Text, Float, Bool, ArrayInt, ArrayText, ArrayFloat, ArrayBool, ArrayArrayInt, ArrayArrayFloat")
-	}
-
 	dType, err := StringToDataType(i.Type)
 	if err != nil {
-		return fmt.Errorf("data type")
+		return fmt.Errorf("data type is too complex. Available types are Int, Text, Float, Bool, ArrayInt, ArrayText, ArrayFloat, ArrayBool, ArrayArrayInt, ArrayArrayFloat")
 	}
 	return dType.TypeCheck(val)
 }
@@ -74,7 +66,7 @@ type OutputDef struct {
 	Type string // the type of the output parameter
 }
 
-// CheckInput evaluates all given outputs and if there is no output that type-checks, with the given name and the current type, returns an error
+// CheckOutput evaluates all given outputs and if there is no output that type-checks, with the given name and the current type, returns an error
 func (o OutputDef) CheckOutput(inputMap map[string]interface{}) error {
 	val, exists := inputMap[o.Name]
 	if !exists {
@@ -104,10 +96,6 @@ func (o OutputDef) TryParse(result string) (interface{}, error) {
 		return strconv.ParseBool(result)
 	case Float:
 		return strconv.ParseFloat(result, 64)
-	//case Array[DataTypeEnum]:
-	//	arr := make([]interface{}, 0)
-	//	dType := o.Type.(Array[DataTypeEnum]).DataType.TryParse()
-
 	default:
 		return result, nil
 	}
@@ -189,15 +177,30 @@ func (s SignatureBuilder) Build() *Signature {
 	return &s.signature
 }
 
-func (s *Signature) CheckAllInputs(inputMap map[string]interface{}) error {
+// CheckOrMatchInputs performs name and type checking between inputMap and the signature.
+// If the signature has a single input that type-checks with inputMap, the name of
+// the parameter in inputMap is updated to match with the signature.
+func (s *Signature) CheckOrMatchInputs(inputMap map[string]interface{}) error {
 	errors := ""
-	// number of inputs should be the same, but sometimes we need the input for the subsequent functions, but not for the current one
-	//if len(inputMap) != len(s.inputs) {
-	//	errors += fmt.Sprintf("type-error: there are %d inputs, but should have been %d\n", len(inputMap), len(s.inputs))
-	//}
-	// type of inputs in the signature
+	if len(inputMap) < len(s.Inputs) {
+		errors += fmt.Sprintf("type-error: there are %d inputs, but should have been %d\n", len(inputMap), len(s.Inputs))
+	}
+
 	for _, def := range s.Inputs {
 		err := def.CheckInput(inputMap)
+
+		if err != nil && len(s.Inputs) == 1 {
+			key, ok := def.FindEntryThatTypeChecks(inputMap)
+			if ok {
+				val := inputMap[key]
+				delete(inputMap, key)
+				inputMap[def.Name] = val
+				err = nil
+			} else {
+				err = fmt.Errorf("no output entry input-checks with the next function")
+			}
+		}
+
 		if err != nil {
 			errors += fmt.Sprintf("type-error: %v", err)
 		}
@@ -210,11 +213,11 @@ func (s *Signature) CheckAllInputs(inputMap map[string]interface{}) error {
 
 func (s *Signature) CheckAllOutputs(outputMap map[string]interface{}) error {
 	errors := ""
-	// number of outputs: we should not check it if we are taking with use more input than necessary for this function
-	//if len(outputMap) != len(s.outputs) {
-	//	errors += fmt.Sprintf("type-error: there are %d outputs, but should have been %d\n", len(outputMap), len(s.outputs))
-	//}
-	// type of outputs in the signature
+
+	if len(outputMap) < len(s.Outputs) {
+		errors += fmt.Sprintf("type-error: there are %d outputs, but should have been %d\n", len(outputMap), len(s.Outputs))
+	}
+
 	for _, def := range s.Outputs {
 		err := def.CheckOutput(outputMap)
 		if err != nil {

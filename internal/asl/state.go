@@ -3,7 +3,7 @@ package asl
 import (
 	"fmt"
 
-	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 // State is the common interface for ASL states. StateTypes are Task, Parallel, Map, Pass, Wait, Choice, Succeed, Fail

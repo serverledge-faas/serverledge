@@ -1,23 +1,23 @@
 # Functions composition
 
-Serverledge accepts DAGs defined by users through a subset of the JSON-based *Amazon States Language*, currently in use by AWS Step Functions. Furthermore, you can define DAGs programmatically
-with the DagBuilder APIs.
+Serverledge accepts workflows defined by users through a subset of the JSON-based *Amazon States Language*, currently in use by AWS Step Functions. Furthermore, you can define workflows programmatically
+with the Builder APIs.
 
-Serverledge DAGs comprise 4 types of nodes:
+Serverledge workflows comprise 4 types of nodes:
 - **SimpleNode**: a node that wraps a function. This is the only node that executes user-defined functions.
 - **ChoiceNode**: a node with N conditions that transfers its input to the first branch whose condition is evaluated as true
 - **FanOutNode**: a node with N outputs that copies (or scatters) the input to all the outputs (with subsequent nodes activated in parallel)
 -  **FanInNode**: a node with N inputs that waits for the termination of all the parent nodes, and then merges the results in one output. The node fails after a specified timeout.
 
 Three special nodes are always present and pre-built when using the APIs:
-- **StartNode**: the single node from which the DAG starts executing
-- **EndNode**: the final node of the DAG
-- **ErrorNode**: a node that terminates DAG execution with failure 
+- **StartNode**: the single node from which the workflow starts executing
+- **EndNode**: the final node of the workflow
+- **ErrorNode**: a node that terminates workflow execution with failure 
 
 
 ## Signature
 Specifying a signature is optional for Serverledge functions. However,
-in order to use functions within DAGs, they must have an associated signature.
+in order to use functions within workflows, they must have an associated signature.
 A signature specifies the type of the inputs accepted by the function, as well as the type of the produced outputs. For instance, a *Fibonacci* function might have a single integer input, and produce a single integer output.
 
 The signature can be specified when creating a function through the CLI.
@@ -41,10 +41,10 @@ Example:
 
 TODO
 
-## DagBuilder API
+## Builder API
 
-It is possible to use the internal builder APIs to build complex DAGs programmatically in Go.
-Here is an example of a DAG made by two simple nodes and a choice node, with N alternative conditions
+It is possible to use the internal builder APIs to build complex workflows programmatically in Go.
+Here is an example of a workflow made by two simple nodes and a choice node, with N alternative conditions
 
 	N := 4
 	function := function.Function{...}
@@ -53,11 +53,11 @@ Here is an example of a DAG made by two simple nodes and a choice node, with N a
 	...
 	condition[N-1] = Condition{...}
 	
-	NewDagBuilder().
+	NewBuilder().
 	    AddSimpleNode(&function).
 	    AddSimpleNode(&function2).
 	    AddChoiceNode(conditions).
-	    ForEach(NewDagBuilder().
+	    ForEach(NewBuilder().
 	            AddSimpleNode(&function).
 	            Build()).
 	    EndChoiceNode().

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/buger/jsonparser"
-	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 type Formula interface {

@@ -1,6 +1,6 @@
 package asl
 
-import "github.com/grussorusso/serverledge/internal/types"
+import "github.com/serverledge-faas/serverledge/internal/types"
 
 type PassState struct {
 	Type StateType

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 type RuleType int
@@ -101,7 +101,7 @@ func (b *BooleanExpression) Validate(stateNames []string) error {
 // TestExpression is used in both DataTestExpression and BooleanExpression and represents a condition
 type TestExpression struct {
 	Variable           string
-	ComparisonOperator *ComparisonOperator // FIXME: parse into a fc.Condition, but leave it a string (or you'll have an import cycle)
+	ComparisonOperator *ComparisonOperator // FIXME: parse into a workflow.Condition, but leave it a string (or you'll have an import cycle)
 }
 
 func (t *TestExpression) Validate(stateNames []string) error {

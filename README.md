@@ -51,8 +51,8 @@ be installed on the host. Furthermore, Serverledge needs
 permissions to create containers.
 
 You also need an `etcd` server to run Serverledge. To quickly start a local
-server, just download [a recent
-release](https://github.com/etcd-io/etcd/releases) of `etcd` and just run `./etcd`.
+server, just download [a recent release](https://github.com/etcd-io/etcd/releases) 
+of `etcd` and just run `./etcd`.
 
 Start a local Serverledge node:
 

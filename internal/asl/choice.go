@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/buger/jsonparser"
-	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/labstack/gommon/log"
+	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 type ChoiceState struct {
 	Type       StateType    // Necessary
-	Choices    []ChoiceRule // Necessary. All DataTestExpression must be State Machine with an end, like fc.ChoiceNode(s).
+	Choices    []ChoiceRule // Necessary. All DataTestExpression must be State Machine with an end, like workflow.ChoiceNode(s).
 	InputPath  Path         // Optional
 	OutputPath Path         // Optional
 	// Default is the default state to execute when no other DataTestExpression matches

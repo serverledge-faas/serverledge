@@ -10,13 +10,13 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/cache"
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/node"
-	"github.com/grussorusso/serverledge/internal/registration"
-	"github.com/grussorusso/serverledge/internal/scheduling"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/serverledge-faas/serverledge/internal/cache"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/registration"
+	"github.com/serverledge-faas/serverledge/internal/scheduling"
 )
 
 func StartAPIServer(e *echo.Echo) {
@@ -29,12 +29,12 @@ func StartAPIServer(e *echo.Echo) {
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)
 	e.GET("/status", GetServerStatus)
-	// Function composition routes
-	e.POST("/play/:fc", InvokeFunctionComposition)
-	e.POST("/compose", CreateFunctionComposition)
-	e.POST("/composeASL", CreateFunctionCompositionFromASL)
-	e.POST("/uncompose", DeleteFunctionComposition)
-	e.GET("/fc", GetFunctionCompositions)
+	// Workflow routes
+	e.POST("/workflow/invoke/:workflow", InvokeWorkflow)
+	e.POST("/workflow/create", CreateWorkflowFromASL)
+	e.POST("/workflow/import", CreateWorkflow)
+	e.POST("/workflow/delete", DeleteWorkflow)
+	e.GET("/workflow/list", GetWorkflows)
 
 	// Start server
 	portNumber := config.GetInt(config.API_PORT, 1323)
@@ -105,8 +105,6 @@ func CreateSchedulingPolicy() scheduling.Policy {
 		return &scheduling.CloudEdgePolicy{}
 	} else if policyConf == "edgeonly" {
 		return &scheduling.EdgePolicy{}
-	} else if policyConf == "custom1" {
-		return &scheduling.Custom1Policy{}
 	} else { // default, localonly
 		return &scheduling.DefaultLocalPolicy{}
 	}

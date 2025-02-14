@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
 type DataTypeEnum interface {

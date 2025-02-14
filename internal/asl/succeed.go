@@ -3,7 +3,7 @@ package asl
 import (
 	"fmt"
 
-	"github.com/grussorusso/serverledge/internal/types"
+	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 type SucceedState struct {

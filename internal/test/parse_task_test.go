@@ -1,11 +1,10 @@
 package test
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/asl"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/asl"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
 func TestParseSingleTerminalTask(t *testing.T) {
@@ -129,7 +128,6 @@ func TestParseTaskWithoutEnd(t *testing.T) {
 	utils.AssertNilMsg(t, err1, "parsing failed")
 	err := sm.Validate(sm.GetAllStateNames())
 	utils.AssertNonNilMsg(t, err, "parsing should have failed")
-	fmt.Printf("Expected error: %v\n", err)
 }
 
 func TestParseTaskWithInvalidHeartbeat(t *testing.T) {
@@ -152,7 +150,6 @@ func TestParseTaskWithInvalidHeartbeat(t *testing.T) {
 	utils.AssertNilMsg(t, err1, "parsing failed")
 	err := sm.Validate(sm.GetAllStateNames())
 	utils.AssertNonNilMsg(t, err, "parsing should have failed")
-	fmt.Printf("Expected error: %v\n", err)
 }
 
 func TestParseTaskWithBothPathAndHeartbeat(t *testing.T) {
@@ -175,7 +172,6 @@ func TestParseTaskWithBothPathAndHeartbeat(t *testing.T) {
 	utils.AssertNilMsg(t, err1, "parsing failed")
 	err := sm.Validate(sm.GetAllStateNames())
 	utils.AssertNonNilMsg(t, err, "parsing should have failed")
-	fmt.Printf("Expected error: %v\n", err)
 }
 
 func TestParseTaskWithOnlyHeartbeat(t *testing.T) {
@@ -197,5 +193,4 @@ func TestParseTaskWithOnlyHeartbeat(t *testing.T) {
 	utils.AssertNilMsg(t, err1, "parsing failed")
 	err := sm.Validate(sm.GetAllStateNames())
 	utils.AssertNonNilMsg(t, err, "parsing should have failed")
-	fmt.Printf("Expected error: %v\n", err)
 }
