@@ -101,7 +101,7 @@ func TestProgressMarshaling(t *testing.T) {
 
 func TestProgressCache(t *testing.T) {
 	// it's an integration test because it needs etcd
-	if !IntegrationTest {
+	if testing.Short() {
 		t.Skip()
 	}
 
@@ -191,8 +191,6 @@ func TestProgressChoice1(t *testing.T) {
 
 	// End of dag
 	finishProgress(t, progress)
-
-	progress.Print()
 }
 
 // TestProgressChoice2 tests the right branch
@@ -220,8 +218,6 @@ func TestProgressChoice2(t *testing.T) {
 
 	// End of dag
 	finishProgress(t, progress)
-
-	progress.Print()
 }
 
 func TestParallelProgress(t *testing.T) {
@@ -270,8 +266,6 @@ func TestParallelProgress(t *testing.T) {
 
 	// End of dag
 	finishProgress(t, progress)
-
-	progress.Print()
 }
 
 func TestComplexProgress(t *testing.T) {
@@ -298,8 +292,6 @@ func TestComplexProgress(t *testing.T) {
 
 	// End of dag
 	finishProgress(t, progress)
-
-	progress.Print()
 }
 
 func TestComplexProgress2(t *testing.T) {
@@ -335,8 +327,6 @@ func TestComplexProgress2(t *testing.T) {
 
 	// End of dag
 	finishProgress(t, progress)
-
-	progress.Print()
 }
 
 func checkAndCompleteNext(t *testing.T, progress *fc.Progress, dag *fc.Dag) fc.DagNode {

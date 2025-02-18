@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"github.com/grussorusso/serverledge/internal/function"
 	u "github.com/grussorusso/serverledge/utils"
 
@@ -17,7 +16,6 @@ func TestText(t *testing.T) {
 
 	err2 := tt.TypeCheck(5)
 	u.AssertNonNil(t, err2)
-	fmt.Println(err2.Error())
 }
 
 // DataTypeEnum Int test
@@ -33,7 +31,6 @@ func TestInt(t *testing.T) {
 
 	err3 := i.TypeCheck("0103.1")
 	u.AssertNonNil(t, err3)
-	fmt.Println(err3.Error())
 
 }
 

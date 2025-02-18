@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -378,8 +377,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	var node DagNode
 	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
 
-	fmt.Println(nextNodes)
-
 	for _, nodeId := range nextNodes {
 		node, ok := dag.Find(nodeId)
 		if ok {
@@ -389,7 +386,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 		}
 		// for simple node we also retrieve the partial data and receive input
 		if simple, isSimple := node.(*SimpleNode); isSimple {
-			fmt.Println(partialData.Data[fmt.Sprintf("%s", nodeId)])
 			errInput := simple.CheckInput(partialData.Data[fmt.Sprintf("%s", nodeId)].(map[string]interface{}))
 			if errInput != nil {
 				return pd, progress, errInput
@@ -404,7 +400,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			// for simple node, we also prepare output
 			if simpleNode, isSimple := node.(*SimpleNode); isSimple {
 				errSend := simpleNode.PrepareOutput(dag, output)
-				fmt.Printf("errSend: %v, node: %v, output: %v\n", errSend, simpleNode, output)
 				if errSend != nil {
 					errorChannels[i] <- err
 					outputChannels[i] <- nil
@@ -419,7 +414,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			}
 			errorChannels[i] <- nil
 			outputChannels[i] <- output
-			// fmt.Printf("goroutine %d for node %s completed\n", i, node.GetId())
 		}(i, inputs[i], node)
 	}
 	// checking errors
@@ -440,7 +434,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			parallelOutputs = append(parallelOutputs, out)
 		}
 	}
-	fmt.Printf("parallelOutputs: %v\n", parallelOutputs)
 	// returning errors
 	if len(parallelErrors) > 0 {
 		return pd, progress, fmt.Errorf("errors in parallel execution: %v", parallelErrors)
@@ -463,8 +456,6 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	// TODO: node is updated within the previous loop, hence we only get the next node for 1 of the parallel nodes
 	pd.ForNode = node.GetNext()[0]
 	pd.Data = outputMap
-	fmt.Println(outputMap)
-	fmt.Println(node.GetNext())
 	return pd, progress, nil
 }
 
@@ -826,40 +817,6 @@ func (dag *Dag) IsEmpty() bool {
 	return false
 }
 
-// Debug can be used to find if expected output of test TestInvokeFC_Concurrent is correct based on requestId of format "goroutine_#" and simple node ids of format "simple #"
-func Debug(r *CompositionRequest, nodeId string, output map[string]interface{}) error {
-	if strings.Contains(r.ReqId, "goroutine") {
-		// getting number of goroutine, to get the starting input of the sequence
-		startingInput := strings.Split(r.ReqId, "_")[1]
-		atoi, errAtoi1 := strconv.Atoi(startingInput)
-		if errAtoi1 != nil {
-			return errAtoi1
-		}
-		// getting the number of simple node, to get the increment value up to this node in the sequence
-		currentIncrementMinusOne := strings.Split(nodeId, " ")[1]
-		atoiInc, errAtoi2 := strconv.Atoi(currentIncrementMinusOne)
-		if errAtoi2 != nil {
-			return errAtoi2
-		}
-		expectedOutput := atoi + atoiInc + 1
-
-		// getting the key of the single map entry
-		key := ""
-		for name := range output {
-			key = name
-			break
-		}
-		// assertEquals
-		actualOutput := output[key]
-		if expectedOutput != actualOutput {
-			contents := GetCacheContents()
-			fmt.Println(contents)
-			return fmt.Errorf("expected: %d - actual: %v\n", expectedOutput, output)
-		}
-	}
-	return nil
-}
-
 func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Dag, error) {
 	builder := NewDagBuilder()
 	isTerminal := false
@@ -940,7 +897,7 @@ func FromStateMachine(sm *asl.StateMachine) (*Dag, error) {
 func findNextOrTerminate(state asl.CanEnd, sm *asl.StateMachine) (asl.State, string, bool) {
 	isTerminal := state.IsEndState()
 	var nextState asl.State = nil
-	var nextStateName string = ""
+	var nextStateName = ""
 
 	if !isTerminal {
 		nextName, ok := state.(asl.HasNext).GetNext()

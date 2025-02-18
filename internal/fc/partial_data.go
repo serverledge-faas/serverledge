@@ -89,7 +89,6 @@ func RetrievePartialData(reqId ReqId, nodeId DagNodeId, alsoFromEtcd bool) ([]*P
 	// Get from cache if exists, otherwise from ETCD
 	partialDatas, err := getPartialDataFromCache(newPartialDataId(reqId), nodeId)
 	if err != nil && alsoFromEtcd {
-		fmt.Printf("cache miss: %v\n", err)
 		// cache miss - retrieve partialData from ETCD
 		partialDatas, err = getPartialDataFromEtcd(reqId, nodeId)
 		if err != nil {
@@ -201,8 +200,8 @@ func savePartialDataInCache(pds ...*PartialData) bool {
 		partialDataIdType = newPartialDataId(pd.ReqId)
 
 		partialDataMap, _ := pdCache.LoadOrStore(partialDataIdType, &sync.Map{})
-		partialDataMapTyped, convErr := partialDataMap.(*sync.Map)
-		if !convErr {
+		partialDataMapTyped, ok := partialDataMap.(*sync.Map)
+		if !ok {
 			fmt.Printf("sync map conversion error\n")
 			return false
 		}
@@ -264,7 +263,6 @@ func getPartialDataFromEtcd(requestId ReqId, nodeId DagNodeId) ([]*PartialData, 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	key := getPartialDataEtcdKey(requestId, nodeId)
-	println("getting key from etcd: ", key)
 	pdEtcdMutex.Lock()
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil || len(getResponse.Kvs) < 1 {

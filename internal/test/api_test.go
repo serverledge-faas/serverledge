@@ -111,8 +111,7 @@ func TestInvokeComposition(t *testing.T) {
 	// === this is the test ===
 	params := make(map[string]interface{})
 	params["input"] = 1
-	invocationResult := invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
-	fmt.Println(invocationResult)
+	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
@@ -152,8 +151,7 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	// === this is the test ===
 	params := make(map[string]interface{})
 	params["input"] = 1
-	invocationResult := invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
-	fmt.Println(invocationResult)
+	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
@@ -225,7 +223,6 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	params := make(map[string]interface{})
 	params["input"] = 1
 	invocationResult := invokeCompositionApiTest(t, params, fcName, HOST, PORT, true)
-	fmt.Println(invocationResult)
 
 	reqIdStruct := &function.AsyncResponse{}
 
@@ -236,7 +233,6 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	i := 0
 	for {
 		pollResult := pollCompositionTest(t, reqIdStruct.ReqId, HOST, PORT)
-		fmt.Println(pollResult)
 
 		var compExecReport fc.CompositionExecutionReport
 		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &compExecReport)
@@ -247,7 +243,6 @@ func TestAsyncInvokeComposition(t *testing.T) {
 				utils.AssertFalseMsg(t, true, errUnmarshalExecResult.Error())
 			}
 			i++
-			fmt.Printf("Attempt %d - Result not available - retrying after 200 ms: %v\n", i, errUnmarshalExecResult)
 			time.Sleep(200 * time.Millisecond)
 		} else {
 			result, err := compExecReport.GetSingleResult()

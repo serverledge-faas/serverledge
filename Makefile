@@ -41,18 +41,10 @@ push-images:
 	docker push $(DOCKERHUB_USER)/serverledge-nodejs17ng
 
 unit_test:
-	go test -v ./...
+	go test -short -v ./...
 
 test:
-	INTEGRATION=1 go test -v ./...
-
-# to get coverage, install cover
-# go get golang.org/x/tools/cmd/cover
-test_coverage:
-	go test -coverprofile coverage.txt ./...
-
-coverage:
-	go tool cover -html=coverage.txt
+	go test -v ./...
 
 .PHONY: serverledge serverledge-cli lb executor test images
 

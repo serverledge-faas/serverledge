@@ -18,12 +18,10 @@ func TestMarshalSignature(t *testing.T) {
 	marshal, err := json.Marshal(*sig)
 	u.AssertNil(t, err)
 	u.AssertEquals(t, "{\"Inputs\":[{\"Name\":\"hello\",\"Type\":\"Text\"},{\"Name\":\"age\",\"Type\":\"Int\"}],\"Outputs\":[{\"Name\":\"price\",\"Type\":\"Float\"},{\"Name\":\"items\",\"Type\":\"ArrayText\"}]}", fmt.Sprintf("%s", marshal))
-	fmt.Printf("Signature:\n%s\n", marshal)
 
 	m, e := json.Marshal(function.InputDef{Name: "a", Type: "Int"})
 	u.AssertNil(t, e)
 	u.AssertEquals(t, "{\"Name\":\"a\",\"Type\":\"Int\"}", fmt.Sprintf("%s", m))
-	fmt.Printf("InputDef:\n%s\n", m)
 }
 
 // InputDef test

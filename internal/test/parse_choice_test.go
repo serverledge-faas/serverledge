@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/grussorusso/serverledge/internal/asl"
@@ -116,10 +115,6 @@ func TestParseChoiceWithDataTestExpr(t *testing.T) {
 		},
 	}
 	ok := smExpected.Equals(sm)
-	if !ok {
-		fmt.Println("smExpected: ", smExpected)
-		fmt.Println("smActual: ", sm)
-	}
 	utils.AssertTrueMsg(t, ok, "state machines differs")
 }
 
@@ -282,9 +277,5 @@ func TestParseChoiceWithBooleanExpr(t *testing.T) {
 		},
 	}
 	ok := smExpected.Equals(sm)
-	if !ok {
-		fmt.Println("smExpected: ", smExpected)
-		fmt.Println("smActual: ", sm)
-	}
 	utils.AssertTrueMsg(t, ok, "state machines differs")
 }

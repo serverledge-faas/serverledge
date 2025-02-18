@@ -94,18 +94,17 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 // current dir is ./serverledge/internal/fc
 func TestMain(m *testing.M) {
 	_, Experiment = os.LookupEnv("EXPERIMENT")
-	// Parsing the test flags. Needed to ensure that the -short flag is parsed, so testing.Short() returns a nonNil bool
-	flag.Parse()
+
+	flag.Parse() // Parsing the test flags. Needed to ensure that the -short flag is parsed, so testing.Short() returns a nonNil bool
+
 	outboundIp, err := u.GetOutboundIp()
 	if err != nil || outboundIp == nil {
 		log.Fatalf("test cannot be executed without internet connection")
 	}
-	IntegrationTest = !testing.Short()
 
 	// spin up container with serverledge infrastructure
-	if IntegrationTest {
-		//registry, echoServer, ok := setupServerledge(outboundIp.String())
-		_, _, ok := setupServerledge(outboundIp.String())
+	if !testing.Short() {
+		registry, echoServer, ok := setupServerledge(outboundIp.String())
 		if ok != nil {
 			fmt.Printf("failed to initialize serverledgde: %v\n", ok)
 			os.Exit(int(codes.Internal))
@@ -113,12 +112,12 @@ func TestMain(m *testing.M) {
 
 		// run all test independently
 		code := m.Run()
+
 		// tear down containers in order
-		/*err := teardownServerledge(registry, echoServer)
+		err := teardownServerledge(registry, echoServer)
 		if err != nil {
 			fmt.Printf("failed to remove serverledgde: %v\n", err)
-			os.Exit(int(codes.Internal))
-		}*/
+		}
 		os.Exit(code)
 	} else {
 		code := m.Run()
@@ -139,15 +138,12 @@ func startReliably(startScript string, stopScript string, msg string) error {
 		cmd = exec.CommandContext(context.Background(), getShell(), startScript)
 		err = cmd.Run()
 	}
-	if err == nil {
-		fmt.Printf("%s started\n", msg)
-	}
 	return err
 }
 
 // run the bash script to initialize serverledge
 func setupServerledge(outboundIp string) (*registration.Registry, *echo.Echo, error) {
-	//err1 := startReliably("../../scripts/start-etcd"+getShellExt(), "../../scripts/stop-etcd"+getShellExt(), "ETCD")
+	_ = startReliably("../../scripts/start-etcd"+getShellExt(), "../../scripts/stop-etcd"+getShellExt(), "ETCD")
 	registry, echoServer := testStartServerledge(false, outboundIp)
 	return registry, echoServer, nil
 }
@@ -156,14 +152,8 @@ func setupServerledge(outboundIp string) (*registration.Registry, *echo.Echo, er
 func teardownServerledge(registry *registration.Registry, e *echo.Echo) error {
 	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/remove-etcd"+getShellExt())
 
-	node.Resources.Lock()
-	nContainers := len(node.Resources.ContainerPools)
-	fmt.Printf("Terminating all %d containers...\n", nContainers)
-	node.Resources.Unlock()
-
 	node.ShutdownAllContainers()
 
-	//stop container janitor
 	node.StopJanitor()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -172,6 +162,5 @@ func teardownServerledge(registry *registration.Registry, e *echo.Echo) error {
 
 	errRegistry := registry.Deregister()
 	err1 := cmd1.Run()
-	fmt.Println("ETCD removed")
 	return u.ReturnNonNilErr(errEcho, errRegistry, err1)
 }

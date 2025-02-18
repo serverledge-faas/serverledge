@@ -2,7 +2,6 @@ package test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/grussorusso/serverledge/internal/fc"
@@ -24,8 +23,6 @@ func TestPredicateMarshal(t *testing.T) {
 		var predicateTest fc.Predicate
 		errUnmarshal := json.Unmarshal(val, &predicateTest)
 		utils.AssertNil(t, errUnmarshal)
-		fmt.Printf("predicateInput\t: %+v\n", predicate)
-		fmt.Printf("predicateTest\t: %+v\n", predicateTest)
 		utils.AssertTrue(t, predicate.Equals(predicateTest))
 	}
 }
@@ -47,18 +44,15 @@ func TestPredicate(t *testing.T) {
 func TestPrintPredicate(t *testing.T) {
 	str := predicate1.LogicString()
 	utils.AssertEquals(t, "(2 == 2 && 4 > 2)", str)
-	predicate1.Print()
+
 	str2 := predicate2.LogicString()
 	utils.AssertEquals(t, "(true || 4 < 2)", str2)
-	predicate2.Print()
 
 	str3 := predicate3.LogicString()
 	utils.AssertEquals(t, "((2 == 2 && 4 > 2) || 4 < 2)", str3)
-	predicate3.Print()
 
 	str4 := predicate4.LogicString()
 	utils.AssertEquals(t, "!(IsEmpty(1))", str4)
-	predicate4.Print()
 }
 
 func TestBuilder(t *testing.T) {

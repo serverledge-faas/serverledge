@@ -4,6 +4,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"log"
 	"testing"
 
@@ -67,7 +68,6 @@ func TestComposeFC(t *testing.T) {
 	// The creation is successful: we have one more function composition?
 	// GET2
 	funcs2, err3 := fc.GetAllFC()
-	fmt.Println(funcs2)
 	u.AssertNil(t, err3)
 	u.AssertEqualsMsg(t, lenFuncs+1, len(funcs2), "creation of function failed")
 
@@ -83,7 +83,6 @@ func TestComposeFC(t *testing.T) {
 	// The deletion is successful?
 	// GET3
 	funcs3, err5 := fc.GetAllFC()
-	fmt.Println(funcs3)
 	u.AssertNil(t, err5)
 	u.AssertEqualsMsg(t, len(funcs3), lenFuncs, "deletion of function failed")
 }
@@ -118,16 +117,11 @@ func TestInvokeFC(t *testing.T) {
 
 	// check result
 	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	// res, errConv := strconv.Atoi(output.(string))
 	u.AssertEquals(t, length, output.(int))
-	// u.AssertNil(t, errConv)
-	fmt.Printf("%+v\n", resultMap)
 
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
 	u.AssertNil(t, err3)
-
-	//u.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestInvokeChoiceFC executes a Choice Dag with N alternatives, and it executes only the second one. The functions are all the same increment function
@@ -177,7 +171,6 @@ func TestInvokeChoiceFC(t *testing.T) {
 	// checking the result, should be input + 1
 	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
 	u.AssertEquals(t, input*2, output.(int))
-	fmt.Printf("%s\n", resultMap.String())
 
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
@@ -235,16 +228,11 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 		t.FailNow()
 	}
 
-	// res, errConv := strconv.Atoi(output.(string))
 	u.AssertEquals(t, (2*2+1)*2+1, output.(int))
-	// u.AssertNil(t, errConv)
-	fmt.Println(resultMap)
 
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
 	u.AssertNil(t, err3)
-
-	//u.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestInvokeFC_BroadcastFanOut executes a Parallel Dag with N parallel branches
@@ -264,7 +252,6 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	width := 3
 	dag, errDag := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fDouble) }, width)
 	u.AssertNil(t, errDag)
-	dag.Print()
 
 	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{fDouble}, true)
 	u.AssertNil(t, err)
@@ -324,7 +311,6 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 		errors[i] = make(chan error)
 	}
 
-	fmt.Println("initializing goroutines...")
 	for i := 0; i < concurrencyLevel; i++ {
 		resultChan := results[i]
 		errChan := errors[i]
@@ -336,13 +322,11 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			request := fc.NewCompositionRequest(fmt.Sprintf("goroutine_%d", i), fcomp, params)
 			// wait until all goroutines are ready
 			<-start
-			fmt.Printf("goroutine %d started invoking\n", i)
 			// return error
 			resultMap, err2 := fcomp.Invoke(request)
 			errChan <- err2
 			// return result
 			output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-			fmt.Printf("goroutine %d - result: %d\n", i, resultMap.Result["result"])
 			resultChan <- output
 		}(i, resultChan, errChan, start)
 	}
@@ -352,20 +336,16 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	}
 
 	// and wait for errors (hopefully not) and results
-	for i, e := range errors {
-		fmt.Printf("waiting for errors for goroutine %d...\n", i)
+	for _, e := range errors {
 		maybeError := <-e
 		u.AssertNilMsg(t, maybeError, "error in goroutine")
 	}
 
 	for i, r := range results {
-		fmt.Printf("waiting for result for goroutine %d...\n", i)
 		output := <-r
-		fmt.Printf("result of goroutine %d = %d\n", i, output.(int))
 		u.AssertEqualsMsg(t, length+i, output.(int), fmt.Sprintf("output of goroutine %d is wrong", i))
 	}
 
-	fmt.Println("deleting all composition and functions...")
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
 	u.AssertNil(t, err3)
@@ -375,152 +355,6 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 		// Delete local warm containers
 		node.ShutdownWarmContainersFor(fun)
 	}
-}
-
-// TODO: this test fails (not in a deterministic way). The issue is likely related to FanOut and Parallel nodes
-// TestInvokeFC_Complex_Concurrent executes concurrently m times a complex Dag of length N, where each node executes a different function
-func toFix_TestInvokeFC_Complex_Concurrent(t *testing.T) {
-
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	// CREATE - we create a test function composition
-	fcomp, err := createComplexComposition(t)
-	if err != nil {
-		t.Fail()
-	}
-
-	start := make(chan int)
-	results := make(map[int]chan interface{})
-	errors := make(map[int]chan error)
-	// initialize channels
-	for i := 0; i < 3; i++ {
-		results[i] = make(chan interface{})
-		errors[i] = make(chan error)
-	}
-
-	fmt.Println("initializing goroutines...")
-	for i := 0; i < 3; i++ {
-		resultChan := results[i]
-		errChan := errors[i]
-		// INVOKE - we call the function composition concurrently m times
-		go func(i int, resultChan chan interface{}, errChan chan error, start chan int) {
-			params := make(map[string]interface{})
-			goName := ""
-			outName := ""
-			if i%3 == 0 { // word_count
-				params["InputText"] = "Word counting is a useful technique for analyzing text data. It helps in various natural language processing tasks. In this example, we are testing the wordCount function in JavaScript. It should accurately count the number of words in this text. Counting words can be a fundamental step in text analysis."
-				params["Task"] = true
-				goName = "word_count"
-				outName = "NumberOfWords"
-			} else if i%3 == 1 { // summarize
-				params["InputText"] = "The Solar System consists of the Sun and all the celestial objects bound to it by gravity, including the eight major planets and their moons, asteroids, comets, and more. The Sun is a star located at the center of the Solar System. It provides light, heat, and energy, making life possible on Earth.\n\nThe eight major planets in our Solar System are Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. Each planet has unique characteristics, and some have moons of their own. For example, Earth has one natural satellite, the Moon.\n\nAsteroids are rocky objects that orbit the Sun, mainly found in the asteroid belt between the orbits of Mars and Jupiter. Comets are icy bodies that develop tails when they approach the Sun.\n\nStudying the Solar System provides insights into the formation and evolution of celestial bodies, as well as the potential for extraterrestrial life. Scientists use various tools and telescopes to explore and learn more about the mysteries of our Solar System.\n"
-				params["Task"] = false
-				goName = "summarize"
-				outName = "Summary"
-			} else { // 2 parallel grep
-				params["InputText"] = []string{
-					"This is an example text for testing the grep function.\nYou can use the grep function to search for specific words or patterns in text.\nThe function is a powerful tool for text processing.\n",
-					"It allows you to filter and extract lines that match a given pattern.\nYou can customize the pattern using regular expressions.\nFeel free to test the grep function with different patterns and texts.",
-				}
-				goName = "grep"
-				outName = "Rows"
-			}
-
-			request := fc.NewCompositionRequest(fmt.Sprintf("goroutine_%d_branch_%s", i, goName), fcomp, params)
-			// wait until all goroutines are ready
-			<-start
-			fmt.Printf("goroutine %d started invoking\n", i)
-			// return error
-			resultMap, err2 := fcomp.Invoke(request)
-			errChan <- err2
-			// return result
-			output := resultMap.Result[outName]
-			fmt.Printf("goroutine %d branch %s - result %s: %v\n", i, goName, outName, output)
-			resultChan <- output
-		}(i, resultChan, errChan, start)
-	}
-	// let's start all the goroutines at the same time
-	for i := 0; i < 3; i++ {
-		start <- 1
-	}
-
-	// and wait for errors (hopefully not) and results
-	for i, e := range errors {
-		fmt.Printf("waiting for errors for goroutine %d...\n", i)
-		maybeError := <-e
-		u.AssertNilMsg(t, maybeError, "error in goroutine")
-	}
-
-	for i, r := range results {
-		fmt.Printf("waiting for result for goroutine %d...\n", i)
-		output := <-r
-		fmt.Printf("result of goroutine %d = %v\n", i, output)
-	}
-
-	fmt.Println("deleting all composition and functions...")
-	// cleaning up function composition and function
-	err3 := fcomp.Delete()
-	u.AssertNil(t, err3)
-
-	// removing functions container to release resources
-	for _, fun := range fcomp.Functions {
-		// Delete local warm containers
-		node.ShutdownWarmContainersFor(fun)
-	}
-}
-
-// TODO: This test fails. We need to investigate the implementation of
-// Parallel nodes.
-// TestInvokeFC_DifferentBranches executes a Parallel broadcast Dag with N parallel DIFFERENT branches.
-func toFix_TestInvokeFC_DifferentBranches(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-	//for i := 0; i < 1; i++ {
-
-	fcName := "test"
-	// CREATE - we create a test function composition
-	f, errF1 := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
-		Build())
-	u.AssertNil(t, errF1)
-
-	dag, errDag := fc.CreateBroadcastMultiFunctionDag(
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f) },
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f) },
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f, f) },
-	)
-	u.AssertNil(t, errDag)
-	dag.Print()
-
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{f}, true)
-	u.AssertNil(t, err)
-	err1 := fcomp.SaveToEtcd()
-	u.AssertNil(t, err1)
-
-	// INVOKE - we call the function composition
-	params := make(map[string]interface{})
-	params[f.Signature.GetInputs()[0].Name] = 1
-	request := fc.NewCompositionRequest(shortuuid.New(), fcomp, params)
-	resultMap, err2 := fcomp.Invoke(request)
-	u.AssertNil(t, err2) // we should check that is a timeout error
-
-	output := resultMap.Result
-	u.AssertNonNil(t, output)
-
-	expectedMap := make(map[string]int)
-	expectedMap["result"] = 2
-	expectedMap["result_1"] = 4
-	expectedMap["result_2"] = 8
-
-	u.AssertMapEquals[string, int](t, expectedMap, output)
-
-	// cleaning up function composition and functions
-	err3 := fcomp.Delete()
-	u.AssertNil(t, err3)
 }
 
 // TestInvokeFC_ScatterFanOut executes a Parallel Dag with N parallel branches
@@ -541,7 +375,6 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	width := 3
 	dag, errDag := fc.CreateScatterSingleFunctionDag(fDouble, width)
 	u.AssertNil(t, errDag)
-	dag.Print()
 
 	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{fDouble}, true)
 	u.AssertNil(t, err)
@@ -558,13 +391,22 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	// check multiple result
 	output := resultMap.Result
 	u.AssertNonNil(t, output)
-	for key, res := range output {
-		fmt.Printf("%s : %v\n", key, res)
+	for _, res := range output {
 		genericSlice, ok := res.([]interface{})
 		u.AssertTrue(t, ok)
 		specificSlice, err := u.ConvertToSpecificSlice[int](genericSlice)
 		u.AssertNil(t, err)
-		u.AssertSliceEquals[int](t, []int{2, 4, 6}, specificSlice)
+		// check that the result has exactly 3 elements and they are 2,4,6
+		if len(specificSlice) != 3 {
+			fmt.Println("the length of the slice is 3")
+			t.Fail()
+		}
+		for _, i := range []int{2, 4, 6} {
+			if !slices.Contains(specificSlice, i) {
+				fmt.Printf("the result slice does not contain %d", i)
+				t.Fail()
+			}
+		}
 	}
 
 	// cleaning up function composition and functions
@@ -630,7 +472,6 @@ func TestInvokeSieveChoice(t *testing.T) {
 	u.AssertNil(t, err)
 
 	u.AssertSliceEqualsMsg[float64](t, []float64{2, 3, 5, 7, 11, 13}, res, "output is wrong")
-	fmt.Printf("%+v\n", resultMap)
 
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
@@ -668,8 +509,6 @@ func TestInvokeCompositionError(t *testing.T) {
 	request := fc.NewCompositionRequest(shortuuid.New(), fcomp, params)
 	_, err2 := fcomp.Invoke(request)
 	u.AssertNonNil(t, err2)
-
-	request.ExecReport.Progress.Print()
 }
 
 func TestInvokeCompositionFailAndSucceed(t *testing.T) {

@@ -44,8 +44,6 @@ func TestEmptyDag(t *testing.T) {
 	dag, err := fc.CreateEmptyDag()
 	u.AssertNil(t, err)
 
-	dag.Print()
-
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
 	u.AssertEquals(t, dag.Width, 1)
@@ -67,7 +65,6 @@ func TestSimpleDag(t *testing.T) {
 
 	dag, err := fc.CreateSequenceDag(fArr...)
 	u.AssertNil(t, err)
-	dag.Print()
 
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
@@ -117,8 +114,6 @@ func TestChoiceDag(t *testing.T) {
 
 	dag, err := fc.CreateChoiceDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArr...) }, arr...)
 	u.AssertNil(t, err)
-	fmt.Println("==== Choice  Dag ====")
-	dag.Print()
 
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
@@ -177,8 +172,6 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	width := len(choice.Alternatives)
 
 	u.AssertNil(t, err)
-	fmt.Println("==== Choice  Dag ====")
-	dag.Print()
 
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
@@ -209,7 +202,6 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 				}
 			}
 			u.AssertTrue(t, node.GetBranchId() > 0)
-			fmt.Println("branchId: ", node.GetBranchId())
 		}
 	}
 }
@@ -228,7 +220,6 @@ func TestBroadcastDag(t *testing.T) {
 
 	dag, errDag := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArr...) }, width)
 	u.AssertNil(t, errDag)
-	dag.Print()
 
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
@@ -274,7 +265,6 @@ func TestScatterDag(t *testing.T) {
 	width := 3
 	dag, errDag := fc.CreateScatterSingleFunctionDag(f, width)
 	u.AssertNil(t, errDag)
-	dag.Print()
 
 	u.AssertNonNil(t, dag.Start)
 	u.AssertNonNil(t, dag.End)
@@ -333,7 +323,6 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 		func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArrJs...) },
 	)
 	u.AssertNil(t, errDag)
-	dag.Print()
 	startNext, startNextFound := dag.Find(dag.Start.Next)
 	fanOutDegree := startNext.(*fc.FanOutNode).FanOutDegree
 
@@ -479,7 +468,6 @@ func TestDagBuilder(t *testing.T) {
 		}
 	}
 	u.AssertEquals(t, 3, simpleNodeChainedToFanIn)
-	dag.Print()
 }
 
 func TestVisit(t *testing.T) {

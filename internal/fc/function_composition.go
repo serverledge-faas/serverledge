@@ -216,21 +216,18 @@ func (fc *FunctionComposition) Invoke(r *CompositionRequest) (CompositionExecuti
 		// executing dag
 		pd, progress, shouldContinue, err = fc.Workflow.Execute(r, pd, progress)
 		if err != nil {
-			progress.Print()
 			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed dag execution: %v", err)
 		}
 	}
 
-	if !shouldContinue {
-		// saving partialData and progress on etcd - implementing workflow offloading policies
-		err := savePartialDataToEtcd(pd)
-		if err != nil {
-			return CompositionExecutionReport{}, err
-		}
-		err = saveProgressToEtcd(progress)
-		if err != nil {
-			return CompositionExecutionReport{}, err
-		}
+	// saving partialData and progress on etcd - implementing workflow offloading policies
+	err = savePartialDataToEtcd(pd)
+	if err != nil {
+		return CompositionExecutionReport{}, err
+	}
+	err = saveProgressToEtcd(progress)
+	if err != nil {
+		return CompositionExecutionReport{}, err
 	}
 
 	// deleting progresses and partial datas from cache and etcd
@@ -242,12 +239,8 @@ func (fc *FunctionComposition) Invoke(r *CompositionRequest) (CompositionExecuti
 	if errDel != nil {
 		return CompositionExecutionReport{}, errDel
 	}
-	// fmt.Printf("Succesfully deleted %d partial datas and progress for request %s\n", removed, requestId)
-	//r.ExecReport.Result = result.Data
 	r.ExecReport.Result = pd.Data
 
-	//progress.NextGroup = -1
-	//r.ExecReport.Progress = progress
 	return r.ExecReport, nil
 }
 

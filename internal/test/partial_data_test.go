@@ -32,7 +32,7 @@ func TestPartialDataMarshaling(t *testing.T) {
 
 func TestPartialDataCache(t *testing.T) {
 	// it's an integration test because it needs etcd
-	if !IntegrationTest {
+	if testing.Short() {
 		t.Skip()
 	}
 
