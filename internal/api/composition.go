@@ -11,7 +11,6 @@ import (
 
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/container"
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
@@ -89,32 +88,15 @@ func CreateFunctionComposition(e echo.Context) error {
 
 	log.Printf("New request: creation of composition %s", comp.Name)
 
-	if comp.Functions == nil {
-		// Retrieve functions
-		funcs := make(map[string]*function.Function, 0)
-		for _, fName := range comp.Workflow.GetUniqueDagFunctions() {
-			f, exists := function.GetFunction(fName)
-			if !exists {
-				log.Printf("Dropping request for composition with non-existing function '%s'", fName)
-				return e.JSON(http.StatusBadRequest, "composition with non-existing function")
-			}
-			if f.Signature == nil {
-				return e.JSON(http.StatusBadRequest, "function "+fName+"has nil signature")
-			}
-
-			funcs[fName] = f
+	// Check that functions exist
+	for _, fName := range comp.Workflow.GetUniqueDagFunctions() {
+		f, exists := function.GetFunction(fName)
+		if !exists {
+			log.Printf("Dropping request for composition with non-existing function '%s'", fName)
+			return e.JSON(http.StatusBadRequest, "composition with non-existing function")
 		}
-		comp.Functions = funcs
-	}
-
-	// checking if the chosen container runtime exists
-	for _, f := range comp.Functions {
-		// Check that the selected runtime exists
-		if f.Runtime != container.CUSTOM_RUNTIME {
-			_, ok := container.RuntimeToInfo[f.Runtime]
-			if !ok {
-				return e.JSON(http.StatusNotFound, "Invalid runtime.")
-			}
+		if f.Signature == nil {
+			return e.JSON(http.StatusBadRequest, "function "+fName+"has nil signature")
 		}
 	}
 
@@ -152,21 +134,16 @@ func DeleteFunctionComposition(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, "the request function composition to delete does not exist")
 	}
 	// only if RemoveFnOnDeletion is true, we also remove functions and associated warm (idle) containers
-	msg := ""
 	if composition.RemoveFnOnDeletion {
-		names := "["
-		i := 0
-		for _, f := range composition.Functions {
+		for _, fStr := range composition.Workflow.GetUniqueDagFunctions() {
+			f, found := function.GetFunction(fStr)
+			if !found {
+				fmt.Printf("Could not find function to delete: %s\n", fStr)
+				continue
+			}
 			// Delete local warm containers
 			node.ShutdownWarmContainersFor(f)
-			names += f.Name
-			if i != len(composition.Functions)-1 {
-				names += " "
-			}
-			i++
 		}
-		names += "]"
-		msg = " - deleted functions: " + names
 	}
 
 	log.Printf("New request: deleting %s", composition.Name)
@@ -176,7 +153,7 @@ func DeleteFunctionComposition(c echo.Context) error {
 		return c.JSON(http.StatusServiceUnavailable, "")
 	}
 
-	response := struct{ Deleted string }{composition.Name + msg}
+	response := struct{ Deleted string }{composition.Name}
 	return c.JSON(http.StatusOK, response)
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/grussorusso/serverledge/utils"
 )
 
@@ -70,8 +69,7 @@ func TestCreateComposition(t *testing.T) {
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
 	utils.AssertNil(t, err)
-	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	utils.AssertNil(t, err)
+	composition := fc.NewFC(fcName, *dag, true)
 	err = createCompositionApiTest(composition, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
@@ -100,8 +98,7 @@ func TestInvokeComposition(t *testing.T) {
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
 	utils.AssertNil(t, err)
-	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	utils.AssertNil(t, err)
+	composition := fc.NewFC(fcName, *dag, true)
 	err = createCompositionApiTest(composition, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
@@ -140,8 +137,7 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
 	dag, err := fc.CreateSequenceDag(fnPy, fnJs, fnPy, fnJs)
 	utils.AssertNil(t, err)
-	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fnPy, fnJs}, true)
-	utils.AssertNil(t, err)
+	composition := fc.NewFC(fcName, *dag, true)
 	err = createCompositionApiTest(composition, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
@@ -172,6 +168,10 @@ func TestDeleteComposition(t *testing.T) {
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).
 		Build())
+	if err != nil {
+		fmt.Printf("inc creation failed: %v\n", err)
+		t.Fail()
+	}
 	db, err := InitializePyFunction("double", "handler", function.NewSignature().
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).
@@ -179,9 +179,9 @@ func TestDeleteComposition(t *testing.T) {
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, db, fn)
 	utils.AssertNil(t, err)
+
 	for _, b := range []bool{true, false} {
-		composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn, db}, b)
-		utils.AssertNil(t, err)
+		composition := fc.NewFC(fcName, *dag, b)
 		err = composition.SaveToEtcd()
 		utils.AssertNil(t, err)
 
@@ -191,8 +191,7 @@ func TestDeleteComposition(t *testing.T) {
 	}
 
 	// delete the container when not used
-	deleteApiTest(t, fn.Name, HOST, PORT)
-	node.ShutdownWarmContainersFor(fn)
+	// deleteApiTest(t, fn.Name, HOST, PORT) // the function has already been deleted during composition deletion
 
 	// utils.AssertTrueMsg(t, node.ArePoolsEmptyInThisNode(), "container pools are not empty after the end of test")
 	// utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
@@ -211,8 +210,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
 	utils.AssertNil(t, err)
-	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	utils.AssertNil(t, err)
+	composition := fc.NewFC(fcName, *dag, true)
 	err = createCompositionApiTest(composition, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
@@ -258,11 +256,4 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	utils.AssertTrueMsg(t, composition.Equals(getFC), "composition comparison failed")
 	err = composition.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
-	// removing functions container to release resources
-
-	for _, fun := range composition.Functions {
-		// Delete local warm containers
-		node.ShutdownWarmContainersFor(fun)
-	}
-	//utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }

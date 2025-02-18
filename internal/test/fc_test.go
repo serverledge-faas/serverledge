@@ -10,7 +10,6 @@ import (
 
 	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/node"
 	u "github.com/grussorusso/serverledge/utils"
 	"github.com/lithammer/shortuuid"
 )
@@ -24,8 +23,7 @@ func TestMarshalingFunctionComposition(t *testing.T) {
 	u.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
 	u.AssertNil(t, err)
-	composition, err := fc.NewFC(fcName, *dag, []*function.Function{fn}, true)
-	u.AssertNil(t, err)
+	composition := fc.NewFC(fcName, *dag, true)
 
 	marshaledFunc, errMarshal := json.Marshal(composition)
 	u.AssertNilMsg(t, errMarshal, "failed to marshal composition")
@@ -59,8 +57,7 @@ func TestComposeFC(t *testing.T) {
 	dag, err := fc.CreateSequenceDag(fArr...)
 	u.AssertNil(t, err)
 
-	fcomp, err := fc.NewFC(fcName, *dag, fArr, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err2 := fcomp.SaveToEtcd()
 
 	u.AssertNil(t, err2)
@@ -101,8 +98,7 @@ func TestInvokeFC(t *testing.T) {
 	u.AssertNil(t, err)
 	dag, errDag := fc.CreateSequenceDag(fArr...)
 	u.AssertNil(t, errDag)
-	fcomp, err := fc.NewFC(fcName, *dag, fArr, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -153,8 +149,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 		EndChoiceAndBuild()
 
 	u.AssertNil(t, errDag)
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{incJs, incPy, doublePy}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -206,8 +201,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{fDouble, fInc}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -253,8 +247,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	dag, errDag := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fDouble) }, width)
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{fDouble}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -287,7 +280,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	fcName := "test"
 	// CREATE - we create a test function composition
 	length := 5
-	f, fArr, err := initializeSameFunctionSlice(length, "py")
+	f, _, err := initializeSameFunctionSlice(length, "py")
 	u.AssertNil(t, err)
 	builder := fc.NewDagBuilder()
 	for i := 0; i < length; i++ {
@@ -296,8 +289,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	dag, errDag := builder.Build()
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC(fcName, *dag, fArr, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -349,12 +341,6 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	// cleaning up function composition and function
 	err3 := fcomp.Delete()
 	u.AssertNil(t, err3)
-
-	// removing functions container to release resources
-	for _, fun := range fcomp.Functions {
-		// Delete local warm containers
-		node.ShutdownWarmContainersFor(fun)
-	}
 }
 
 // TestInvokeFC_ScatterFanOut executes a Parallel Dag with N parallel branches
@@ -376,8 +362,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	dag, errDag := fc.CreateScatterSingleFunctionDag(fDouble, width)
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{fDouble}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -450,8 +435,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 		EndChoiceAndBuild()
 
 	u.AssertNil(t, errDag)
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{isPrimePy, sieveJs, incPy}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -497,8 +481,7 @@ func TestInvokeCompositionError(t *testing.T) {
 		NextBranch(fc.CreateSequenceDag(incPy)).
 		EndChoiceAndBuild()
 	u.AssertNil(t, errDag)
-	fcomp, err := fc.NewFC(fcName, *dag, []*function.Function{incPy}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC(fcName, *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -525,8 +508,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 		NextBranch(fc.NewDagBuilder().AddFailNodeAndBuild("FakeError", "This should be an error")).
 		EndChoiceAndBuild()
 	u.AssertNil(t, errDag)
-	fcomp, err := fc.NewFC("fail_succeed", *dag, []*function.Function{}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC("fail_succeed", *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -576,8 +558,7 @@ func TestInvokeCompositionPassDoNothing(t *testing.T) {
 		Build()
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC("pass_do_nothing", *dag, []*function.Function{incPy}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC("pass_do_nothing", *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -609,8 +590,7 @@ func TestInvokeCompositionWait(t *testing.T) {
 		Build()
 	u.AssertNil(t, errDag)
 
-	fcomp, err := fc.NewFC("pass_do_nothing", *dag, []*function.Function{incPy}, true)
-	u.AssertNil(t, err)
+	fcomp := fc.NewFC("pass_do_nothing", *dag, true)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 

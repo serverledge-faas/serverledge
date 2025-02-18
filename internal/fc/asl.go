@@ -19,18 +19,7 @@ func FromASL(name string, rmFnOnDeletion bool, aslSrc []byte) (*FunctionComposit
 		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge DAG: %v", err)
 	}
 
-	// we do not care whether function names are duplicate, we handle this in the composition
-	funcNames := stateMachine.GetFunctionNames()
-	functions := make([]*function.Function, 0)
-	for _, f := range funcNames {
-		funcObj, ok := function.GetFunction(f)
-		if !ok {
-			return nil, fmt.Errorf("function does not exists")
-		}
-		functions = append(functions, funcObj)
-	}
-
-	return NewFC(stateMachine.Name, *dag, functions, rmFnOnDeletion)
+	return NewFC(stateMachine.Name, *dag, rmFnOnDeletion), nil
 }
 
 /* ============== Build from ASL States =================== */

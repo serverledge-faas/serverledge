@@ -17,9 +17,9 @@ import (
 )
 
 // FunctionComposition is a serverless Function Composition
+// TODO: remove RemoveFnOnDeletion and merge FunctionComposition and Dag into a single struct
 type FunctionComposition struct {
 	Name               string // al posto del nome potrebbe essere un id da mettere in etcd
-	Functions          map[string]*function.Function
 	Workflow           Dag
 	RemoveFnOnDeletion bool
 }
@@ -69,30 +69,12 @@ func (cer *CompositionExecutionReport) GetAllResults() string {
 }
 
 // NewFC instantiates a new FunctionComposition with a name and a corresponding dag. The functions parameter can contain duplicate functions (with the same name)
-func NewFC(name string, dag Dag, functions []*function.Function, removeFnOnDeletion bool) (*FunctionComposition, error) {
-	functionMap := make(map[string]*function.Function)
-	if functions != nil {
-		for _, f := range functions {
-			// if the function is already added, simply replace it
-			functionMap[f.Name] = f
-		}
-	}
-
-	// if not all unique functions are present inside the functions array, we return an error
-	definedFunctions := dag.GetUniqueDagFunctions()
-	for _, f := range definedFunctions {
-		_, ok2 := functionMap[f]
-		if !ok2 {
-			return nil, fmt.Errorf("the function %s is not included in the FunctionComposition functions parameter, but it must be registered to Serverledge", f)
-		}
-	}
-
+func NewFC(name string, dag Dag, removeFnOnDeletion bool) *FunctionComposition {
 	return &FunctionComposition{
 		Name:               name,
-		Functions:          functionMap,
 		Workflow:           dag,
 		RemoveFnOnDeletion: removeFnOnDeletion,
-	}, nil
+	}
 }
 
 func (fc *FunctionComposition) getEtcdKey() string {
@@ -168,19 +150,6 @@ func (fc *FunctionComposition) SaveToEtcd() error {
 	}
 	ctx := context.TODO()
 
-	// Save all functions in the dag to ETCD
-	// funcs := make([]*function.Function, 0)
-	for _, fName := range fc.Workflow.GetUniqueDagFunctions() {
-		_, exists := function.GetFunction(fName)
-		if !exists {
-			errSave := fc.Functions[fName].SaveToEtcd()
-			if errSave != nil {
-				return fmt.Errorf("failed to save function %s: %v", fName, errSave)
-			}
-		}
-		// funcs = append(funcs, f)
-	}
-
 	// marshal the function composition object into json
 	payload, err := json.Marshal(*fc)
 	if err != nil {
@@ -252,7 +221,11 @@ func (fc *FunctionComposition) Delete() error {
 	}
 	ctx := context.TODO()
 	if fc.RemoveFnOnDeletion {
-		for _, f := range fc.Functions {
+		for _, fStr := range fc.Workflow.GetUniqueDagFunctions() {
+			f, found := function.GetFunction(fStr)
+			if !found {
+				continue
+			}
 			err = f.Delete()
 			if err != nil {
 				fmt.Printf("failed to delete function %s associated to function composition %s: %v", f.Name, fc.Name, err)
@@ -330,9 +303,9 @@ func (fc *FunctionComposition) Equals(cmp types.Comparable) bool {
 func (fc *FunctionComposition) String() string {
 	functions := "["
 	i := 0
-	for name, _ := range fc.Functions {
+	for _, name := range fc.Workflow.GetUniqueDagFunctions() {
 		functions += name
-		if i < len(fc.Functions)-1 {
+		if i < len(fc.Workflow.GetUniqueDagFunctions())-1 {
 			functions += ", "
 		}
 		i++

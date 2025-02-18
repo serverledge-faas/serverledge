@@ -38,8 +38,9 @@ func initializeExamplePyFunction() (*function.Function, error) {
 			AddOutput("result", function.Int{}).
 			Build(),
 	}
+	err = f.SaveToEtcd()
 
-	return &f, nil
+	return &f, err
 }
 
 func initializeExampleJSFunction() (*function.Function, error) {
@@ -61,8 +62,8 @@ func initializeExampleJSFunction() (*function.Function, error) {
 			AddOutput("result", function.Int{}).
 			Build(),
 	}
-
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func InitializePyFunction(name string, handler string, sign *function.Signature) (*function.Function, error) {
@@ -101,7 +102,8 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
-	return &f, nil
+	err = f.SaveToEtcd()
+	return &f, err
 }
 
 func initializePyFunctionFromName(t *testing.T, name string) *function.Function {
