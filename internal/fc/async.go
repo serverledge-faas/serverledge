@@ -1,16 +1,15 @@
-package fc_scheduling
+package fc
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
 )
 
-func PublishAsyncCompositionResponse(reqId string, response fc.CompositionResponse) {
+func PublishAsyncCompositionResponse(reqId string, response CompositionResponse) {
 	etcdClient, err := utils.GetEtcdClient()
 	if err != nil {
 		log.Fatal("Client not available")

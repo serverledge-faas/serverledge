@@ -41,8 +41,6 @@ func getShellExt() string {
 	}
 }
 
-var IntegrationTest bool
-
 func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Registry, *echo.Echo) {
 	//setting up cache parameters
 	api.CacheSetup()
@@ -93,8 +91,6 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 
 // current dir is ./serverledge/internal/fc
 func TestMain(m *testing.M) {
-	_, Experiment = os.LookupEnv("EXPERIMENT")
-
 	flag.Parse() // Parsing the test flags. Needed to ensure that the -short flag is parsed, so testing.Short() returns a nonNil bool
 
 	outboundIp, err := u.GetOutboundIp()
@@ -102,27 +98,23 @@ func TestMain(m *testing.M) {
 		log.Fatalf("test cannot be executed without internet connection")
 	}
 
-	// spin up container with serverledge infrastructure
-	if !testing.Short() {
-		registry, echoServer, ok := setupServerledge(outboundIp.String())
-		if ok != nil {
-			fmt.Printf("failed to initialize serverledgde: %v\n", ok)
-			os.Exit(int(codes.Internal))
-		}
+	// TODO: avoid full setup if testing.Short()
 
-		// run all test independently
-		code := m.Run()
-
-		// tear down containers in order
-		err := teardownServerledge(registry, echoServer)
-		if err != nil {
-			fmt.Printf("failed to remove serverledgde: %v\n", err)
-		}
-		os.Exit(code)
-	} else {
-		code := m.Run()
-		os.Exit(code)
+	registry, echoServer, ok := setupServerledge(outboundIp.String())
+	if ok != nil {
+		fmt.Printf("failed to initialize serverledgde: %v\n", ok)
+		os.Exit(int(codes.Internal))
 	}
+
+	// run all test independently
+	code := m.Run()
+
+	// tear down containers in order
+	err = teardownServerledge(registry, echoServer)
+	if err != nil {
+		fmt.Printf("failed to remove serverledgde: %v\n", err)
+	}
+	os.Exit(code)
 }
 
 // startReliably can start the containers, or restart them if needed

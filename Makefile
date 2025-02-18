@@ -40,9 +40,6 @@ push-images:
 	docker push $(DOCKERHUB_USER)/serverledge-base
 	docker push $(DOCKERHUB_USER)/serverledge-nodejs17ng
 
-unit_test:
-	go test -short -v ./...
-
 test:
 	go test -v ./...
 

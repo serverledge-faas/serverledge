@@ -1,14 +1,13 @@
-package fc_scheduling
+package fc
 
 import (
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
 // TODO: offload the entire node when is cloud only
-func SubmitCompositionRequest(fcReq *fc.CompositionRequest) error {
+func SubmitCompositionRequest(fcReq *CompositionRequest) error {
 	executionReport, err := fcReq.Fc.Invoke(fcReq)
 	if err != nil {
 		return err
@@ -20,18 +19,18 @@ func SubmitCompositionRequest(fcReq *fc.CompositionRequest) error {
 
 // TODO: offload the entire node.
 // TODO: make sure the requestId is the one returned from the serverledge node that will execute
-func SubmitAsyncCompositionRequest(fcReq *fc.CompositionRequest) {
+func SubmitAsyncCompositionRequest(fcReq *CompositionRequest) {
 	executionReport, errInvoke := fcReq.Fc.Invoke(fcReq)
 	if errInvoke != nil {
-		PublishAsyncCompositionResponse(fcReq.ReqId, fc.CompositionResponse{Success: false})
+		PublishAsyncCompositionResponse(fcReq.ReqId, CompositionResponse{Success: false})
 		return
 	}
 	reports := make(map[string]*function.ExecutionReport)
-	fcReq.ExecReport.Reports.Range(func(id fc.ExecutionReportId, report *function.ExecutionReport) bool {
+	fcReq.ExecReport.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
 		reports[string(id)] = report
 		return true
 	})
-	PublishAsyncCompositionResponse(fcReq.ReqId, fc.CompositionResponse{
+	PublishAsyncCompositionResponse(fcReq.ReqId, CompositionResponse{
 		Success:      true,
 		Result:       fcReq.ExecReport.Result,
 		Reports:      reports,

@@ -13,7 +13,6 @@ import (
 	"github.com/grussorusso/serverledge/internal/client"
 	"github.com/grussorusso/serverledge/internal/container"
 	"github.com/grussorusso/serverledge/internal/fc"
-	"github.com/grussorusso/serverledge/internal/fc_scheduling"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/labstack/echo/v4"
@@ -223,12 +222,12 @@ func InvokeFunctionComposition(e echo.Context) error {
 	}
 
 	if fcReq.Async {
-		go fc_scheduling.SubmitAsyncCompositionRequest(fcReq)
+		go fc.SubmitAsyncCompositionRequest(fcReq)
 		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: fcReq.ReqId})
 	}
 
 	// sync execution
-	err = fc_scheduling.SubmitCompositionRequest(fcReq)
+	err = fc.SubmitCompositionRequest(fcReq)
 
 	if errors.Is(err, node.OutOfResourcesErr) {
 		return e.String(http.StatusTooManyRequests, "")
