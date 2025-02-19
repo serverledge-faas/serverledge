@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 

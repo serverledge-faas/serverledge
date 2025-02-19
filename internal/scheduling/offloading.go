@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/node"
-	"github.com/grussorusso/serverledge/internal/registration"
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
 const SCHED_ACTION_OFFLOAD = "O"

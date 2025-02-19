@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/grussorusso/serverledge/internal/cli"
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/cli"
+	"github.com/serverledge-faas/serverledge/internal/config"
 )
 
 func main() {

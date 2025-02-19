@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/utils"
 	"github.com/lithammer/shortuuid"
 	_ "go.etcd.io/etcd/client/v3"
 	clientv3 "go.etcd.io/etcd/client/v3"

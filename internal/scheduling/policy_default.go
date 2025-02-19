@@ -2,11 +2,11 @@ package scheduling
 
 import (
 	"errors"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"log"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
 type DefaultLocalPolicy struct {

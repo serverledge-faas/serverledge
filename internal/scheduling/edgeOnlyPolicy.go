@@ -1,10 +1,10 @@
 package scheduling
 
 import (
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"log"
 
-	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
 // EdgePolicy supports only Edge-Edge offloading

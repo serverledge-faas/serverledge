@@ -60,7 +60,7 @@ func SetupOTelSDK(ctx context.Context, outputFilename string) (shutdown func(con
 	shutdownFuncs = append(shutdownFuncs, tracerProvider.Shutdown)
 	otel.SetTracerProvider(tracerProvider)
 	// Finally, set the tracer that can be used for this package.
-	DefaultTracer = tracerProvider.Tracer("github.com/grussorusso/serverledge")
+	DefaultTracer = tracerProvider.Tracer("github.com/serverledge-faas/serverledge")
 
 	// NOTE: could boostrap metric provider as well
 

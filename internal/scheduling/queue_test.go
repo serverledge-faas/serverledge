@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 func TestQueuet(t *testing.T) {

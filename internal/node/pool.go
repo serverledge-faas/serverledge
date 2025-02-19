@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/container"
+	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 type ContainerPool struct {

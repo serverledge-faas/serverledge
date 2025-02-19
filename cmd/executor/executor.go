@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/grussorusso/serverledge/internal/executor"
+	"github.com/serverledge-faas/serverledge/internal/executor"
 )
 
 func main() {

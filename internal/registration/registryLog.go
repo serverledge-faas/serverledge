@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/hexablock/vivaldi"
 )
 

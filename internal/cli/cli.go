@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/grussorusso/serverledge/internal/api"
-	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/api"
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/utils"
 	"github.com/spf13/cobra"
 )
 

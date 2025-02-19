@@ -8,9 +8,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/node"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/utils"
 )
 
 // UDPStatusServer listen for incoming request from other edge-nodes which want to retrieve the status of this server

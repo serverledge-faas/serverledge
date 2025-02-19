@@ -11,17 +11,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/node"
-	"github.com/grussorusso/serverledge/internal/registration"
-	"github.com/grussorusso/serverledge/internal/telemetry"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/container"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/registration"
+	"github.com/serverledge-faas/serverledge/internal/telemetry"
+	"github.com/serverledge-faas/serverledge/utils"
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/grussorusso/serverledge/internal/scheduling"
+	"github.com/serverledge-faas/serverledge/internal/scheduling"
 	"github.com/labstack/echo/v4"
 )
 
