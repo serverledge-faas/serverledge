@@ -1,7 +1,7 @@
 package node
 
 import (
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"sync"
 	"time"
 )

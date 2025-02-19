@@ -2,11 +2,11 @@ package scheduling
 
 import (
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/executor"
+	"github.com/serverledge-faas/serverledge/internal/container"
+	"github.com/serverledge-faas/serverledge/internal/executor"
 )
 
 const HANDLER_DIR = "/app"

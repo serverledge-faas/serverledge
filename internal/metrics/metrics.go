@@ -5,8 +5,8 @@ import (
 
 	"net/http"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/node"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"

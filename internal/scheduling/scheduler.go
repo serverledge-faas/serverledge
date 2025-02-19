@@ -8,16 +8,16 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/metrics"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
 
-	"github.com/grussorusso/serverledge/internal/node"
-	"github.com/grussorusso/serverledge/internal/telemetry"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/telemetry"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/config"
 
-	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/container"
+	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 var requests chan *scheduledRequest

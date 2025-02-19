@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 

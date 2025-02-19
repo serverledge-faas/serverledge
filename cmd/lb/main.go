@@ -9,10 +9,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/lb"
-	"github.com/grussorusso/serverledge/internal/registration"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/lb"
+	"github.com/serverledge-faas/serverledge/internal/registration"
+	"github.com/serverledge-faas/serverledge/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

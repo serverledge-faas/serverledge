@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/bytecodealliance/wasmtime-go/v25"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/utils"
 	"golang.org/x/sys/cpu"
 )
 

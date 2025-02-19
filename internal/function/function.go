@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/cache"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/cache"
+	"github.com/serverledge-faas/serverledge/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
 )

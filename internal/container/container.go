@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/executor"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/executor"
 )
 
 // NewContainer creates and starts a new container.

@@ -9,18 +9,18 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/node"
 
 	"golang.org/x/net/context"
 
-	"github.com/grussorusso/serverledge/internal/api"
-	"github.com/grussorusso/serverledge/internal/cache"
-	"github.com/grussorusso/serverledge/internal/config"
-	"github.com/grussorusso/serverledge/internal/metrics"
-	"github.com/grussorusso/serverledge/internal/registration"
-	"github.com/grussorusso/serverledge/internal/scheduling"
-	"github.com/grussorusso/serverledge/internal/telemetry"
-	"github.com/grussorusso/serverledge/utils"
+	"github.com/serverledge-faas/serverledge/internal/api"
+	"github.com/serverledge-faas/serverledge/internal/cache"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
+	"github.com/serverledge-faas/serverledge/internal/registration"
+	"github.com/serverledge-faas/serverledge/internal/scheduling"
+	"github.com/serverledge-faas/serverledge/internal/telemetry"
+	"github.com/serverledge-faas/serverledge/utils"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )

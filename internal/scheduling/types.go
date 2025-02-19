@@ -1,8 +1,8 @@
 package scheduling
 
 import (
-	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/container"
+	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 // scheduledRequest represents a Request within the scheduling subsystem

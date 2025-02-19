@@ -1,6 +1,6 @@
 package scheduling
 
-import "github.com/grussorusso/serverledge/internal/function"
+import "github.com/serverledge-faas/serverledge/internal/function"
 
 type Policy interface {
 	Init()

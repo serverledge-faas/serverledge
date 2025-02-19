@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/grussorusso/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	//	"github.com/docker/docker/pkg/stdcopy"
 )
 

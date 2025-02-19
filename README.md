@@ -101,7 +101,7 @@ Note that we currently support output capture only for some runtimes (e.g., Pyth
 
 ## Distributed Deployment
 
-[This repository](https://github.com/grussorusso/serverledge-deploy) provides an
+[This repository](https://github.com/serverledge-faas/serverledge-deploy) provides an
 Ansible playbook to deploy Serverledge in a distributed configuration.
 
 In this case, you can instruct `serverledge-cli` to
@@ -154,4 +154,4 @@ The configuration file may look like this:
 ## License
 
 Serverledge is distributed under the terms of the [MIT
-license](https://github.com/grussorusso/serverledge/blob/master/LICENSE.txt).
+license](https://github.com/serverledge-faas/serverledge/blob/master/LICENSE.txt).

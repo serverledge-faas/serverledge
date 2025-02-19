@@ -1,4 +1,4 @@
-module github.com/grussorusso/serverledge
+module github.com/serverledge-faas/serverledge
 
 go 1.21
 

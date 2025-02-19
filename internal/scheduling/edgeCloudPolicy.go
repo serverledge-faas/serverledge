@@ -1,8 +1,8 @@
 package scheduling
 
 import (
-	"github.com/grussorusso/serverledge/internal/function"
-	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/serverledge-faas/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
 // CloudEdgePolicy supports only Edge-Cloud Offloading

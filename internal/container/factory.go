@@ -3,7 +3,7 @@ package container
 import (
 	"io"
 
-	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 const WASI_FACTORY_KEY = "wasi"
