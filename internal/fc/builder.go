@@ -45,7 +45,7 @@ type ParallelBroadcastBranchBuilder struct {
 
 func NewBuilder() *Builder {
 	db := Builder{
-		workflow:     NewDAG(),
+		workflow:     NewWorkflow(),
 		branches:     1,
 		errors:       make([]error, 0),
 		BranchNumber: 0,

@@ -30,13 +30,13 @@ type Workflow struct {
 	Width int      // width is the max fanOut degree of the Workflow
 }
 
-func NewDAGWithName(name string) Workflow {
-	workflow := NewDAG()
+func NewWorkflowWithName(name string) Workflow {
+	workflow := NewWorkflow()
 	workflow.Name = name
 	return workflow
 }
 
-func NewDAG() Workflow {
+func NewWorkflow() Workflow {
 	start := NewStartNode()
 	end := NewEndNode()
 	nodes := make(map[TaskId]Task)
