@@ -66,10 +66,6 @@ type HasNodeType interface {
 	GetNodeType() TaskType
 }
 
-type Buildable interface {
-	BuildDag(builder *Builder) (*Builder, error)
-}
-
 func Equals[D Task](d1 D, d2 D) bool {
 	return d1.Equals(d2)
 }
