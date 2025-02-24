@@ -379,7 +379,7 @@ func (workflow *Workflow) executeFanOut(progress *Progress, partialData *Partial
 
 func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *CompositionRequest) (*PartialData, *Progress, error) {
 	// preparing workflow nodes and channels for parallel execution
-	parallelDagNodes := make([]Task, 0)
+	parallelTasks := make([]Task, 0)
 	inputs := make([]map[string]interface{}, 0)
 	outputChannels := make([]chan map[string]interface{}, 0)
 	errorChannels := make([]chan error, 0)
@@ -391,7 +391,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	for _, nodeId := range nextNodes {
 		node, ok := workflow.Find(nodeId)
 		if ok {
-			parallelDagNodes = append(parallelDagNodes, node)
+			parallelTasks = append(parallelTasks, node)
 			outputChannels = append(outputChannels, make(chan map[string]interface{}))
 			errorChannels = append(errorChannels, make(chan error))
 		}
@@ -405,7 +405,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 		}
 	}
 	// executing all nodes in parallel
-	for i, node := range parallelDagNodes {
+	for i, node := range parallelTasks {
 		go func(i int, params map[string]interface{}, node Task) {
 			output, err := node.Exec(r, params)
 			// for simple node, we also prepare output
@@ -451,9 +451,9 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	}
 
 	for i, output := range parallelOutputs {
-		node = parallelDagNodes[i]
+		node = parallelTasks[i]
 		outputMap[fmt.Sprintf("%s", node.GetId())] = output
-		err := progress.CompleteNode(parallelDagNodes[i].GetId())
+		err := progress.CompleteNode(parallelTasks[i].GetId())
 		if err != nil {
 			return pd, progress, err
 		}
