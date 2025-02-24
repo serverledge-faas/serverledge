@@ -11,7 +11,7 @@ import (
 
 type FailNode struct {
 	Id       TaskId
-	NodeType DagNodeType
+	NodeType TaskType
 	Error    string
 	Cause    string
 
@@ -119,6 +119,6 @@ func (f *FailNode) GetBranchId() int {
 	return f.BranchId
 }
 
-func (f *FailNode) GetNodeType() DagNodeType {
+func (f *FailNode) GetNodeType() TaskType {
 	return f.NodeType
 }

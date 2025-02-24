@@ -17,7 +17,7 @@ import (
 // ChoiceNode receives one input and produces one result to one of two alternative nodes, based on condition
 type ChoiceNode struct {
 	Id           TaskId
-	NodeType     DagNodeType
+	NodeType     TaskType
 	BranchId     int
 	input        map[string]interface{}
 	Alternatives []TaskId
@@ -265,6 +265,6 @@ func (c *ChoiceNode) GetId() TaskId {
 	return c.Id
 }
 
-func (c *ChoiceNode) GetNodeType() DagNodeType {
+func (c *ChoiceNode) GetNodeType() TaskType {
 	return c.NodeType
 }

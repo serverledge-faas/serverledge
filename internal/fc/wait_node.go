@@ -11,7 +11,7 @@ import (
 
 type WaitNode struct {
 	Id        TaskId
-	NodeType  DagNodeType
+	NodeType  TaskType
 	Seconds   int
 	Timestamp *time.Time
 	OutputTo  TaskId
@@ -184,6 +184,6 @@ func (w *WaitNode) GetId() TaskId {
 	return w.Id
 }
 
-func (w *WaitNode) GetNodeType() DagNodeType {
+func (w *WaitNode) GetNodeType() TaskType {
 	return w.NodeType
 }

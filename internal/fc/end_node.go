@@ -10,7 +10,7 @@ import (
 // EndNode is a Task that represents the end of the Workflow.
 type EndNode struct {
 	Id       TaskId
-	NodeType DagNodeType
+	NodeType TaskType
 	Result   map[string]interface{}
 }
 
@@ -85,6 +85,6 @@ func (e *EndNode) GetId() TaskId {
 	return e.Id
 }
 
-func (e *EndNode) GetNodeType() DagNodeType {
+func (e *EndNode) GetNodeType() TaskType {
 	return e.NodeType
 }

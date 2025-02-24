@@ -20,7 +20,7 @@ const (
 // FanInNode receives and merges multiple input and produces a single result
 type FanInNode struct {
 	Id          TaskId
-	NodeType    DagNodeType
+	NodeType    TaskType
 	BranchId    int
 	OutputTo    TaskId
 	FanInDegree int
@@ -166,6 +166,6 @@ func (f *FanInNode) GetId() TaskId {
 	return f.Id
 }
 
-func (f *FanInNode) GetNodeType() DagNodeType {
+func (f *FanInNode) GetNodeType() TaskType {
 	return f.NodeType
 }

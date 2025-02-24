@@ -23,7 +23,7 @@ var compositionRequestsPool = sync.Pool{
 // SimpleNode is a Task that receives one input and sends one result
 type SimpleNode struct {
 	Id       TaskId
-	NodeType DagNodeType
+	NodeType TaskType
 	BranchId int
 	// input      map[string]interface{}
 	OutputTo   TaskId
@@ -275,6 +275,6 @@ func (s *SimpleNode) GetId() TaskId {
 	return s.Id
 }
 
-func (s *SimpleNode) GetNodeType() DagNodeType {
+func (s *SimpleNode) GetNodeType() TaskType {
 	return s.NodeType
 }

@@ -11,7 +11,7 @@ import (
 
 type PassNode struct {
 	Id         TaskId
-	NodeType   DagNodeType
+	NodeType   TaskType
 	Result     string
 	ResultPath string
 	OutputTo   TaskId
@@ -163,6 +163,6 @@ func (p *PassNode) GetId() TaskId {
 	return p.Id
 }
 
-func (p *PassNode) GetNodeType() DagNodeType {
+func (p *PassNode) GetNodeType() TaskType {
 	return p.NodeType
 }

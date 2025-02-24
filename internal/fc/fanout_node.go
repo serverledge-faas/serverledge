@@ -19,7 +19,7 @@ import (
 // FanOutNode is a Task that receives one input and sends multiple result, produced in parallel
 type FanOutNode struct {
 	Id       TaskId
-	NodeType DagNodeType
+	NodeType TaskType
 	BranchId int
 	// input           map[string]interface{}
 	OutputTo        []TaskId
@@ -251,6 +251,6 @@ func (f *FanOutNode) GetBranchId() int {
 func (f *FanOutNode) GetId() TaskId {
 	return f.Id
 }
-func (f *FanOutNode) GetNodeType() DagNodeType {
+func (f *FanOutNode) GetNodeType() TaskType {
 	return f.NodeType
 }

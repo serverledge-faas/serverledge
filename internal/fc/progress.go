@@ -36,7 +36,7 @@ type ProgressCache struct {
 
 type DagNodeInfo struct {
 	Id     TaskId
-	Type   DagNodeType
+	Type   TaskType
 	Status DagNodeStatus
 	Group  int // The group helps represent the order of execution of nodes. Nodes with the same group should run concurrently
 	Branch int // copied from task
@@ -79,22 +79,22 @@ func printStatus(s DagNodeStatus) string {
 	return "No Status - Error"
 }
 
-type DagNodeType string
+type TaskType string
 
 const (
-	Start   DagNodeType = "StartNode"
-	End     DagNodeType = "EndNode"
-	Simple  DagNodeType = "SimpleNode"
-	Choice  DagNodeType = "ChoiceNode"
-	FanOut  DagNodeType = "FanOutNode"
-	FanIn   DagNodeType = "FanInNode"
-	Fail    DagNodeType = "FailNode"
-	Succeed DagNodeType = "SucceedNode"
-	Pass    DagNodeType = "PassNode"
-	Wait    DagNodeType = "WaitNode"
+	Start   TaskType = "StartNode"
+	End     TaskType = "EndNode"
+	Simple  TaskType = "SimpleNode"
+	Choice  TaskType = "ChoiceNode"
+	FanOut  TaskType = "FanOutNode"
+	FanIn   TaskType = "FanInNode"
+	Fail    TaskType = "FailNode"
+	Succeed TaskType = "SucceedNode"
+	Pass    TaskType = "PassNode"
+	Wait    TaskType = "WaitNode"
 )
 
-func DagNodeFromType(nodeType DagNodeType) Task {
+func DagNodeFromType(nodeType TaskType) Task {
 	switch nodeType {
 	case Start:
 		return &StartNode{}
@@ -121,7 +121,7 @@ func DagNodeFromType(nodeType DagNodeType) Task {
 	}
 }
 
-func parseType(dNode Task) DagNodeType {
+func parseType(dNode Task) TaskType {
 	switch dNode.(type) {
 	case *StartNode:
 		return Start
@@ -147,7 +147,7 @@ func parseType(dNode Task) DagNodeType {
 
 	panic("unreachable!")
 }
-func printType(t DagNodeType) string {
+func printType(t TaskType) string {
 	switch t {
 	case Start:
 		return "Start"

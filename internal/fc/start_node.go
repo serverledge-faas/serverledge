@@ -12,7 +12,7 @@ import (
 // StartNode is a Task from which the execution of the Workflow starts. Invokes the first Task
 type StartNode struct {
 	Id       TaskId
-	NodeType DagNodeType
+	NodeType TaskType
 	Next     TaskId
 }
 
@@ -92,6 +92,6 @@ func (s *StartNode) GetId() TaskId {
 	return s.Id
 }
 
-func (s *StartNode) GetNodeType() DagNodeType {
+func (s *StartNode) GetNodeType() TaskType {
 	return s.NodeType
 }

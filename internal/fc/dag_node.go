@@ -63,7 +63,7 @@ type HasNext interface {
 }
 
 type HasNodeType interface {
-	GetNodeType() DagNodeType
+	GetNodeType() TaskType
 }
 
 type Buildable interface {

@@ -11,7 +11,7 @@ import (
 
 type SucceedNode struct {
 	Id         TaskId
-	NodeType   DagNodeType
+	NodeType   TaskType
 	InputPath  string
 	OutputPath string
 
@@ -115,6 +115,6 @@ func (s *SucceedNode) GetId() TaskId {
 	return s.Id
 }
 
-func (s *SucceedNode) GetNodeType() DagNodeType {
+func (s *SucceedNode) GetNodeType() TaskType {
 	return s.NodeType
 }
