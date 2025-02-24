@@ -490,16 +490,16 @@ func TestVisit(t *testing.T) {
 	choice := startNext.GetNext()[0]
 
 	nodeList := make([]fc.Task, 0)
-	visitedNodes := fc.VisitDag(complexDag, complexDag.Start.Id, nodeList, false)
+	visitedNodes := fc.Visit(complexDag, complexDag.Start.Id, nodeList, false)
 	u.AssertEquals(t, len(complexDag.Nodes), len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, complexDag.Start.Id, nodeList, true)
+	visitedNodes = fc.Visit(complexDag, complexDag.Start.Id, nodeList, true)
 	u.AssertEquals(t, len(complexDag.Nodes)-1, len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, choice, nodeList, false)
+	visitedNodes = fc.Visit(complexDag, choice, nodeList, false)
 	u.AssertEquals(t, 8, len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, choice, nodeList, true)
+	visitedNodes = fc.Visit(complexDag, choice, nodeList, true)
 	u.AssertEquals(t, 7, len(visitedNodes))
 
 }

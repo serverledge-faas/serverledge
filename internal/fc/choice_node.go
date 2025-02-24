@@ -173,7 +173,7 @@ func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []Task {
 		return branchNodes
 	}
 	node := c.Alternatives[branch]
-	return VisitDag(workflow, node, branchNodes, true)
+	return Visit(workflow, node, branchNodes, true)
 }
 
 // GetNodesToSkip skips all node that are in a branch that will not be executed.

@@ -86,8 +86,8 @@ func isEndNode(node Task) bool {
 	return ok
 }
 
-// VisitDag visits the workflow starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
-func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []Task {
+// Visit visits the workflow starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
+func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []Task {
 	node, ok := workflow.Find(nodeId)
 	if !ok {
 		return []Task{}
@@ -97,7 +97,7 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 	}
 	switch n := node.(type) {
 	case *StartNode:
-		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				// only when isEndNode = true, excludeEnd = true -> we don't add the node
@@ -108,7 +108,7 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 		}
 		return nodes
 	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
-		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
@@ -136,7 +136,7 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 		return nodes
 	case *ChoiceNode:
 		for _, alternative := range n.Alternatives {
-			toAdd := VisitDag(workflow, alternative, nodes, excludeEnd)
+			toAdd := Visit(workflow, alternative, nodes, excludeEnd)
 			for _, add := range toAdd {
 				if !isDagNodePresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
@@ -148,7 +148,7 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 		return nodes
 	case *FanOutNode:
 		for _, parallelBranch := range n.GetNext() {
-			toAdd := VisitDag(workflow, parallelBranch, nodes, excludeEnd)
+			toAdd := Visit(workflow, parallelBranch, nodes, excludeEnd)
 			for _, add := range toAdd {
 				if !isDagNodePresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
@@ -159,7 +159,7 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 		}
 		return nodes
 	case *FanInNode:
-		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
