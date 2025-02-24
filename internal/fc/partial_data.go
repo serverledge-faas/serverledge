@@ -24,7 +24,7 @@ func newPartialDataId(reqId ReqId) PartialDataId {
 // PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
 type PartialData struct {
 	ReqId    ReqId  // request referring to this partial data
-	ForNode  TaskId // dagNode that should receive this partial data
+	ForNode  TaskId // task that should receive this partial data
 	FromNode TaskId // useful for fanin
 	Data     map[string]interface{}
 }
@@ -123,16 +123,16 @@ func RetrieveAllPartialData(reqId ReqId, alsoFromEtcd bool) (*sync.Map, error) {
 	partialDataMap := &sync.Map{}
 	partialDataFromCache := getAllPartialDataFromCache(newPartialDataId(reqId))
 	// pdCacheMutex.Lock()
-	partialDataFromCache.Range(func(dagNodeId, slice any) bool {
-		partialDataMap.Store(dagNodeId, slice)
+	partialDataFromCache.Range(func(taskId, slice any) bool {
+		partialDataMap.Store(taskId, slice)
 		return true
 	})
 	// pdCacheMutex.Unlock()
 	if alsoFromEtcd {
 		partialDataFromEtcd, err := getAllPartialDataFromEtcd(reqId)
 		if err == nil {
-			for dagNodeId, slice := range partialDataFromEtcd {
-				partialDataMap.Store(dagNodeId, slice)
+			for taskId, slice := range partialDataFromEtcd {
+				partialDataMap.Store(taskId, slice)
 			}
 		} else {
 			return nil, err
@@ -145,15 +145,15 @@ func RetrieveAllPartialData(reqId ReqId, alsoFromEtcd bool) (*sync.Map, error) {
 func NumberOfPartialDataFor(reqId ReqId, alsoFromEtcd bool) int {
 	partialDataMap := &sync.Map{}
 	partialDataFromCache := getAllPartialDataFromCache(newPartialDataId(reqId))
-	partialDataFromCache.Range(func(dagNodeId, slice any) bool {
-		partialDataMap.Store(dagNodeId, slice)
+	partialDataFromCache.Range(func(taskId, slice any) bool {
+		partialDataMap.Store(taskId, slice)
 		return true
 	})
 	if alsoFromEtcd {
 		partialDataFromEtcd, err := getAllPartialDataFromEtcd(reqId)
 		if err == nil {
-			for dagNodeId, data := range partialDataFromEtcd {
-				partialDataMap.Store(dagNodeId, data)
+			for taskId, data := range partialDataFromEtcd {
+				partialDataMap.Store(taskId, data)
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func DeleteAllPartialData(reqId ReqId, alsoFromEtcd bool) (int64, error) {
 	return 1, nil
 }
 
-// savePartialDataInCache appends in cache a partial data related to a specific request and dagNode in a Workflow
+// savePartialDataInCache appends in cache a partial data related to a specific request and task in a Workflow
 func savePartialDataInCache(pds ...*PartialData) bool {
 	var partialDataIdType PartialDataId
 	pdCacheMutex.Lock()

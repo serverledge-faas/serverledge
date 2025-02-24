@@ -72,7 +72,7 @@ func TestSimpleDag(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	u.AssertEquals(t, len(workflow.Nodes)-2, length)
 
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	_, found := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, found)
 	end := false
@@ -121,7 +121,7 @@ func TestChoiceDag(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	// u.AssertEquals(t, width+1, len(workflow.Nodes))
 
-	//dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	//tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	choiceDag, found := workflow.Find(workflow.Start.Next)
 	choice := choiceDag.(*fc.ChoiceNode)
 	u.AssertTrue(t, found)
@@ -179,7 +179,7 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	// u.AssertEquals(t, width+1, len(workflow.Nodes))
 
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	u.AssertTrue(t, foundStartNext)
 	for _, n := range workflow.Nodes {
 		switch node := n.(type) {
@@ -227,7 +227,7 @@ func TestBroadcastDag(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	u.AssertEquals(t, length*width+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width * length (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	_, foundStartNext := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, foundStartNext)
 
@@ -272,7 +272,7 @@ func TestScatterDag(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	u.AssertEquals(t, width+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	startNext, startNextFound := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, startNextFound)
 	_, ok := startNext.(*fc.FanOutNode)
@@ -332,7 +332,7 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	u.AssertNonNil(t, workflow.Nodes)
 	u.AssertEquals(t, length1+length2+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	u.AssertTrue(t, startNextFound)
 	_, ok := startNext.(*fc.FanOutNode)
 	u.AssertTrue(t, ok)
@@ -408,7 +408,7 @@ func TestDagBuilder(t *testing.T) {
 		EndChoiceAndBuild()
 
 	u.AssertNil(t, err)
-	// dagNodes := fc.NewNodeSetFrom(workflow.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	simpleNodeChainedToFanIn := 0
 	for _, n := range workflow.Nodes {
 		switch node := n.(type) {

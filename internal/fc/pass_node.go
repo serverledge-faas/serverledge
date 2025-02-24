@@ -66,12 +66,12 @@ func (p *PassNode) CheckInput(input map[string]interface{}) error {
 }
 
 // AddOutput for a PassNode connects it to another Task, except StartNode
-func (p *PassNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	_, ok := workflow.Nodes[dagNode].(*StartNode)
+func (p *PassNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*StartNode)
 	if ok {
 		return fmt.Errorf("the PassNode cannot be chained to a startNode")
 	}
-	p.OutputTo = dagNode
+	p.OutputTo = taskId
 	return nil
 }
 

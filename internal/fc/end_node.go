@@ -45,7 +45,7 @@ func (e *EndNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[stri
 	return e.Result, nil
 }
 
-func (e *EndNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
+func (e *EndNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 	return nil // should not do anything. End node cannot be chained to anything
 }
 

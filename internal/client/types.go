@@ -29,8 +29,8 @@ type CompositionInvocationRequest struct {
 	Async           bool
 	// NextNodes       []string // DagNodeId
 	// we do not add Progress here, only the next group of node that should execute
-	// in case of choice node, we retrieve the progress for each dagNodeId and execute only the one that is not in Skipped State
-	// in case of fan out node, we retrieve all the progress and execute concurrently all the dagNodes in the group.
+	// in case of choice node, we retrieve the progress for each taskId and execute only the one that is not in Skipped State
+	// in case of fan out node, we retrieve all the progress and execute concurrently all the tasks in the group.
 	// in case of fan in node, we retrieve periodically all the progress of the previous nodes and start the merging only when all previous node are completed.
 	//   or simply, we can get the N partialData for the Fan Out, coming from the previous nodes.
 	//   furthermore, we should be careful not to run multiple fanIn at the same time!

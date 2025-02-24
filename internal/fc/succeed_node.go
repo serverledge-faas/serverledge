@@ -70,12 +70,12 @@ func (s *SucceedNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (s *SucceedNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	_, ok := workflow.Nodes[dagNode].(*EndNode)
+func (s *SucceedNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the SucceedNode can only be chained to an end node")
 	}
-	s.OutputTo = dagNode
+	s.OutputTo = taskId
 	return nil
 }
 

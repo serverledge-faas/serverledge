@@ -124,8 +124,8 @@ func (f *FanInNode) Exec(compRequest *CompositionRequest, params ...map[string]i
 	return fanInOutput, nil
 }
 
-func (f *FanInNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	f.OutputTo = dagNode
+func (f *FanInNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	f.OutputTo = taskId
 	return nil
 }
 

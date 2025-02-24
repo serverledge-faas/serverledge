@@ -91,12 +91,12 @@ func (w *WaitNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (w *WaitNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	_, ok := workflow.Nodes[dagNode].(*StartNode)
+func (w *WaitNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*StartNode)
 	if ok {
 		return fmt.Errorf("the WaitNode cannot be chained to a startNode")
 	}
-	w.OutputTo = dagNode
+	w.OutputTo = taskId
 	return nil
 }
 

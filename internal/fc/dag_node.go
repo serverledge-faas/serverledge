@@ -44,8 +44,8 @@ type Executable interface {
 }
 
 type HasOutput interface {
-	// AddOutput  adds a result node, if compatible. For some DagNodes can be called multiple times
-	AddOutput(workflow *Workflow, dagNode TaskId) error
+	// AddOutput  adds a result task, if compatible. For some task can be called multiple times
+	AddOutput(workflow *Workflow, taskId TaskId) error
 }
 
 type ChecksInput interface {

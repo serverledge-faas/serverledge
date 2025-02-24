@@ -153,8 +153,8 @@ func (s *SimpleNode) Equals(cmp types.Comparable) bool {
 }
 
 // AddOutput connects the output of the SimpleNode to another Task
-func (s *SimpleNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	s.OutputTo = dagNode
+func (s *SimpleNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	s.OutputTo = taskId
 	return nil
 }
 
@@ -196,9 +196,9 @@ func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interfa
 	// get signature of next nodes, if present and maps the output there
 	for _, n := range s.GetNext() {
 		// we have only one output node
-		dagNode, _ := workflow.Find(n)
+		task, _ := workflow.Find(n)
 
-		switch nodeType := dagNode.(type) {
+		switch nodeType := task.(type) {
 
 		case *SimpleNode:
 			return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks

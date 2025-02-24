@@ -135,11 +135,11 @@ func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (f *FanOutNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
+func (f *FanOutNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 	if len(f.OutputTo) == f.FanOutDegree {
 		return errors.New("cannot add more output. Create a FanOutNode with a higher fanout degree")
 	}
-	f.OutputTo = append(f.OutputTo, dagNode)
+	f.OutputTo = append(f.OutputTo, taskId)
 	return nil
 }
 

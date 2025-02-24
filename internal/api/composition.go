@@ -178,8 +178,8 @@ func InvokeFunctionComposition(e echo.Context) error {
 	// init fields if possibly not overwritten later
 	fcReq.ExecReport.Reports = hashmap.New[fc.ExecutionReportId, *function.ExecutionReport]() // make(map[fc.ExecutionReportId]*function.ExecutionReport)
 	for nodeId := range funComp.Nodes {
-		dagNode := funComp.Nodes[nodeId]
-		execReportId := fc.CreateExecutionReportId(dagNode)
+		task := funComp.Nodes[nodeId]
+		execReportId := fc.CreateExecutionReportId(task)
 		fcReq.ExecReport.Reports.Set(execReportId, &function.ExecutionReport{
 			OffloadLatency: 0,
 			SchedAction:    "",

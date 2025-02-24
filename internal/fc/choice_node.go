@@ -102,12 +102,12 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (c *ChoiceNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
+func (c *ChoiceNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
 	}
-	c.Alternatives = append(c.Alternatives, dagNode)
+	c.Alternatives = append(c.Alternatives, taskId)
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
 	}
@@ -121,11 +121,11 @@ func (c *ChoiceNode) CheckInput(input map[string]interface{}) error {
 func (c *ChoiceNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	// we should map the output to the input of the node that first matches the condition and not to every alternative
 	for _, n := range c.GetNext() {
-		dagNode, ok := workflow.Find(n)
+		task, ok := workflow.Find(n)
 		if !ok {
 			return fmt.Errorf("node not found while preparing output")
 		}
-		switch nod := dagNode.(type) {
+		switch nod := task.(type) {
 		case *SimpleNode:
 			return nod.MapOutput(output)
 		}

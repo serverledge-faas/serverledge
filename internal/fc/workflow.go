@@ -53,8 +53,8 @@ func NewDAG() Workflow {
 }
 
 func (workflow *Workflow) Find(nodeId TaskId) (Task, bool) {
-	dagNode, found := workflow.Nodes[nodeId]
-	return dagNode, found
+	task, found := workflow.Nodes[nodeId]
+	return task, found
 }
 
 // TODO: only the subsequent APIs should be public: NewDag, Print, GetUniqueDagFunctions, Equals
@@ -122,8 +122,8 @@ func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) 
 			endNode := n
 			// get index of end node to remove\
 			indexToRemove := -1
-			for i, dagNode := range nodes {
-				if isEndNode(dagNode) {
+			for i, task := range nodes {
+				if isEndNode(task) {
 					indexToRemove = i
 					break
 				}
@@ -949,15 +949,15 @@ func (workflow *Workflow) decodeNode(nodeId string, value json.RawMessage) error
 	if err := json.Unmarshal(value, &tempNodeMap); err != nil {
 		return err
 	}
-	dagNodeType, ok := tempNodeMap["NodeType"].(string)
+	taskType, ok := tempNodeMap["NodeType"].(string)
 	if !ok {
 		return fmt.Errorf("unknown nodeType: %v", tempNodeMap["NodeType"])
 	}
 	var err error
 
-	node := DagNodeFromType(DagNodeType(dagNodeType))
+	node := DagNodeFromType(DagNodeType(taskType))
 
-	switch DagNodeType(dagNodeType) {
+	switch DagNodeType(taskType) {
 	case Start:
 		node := &StartNode{}
 		err = json.Unmarshal(value, node)

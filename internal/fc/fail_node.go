@@ -78,12 +78,12 @@ func (f *FailNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (f *FailNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
-	_, ok := workflow.Nodes[dagNode].(*EndNode)
+func (f *FailNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the FailNode can only be chained to an end node")
 	}
-	f.OutputTo = dagNode
+	f.OutputTo = taskId
 	return nil
 }
 

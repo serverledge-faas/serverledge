@@ -39,7 +39,7 @@ type DagNodeInfo struct {
 	Type   DagNodeType
 	Status DagNodeStatus
 	Group  int // The group helps represent the order of execution of nodes. Nodes with the same group should run concurrently
-	Branch int // copied from dagNode
+	Branch int // copied from task
 }
 
 func newNodeInfo(dNode Task, group int) *DagNodeInfo {
@@ -391,8 +391,8 @@ func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*DagNodeI
 		}
 		return infos
 	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
-		dagNode, _ := workflow.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(workflow, dagNode, group, infos)
+		task, _ := workflow.Find(n.GetNext()[0])
+		toAdd := extractNodeInfo(workflow, task, group, infos)
 		for _, add := range toAdd {
 			if !isNodeInfoPresent(add.Id, infos) {
 				infos = append(infos, add)
@@ -450,20 +450,20 @@ func (p *Progress) PrettyString() string {
 }
 
 func (p *Progress) String() string {
-	dagNodes := "["
+	tasks := "["
 	for i, node := range p.DagNodes {
-		dagNodes += string(node.Id)
+		tasks += string(node.Id)
 		if i != len(p.DagNodes)-1 {
-			dagNodes += ", "
+			tasks += ", "
 		}
 	}
-	dagNodes += "]"
+	tasks += "]"
 
 	return fmt.Sprintf(`Progress{
 		ReqId:     %s,
 		DagNodes:  %s,
 		NextGroup: %d,
-	}`, p.ReqId, dagNodes, p.NextGroup)
+	}`, p.ReqId, tasks, p.NextGroup)
 }
 
 func (p *Progress) Equals(p2 *Progress) bool {
