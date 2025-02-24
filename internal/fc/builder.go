@@ -699,6 +699,7 @@ func CreateChoiceWorkflow(dagger func() (*Workflow, error), condArr ...Condition
 
 // CreateScatterSingleFunctionWorkflow if successful, returns a workflow with one fan out, N simple node with the same function
 // and then a fan in node that merges all the result in an array.
+// TODO: This appears to be used only in tests. Move away from the fc package
 func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree int) (*Workflow, error) {
 	return NewBuilder().
 		AddScatterFanOutNode(fanOutDegree).
@@ -709,6 +710,7 @@ func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree in
 
 // CreateBroadcastWorkflow if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
 // The number of branches is defined by the number of given functions
+// TODO: This appears to be used only in tests. Move away from the fc package
 func CreateBroadcastWorkflow(dagger func() (*Workflow, error), fanOutDegree int) (*Workflow, error) {
 	return NewBuilder().
 		AddBroadcastFanOutNode(fanOutDegree).
@@ -720,6 +722,7 @@ func CreateBroadcastWorkflow(dagger func() (*Workflow, error), fanOutDegree int)
 // CreateBroadcastMultiFunctionWorkflow if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
 // The number of branch is defined as the number of dagger functions.
 // TODO: why is a 'dagger' needed?
+// TODO: This appears to be used only in tests. Move away from the fc package
 func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*Workflow, error)) (*Workflow, error) {
 	builder := NewBuilder().
 		AddBroadcastFanOutNode(len(dagger))
