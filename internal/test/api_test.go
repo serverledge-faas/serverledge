@@ -67,7 +67,7 @@ func TestCreateComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceDag(fn, fn, fn)
+	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createCompositionApiTest(workflow, HOST, PORT)
@@ -96,7 +96,7 @@ func TestInvokeComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceDag(fn, fn, fn)
+	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createCompositionApiTest(workflow, HOST, PORT)
@@ -135,7 +135,7 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
-	workflow, err := fc.CreateSequenceDag(fnPy, fnJs, fnPy, fnJs)
+	workflow, err := fc.CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createCompositionApiTest(workflow, HOST, PORT)
@@ -177,7 +177,7 @@ func TestDeleteComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceDag(fn, db, fn)
+	workflow, err := fc.CreateSequenceWorkflow(fn, db, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 
@@ -205,7 +205,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceDag(fn, fn, fn)
+	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createCompositionApiTest(workflow, HOST, PORT)

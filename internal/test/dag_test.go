@@ -14,14 +14,14 @@ func TestDagMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
 	dag1, _ := fc.CreateEmptyWorkflow()
-	dag2, _ := fc.CreateSequenceDag(f, f, f)
-	dag3, _ := fc.CreateChoiceDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f) })
-	dag4, _ := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f) }, 4)
+	dag2, _ := fc.CreateSequenceWorkflow(f, f, f)
+	dag3, _ := fc.CreateChoiceDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
+	dag4, _ := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
 	dag5, _ := fc.CreateScatterSingleFunctionDag(f, 5)
 	dag6, _ := fc.CreateBroadcastMultiFunctionDag(
-		func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f) },
-		func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f) },
-		func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f, f) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f, f) },
 	)
 	dags := []*fc.Workflow{dag1, dag2, dag3, dag4, dag5, dag6}
 	for i, workflow := range dags {
@@ -63,7 +63,7 @@ func TestSimpleDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	workflow, err := fc.CreateSequenceDag(fArr...)
+	workflow, err := fc.CreateSequenceWorkflow(fArr...)
 	u.AssertNil(t, err)
 
 	u.AssertNonNil(t, workflow.Start)
@@ -112,7 +112,7 @@ func TestChoiceDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(1, "js")
 	u.AssertNil(t, err)
 
-	workflow, err := fc.CreateChoiceDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fArr...) }, arr...)
+	workflow, err := fc.CreateChoiceDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, arr...)
 	u.AssertNil(t, err)
 
 	u.AssertNonNil(t, workflow.Start)
@@ -162,9 +162,9 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 			fc.NewSmallerCondition(2, 1),
 			fc.NewConstCondition(true),
 		).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
 		EndChoiceAndBuild()
 
 	choiceDag, foundStartNext := workflow.Find(workflow.Start.Next)
@@ -218,7 +218,7 @@ func TestBroadcastDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	workflow, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fArr...) }, width)
+	workflow, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, width)
 	u.AssertNil(t, errDag)
 
 	u.AssertNonNil(t, workflow.Start)
@@ -319,8 +319,8 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	_, fArrJs, err2 := initializeSameFunctionSlice(length2, "js")
 	u.AssertNil(t, err2)
 	workflow, errDag := fc.CreateBroadcastMultiFunctionDag(
-		func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fArrPy...) },
-		func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fArrJs...) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrPy...) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrJs...) },
 	)
 	u.AssertNil(t, errDag)
 	startNext, startNextFound := workflow.Find(workflow.Start.Next)
@@ -399,10 +399,10 @@ func TestDagBuilder(t *testing.T) {
 	workflow, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
-		NextBranch(fc.CreateSequenceDag(f)).
+		NextBranch(fc.CreateSequenceWorkflow(f)).
 		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(width).
-			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f) }).
+			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()
@@ -476,10 +476,10 @@ func TestVisit(t *testing.T) {
 	complexDag, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
-		NextBranch(fc.CreateSequenceDag(f)).
+		NextBranch(fc.CreateSequenceWorkflow(f)).
 		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(3).
-			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f) }).
+			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()

@@ -21,7 +21,7 @@ func TestMarshalingFunctionComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	u.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceDag(fn, fn, fn)
+	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
 	workflow.Name = fcName
 	u.AssertNil(t, err)
 
@@ -56,7 +56,7 @@ func TestComposeFC(t *testing.T) {
 	_, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	workflow, err := fc.CreateSequenceDag(fArr...)
+	workflow, err := fc.CreateSequenceWorkflow(fArr...)
 	workflow.Name = fcName
 	u.AssertNil(t, err)
 
@@ -98,7 +98,7 @@ func TestInvokeFC(t *testing.T) {
 	length := 5
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
-	fcomp, errDag := fc.CreateSequenceDag(fArr...)
+	fcomp, errDag := fc.CreateSequenceWorkflow(fArr...)
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)
 	err1 := fcomp.SaveToEtcd()
@@ -145,9 +145,9 @@ func TestInvokeChoiceFC(t *testing.T) {
 			fc.NewSmallerCondition(2, 1),
 			fc.NewConstCondition(true),
 		).
-		NextBranch(fc.CreateSequenceDag(incJs)).
-		NextBranch(fc.CreateSequenceDag(incPy)).
-		NextBranch(fc.CreateSequenceDag(doublePy)).
+		NextBranch(fc.CreateSequenceWorkflow(incJs)).
+		NextBranch(fc.CreateSequenceWorkflow(incPy)).
+		NextBranch(fc.CreateSequenceWorkflow(doublePy)).
 		EndChoiceAndBuild()
 
 	fcomp.Name = fcName
@@ -246,7 +246,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fDouble) }, width)
+	fcomp, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)
 
@@ -432,8 +432,8 @@ func TestInvokeSieveChoice(t *testing.T) {
 			fc.NewEqParamCondition(fc.NewParam("IsPrime"), fc.NewValue(true)),
 			fc.NewEqParamCondition(fc.NewParam("IsPrime"), fc.NewValue(false)),
 		).
-		NextBranch(fc.CreateSequenceDag(sieveJs)).
-		NextBranch(fc.CreateSequenceDag(incPy)).
+		NextBranch(fc.CreateSequenceWorkflow(sieveJs)).
+		NextBranch(fc.CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
 	fcomp.Name = fcName
 
@@ -480,7 +480,7 @@ func TestInvokeCompositionError(t *testing.T) {
 			fc.NewEqParamCondition(fc.NewParam("NonExistentParam"), fc.NewValue(true)),
 			fc.NewEqCondition(2, 3),
 		).
-		NextBranch(fc.CreateSequenceDag(incPy)).
+		NextBranch(fc.CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)

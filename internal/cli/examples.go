@@ -17,7 +17,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 
 	switch str {
 	case "sequence":
-		workflow, errSequence := fc.CreateSequenceDag(py, py, py)
+		workflow, errSequence := fc.CreateSequenceWorkflow(py, py, py)
 		return workflow, []*function.Function{py}, errSequence
 	case "choice":
 		workflow, errChoice := fc.CreateChoiceDag(fc.LambdaSequenceDag(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
@@ -34,7 +34,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 			}
 			funSlice = append(funSlice, f)
 		}
-		workflow, errSequence := fc.CreateSequenceDag(funSlice...)
+		workflow, errSequence := fc.CreateSequenceWorkflow(funSlice...)
 		return workflow, funSlice, errSequence
 	case "complex":
 		fnGrep, err1 := InitializePyFunction("grep", "handler", function.NewSignature().
@@ -68,8 +68,8 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(false)),
 				fc.NewConstCondition(true),
 			).
-			NextBranch(fc.CreateSequenceDag(fnWordCount)).
-			NextBranch(fc.CreateSequenceDag(fnSummarize)).
+			NextBranch(fc.CreateSequenceWorkflow(fnWordCount)).
+			NextBranch(fc.CreateSequenceWorkflow(fnSummarize)).
 			NextBranch(fc.NewBuilder().
 				AddScatterFanOutNode(2).
 				ForEachParallelBranch(fc.LambdaSequenceDag(fnGrep)).

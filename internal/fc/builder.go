@@ -672,8 +672,9 @@ func CreateEmptyWorkflow() (*Workflow, error) {
 	return NewBuilder().Build()
 }
 
-// CreateSequenceDag if successful, returns a workflow pointer with a sequence of Simple Nodes
-func CreateSequenceDag(funcs ...*function.Function) (*Workflow, error) {
+// CreateSequenceWorkflow if successful, returns a workflow pointer with a sequence of Simple Nodes
+// TODO: do we need this utility function?
+func CreateSequenceWorkflow(funcs ...*function.Function) (*Workflow, error) {
 	builder := NewBuilder()
 	for _, f := range funcs {
 		builder = builder.AddSimpleNode(f)
@@ -682,7 +683,7 @@ func CreateSequenceDag(funcs ...*function.Function) (*Workflow, error) {
 }
 
 func LambdaSequenceDag(funcs ...*function.Function) func() (*Workflow, error) {
-	return func() (*Workflow, error) { return CreateSequenceDag(funcs...) }
+	return func() (*Workflow, error) { return CreateSequenceWorkflow(funcs...) }
 }
 
 // CreateChoiceDag if successful, returns a workflow with one Choice Node with each branch consisting of the same sub-workflow
@@ -698,7 +699,7 @@ func CreateChoiceDag(dagger func() (*Workflow, error), condArr ...Condition) (*W
 func CreateScatterSingleFunctionDag(fun *function.Function, fanOutDegree int) (*Workflow, error) {
 	return NewBuilder().
 		AddScatterFanOutNode(fanOutDegree).
-		ForEachParallelBranch(func() (*Workflow, error) { return CreateSequenceDag(fun) }).
+		ForEachParallelBranch(func() (*Workflow, error) { return CreateSequenceWorkflow(fun) }).
 		AddFanInNode(AddToArrayEntry).
 		Build()
 }
