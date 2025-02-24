@@ -18,7 +18,7 @@ func TestDagMarshaling(t *testing.T) {
 	dag3, _ := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
 	dag4, _ := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
 	dag5, _ := fc.CreateScatterSingleFunctionWorkflow(f, 5)
-	dag6, _ := fc.CreateBroadcastMultiFunctionDag(
+	dag6, _ := fc.CreateBroadcastMultiFunctionWorkflow(
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f, f) },
@@ -318,7 +318,7 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	length2 := 3
 	_, fArrJs, err2 := initializeSameFunctionSlice(length2, "js")
 	u.AssertNil(t, err2)
-	workflow, errDag := fc.CreateBroadcastMultiFunctionDag(
+	workflow, errDag := fc.CreateBroadcastMultiFunctionWorkflow(
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrPy...) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrJs...) },
 	)

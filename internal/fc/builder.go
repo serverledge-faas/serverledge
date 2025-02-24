@@ -717,9 +717,10 @@ func CreateBroadcastWorkflow(dagger func() (*Workflow, error), fanOutDegree int)
 		Build()
 }
 
-// CreateBroadcastMultiFunctionDag if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
+// CreateBroadcastMultiFunctionWorkflow if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
 // The number of branch is defined as the number of dagger functions.
-func CreateBroadcastMultiFunctionDag(dagger ...func() (*Workflow, error)) (*Workflow, error) {
+// TODO: why is a 'dagger' needed?
+func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*Workflow, error)) (*Workflow, error) {
 	builder := NewBuilder().
 		AddBroadcastFanOutNode(len(dagger))
 	for _, dagFn := range dagger {
