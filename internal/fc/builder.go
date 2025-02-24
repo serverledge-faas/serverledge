@@ -495,7 +495,7 @@ func (p *ParallelBroadcastBranchBuilder) AddFanInNode(mergeMode MergeMode) *Buil
 	return p.builder
 }
 
-func (p *ParallelBroadcastBranchBuilder) NextFanOutBranch(dagToChain *Workflow, err1 error) *ParallelBroadcastBranchBuilder {
+func (p *ParallelBroadcastBranchBuilder) NextFanOutBranch(toMerge *Workflow, err1 error) *ParallelBroadcastBranchBuilder {
 	if err1 != nil {
 		p.builder.appendError(err1)
 	}
@@ -509,13 +509,13 @@ func (p *ParallelBroadcastBranchBuilder) NextFanOutBranch(dagToChain *Workflow, 
 	if p.HasNextBranch() {
 		p.builder.BranchNumber++
 		// chains the alternative to the input workflow, which is already connected to a whole series of nodes
-		next, _ := dagToChain.Find(dagToChain.Start.Next)
+		next, _ := toMerge.Find(toMerge.Start.Next)
 		err := p.builder.workflow.chain(p.builder.prevNode, next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
 		// adds the nodes to the building workflow
-		for _, n := range dagToChain.Nodes {
+		for _, n := range toMerge.Nodes {
 			// chain the last node(s) of the input workflow to the end node of the building workflow
 			switch n.(type) {
 			case *StartNode:
@@ -529,7 +529,7 @@ func (p *ParallelBroadcastBranchBuilder) NextFanOutBranch(dagToChain *Workflow, 
 			default:
 				p.builder.workflow.addNode(n)
 				n.setBranchId(p.builder.BranchNumber)
-				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == dagToChain.End.GetId() {
+				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == toMerge.End.GetId() {
 					p.terminalNodes = append(p.terminalNodes, n)
 				}
 			}
