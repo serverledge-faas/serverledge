@@ -1025,7 +1025,7 @@ func (workflow *Workflow) IsEmpty() bool {
 }
 
 func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
-	builder := NewDagBuilder()
+	builder := NewBuilder()
 	isTerminal := false
 	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
 	for !isTerminal {

@@ -24,7 +24,7 @@ func choiceProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Wor
 
 	notCondition := fc.NewPredicate().Not(condition).Build()
 
-	workflow, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddChoiceNode(
 			notCondition,
 			condition,
@@ -41,7 +41,7 @@ func parallelProgress(t *testing.T) (*fc.Progress, *fc.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 
-	workflow, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddBroadcastFanOutNode(3).
 		NextFanOutBranch(fc.CreateSequenceDag(py)).
 		NextFanOutBranch(fc.CreateSequenceDag(py, py)).
@@ -59,14 +59,14 @@ func complexProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Wo
 
 	notCondition := fc.NewPredicate().Not(condition).Build()
 
-	workflow, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddSimpleNode(py).
 		AddChoiceNode(
 			notCondition,
 			condition,
 		).
 		NextBranch(fc.CreateSequenceDag(py)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.NewBuilder().
 			AddBroadcastFanOutNode(3).
 			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(py, py) }).
 			AddFanInNode(fc.AddNewMapEntry).

@@ -62,7 +62,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 		if err3 != nil {
 			return nil, nil, err3
 		}
-		workflow, errComplex := fc.NewDagBuilder().
+		workflow, errComplex := fc.NewBuilder().
 			AddChoiceNode(
 				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(true)),
 				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(false)),
@@ -70,7 +70,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 			).
 			NextBranch(fc.CreateSequenceDag(fnWordCount)).
 			NextBranch(fc.CreateSequenceDag(fnSummarize)).
-			NextBranch(fc.NewDagBuilder().
+			NextBranch(fc.NewBuilder().
 				AddScatterFanOutNode(2).
 				ForEachParallelBranch(fc.LambdaSequenceDag(fnGrep)).
 				AddFanInNode(fc.AddToArrayEntry).

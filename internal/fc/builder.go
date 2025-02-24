@@ -8,7 +8,7 @@ import (
 )
 
 // Builder is a utility struct that helps easily define the Workflow, using the Builder pattern.
-// Use NewDagBuilder() to safely initialize it. Then use the available methods to iteratively build the workflow.
+// Use NewBuilder() to safely initialize it. Then use the available methods to iteratively build the workflow.
 // Finally use Build() to get the complete Workflow.
 type Builder struct {
 	workflow     Workflow
@@ -43,7 +43,7 @@ type ParallelBroadcastBranchBuilder struct {
 	fanOutId      TaskId
 }
 
-func NewDagBuilder() *Builder {
+func NewBuilder() *Builder {
 	db := Builder{
 		workflow:     NewDAG(),
 		branches:     1,
@@ -178,7 +178,7 @@ func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBra
 }
 
 // NextBranch is used to chain the next branch to a Workflow and then returns the ChoiceBranchBuilder.
-// Tip: use a NewDagBuilder() as a parameter, instead of manually creating the Workflow!
+// Tip: use a NewBuilder() as a parameter, instead of manually creating the Workflow!
 // Internally, NextBranch replaces the StartNode of the input workflow with the choice alternative
 // and chains the last node of the workflow to the EndNode of the building workflow
 func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Workflow, err1 error) *ChoiceBranchBuilder {
@@ -669,12 +669,12 @@ func (b *Builder) Build() (*Workflow, error) {
 }
 
 func CreateEmptyDag() (*Workflow, error) {
-	return NewDagBuilder().Build()
+	return NewBuilder().Build()
 }
 
 // CreateSequenceDag if successful, returns a workflow pointer with a sequence of Simple Nodes
 func CreateSequenceDag(funcs ...*function.Function) (*Workflow, error) {
-	builder := NewDagBuilder()
+	builder := NewBuilder()
 	for _, f := range funcs {
 		builder = builder.AddSimpleNode(f)
 	}
@@ -687,7 +687,7 @@ func LambdaSequenceDag(funcs ...*function.Function) func() (*Workflow, error) {
 
 // CreateChoiceDag if successful, returns a workflow with one Choice Node with each branch consisting of the same sub-workflow
 func CreateChoiceDag(dagger func() (*Workflow, error), condArr ...Condition) (*Workflow, error) {
-	return NewDagBuilder().
+	return NewBuilder().
 		AddChoiceNode(condArr...).
 		ForEachBranch(dagger).
 		EndChoiceAndBuild()
@@ -696,7 +696,7 @@ func CreateChoiceDag(dagger func() (*Workflow, error), condArr ...Condition) (*W
 // CreateScatterSingleFunctionDag if successful, returns a workflow with one fan out, N simple node with the same function
 // and then a fan in node that merges all the result in an array.
 func CreateScatterSingleFunctionDag(fun *function.Function, fanOutDegree int) (*Workflow, error) {
-	return NewDagBuilder().
+	return NewBuilder().
 		AddScatterFanOutNode(fanOutDegree).
 		ForEachParallelBranch(func() (*Workflow, error) { return CreateSequenceDag(fun) }).
 		AddFanInNode(AddToArrayEntry).
@@ -706,7 +706,7 @@ func CreateScatterSingleFunctionDag(fun *function.Function, fanOutDegree int) (*
 // CreateBroadcastDag if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
 // The number of branches is defined by the number of given functions
 func CreateBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int) (*Workflow, error) {
-	return NewDagBuilder().
+	return NewBuilder().
 		AddBroadcastFanOutNode(fanOutDegree).
 		ForEachParallelBranch(dagger).
 		AddFanInNode(AddNewMapEntry).
@@ -714,7 +714,7 @@ func CreateBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int) (*Wo
 }
 
 func CreateAdHOCBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int, funct *function.Function) (*Workflow, error) {
-	return NewDagBuilder().
+	return NewBuilder().
 		AddBroadcastFanOutNode(fanOutDegree).
 		ForEachParallelBranch(dagger).
 		AddFanInNode(AddNewMapEntry).
@@ -725,7 +725,7 @@ func CreateAdHOCBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int,
 // CreateBroadcastMultiFunctionDag if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
 // The number of branch is defined as the number of dagger functions.
 func CreateBroadcastMultiFunctionDag(dagger ...func() (*Workflow, error)) (*Workflow, error) {
-	builder := NewDagBuilder().
+	builder := NewBuilder().
 		AddBroadcastFanOutNode(len(dagger))
 	for _, dagFn := range dagger {
 		builder = builder.NextFanOutBranch(dagFn())

@@ -156,7 +156,7 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "py")
 	u.AssertNil(t, err)
 
-	workflow, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddChoiceNode(
 			fc.NewConstCondition(false),
 			fc.NewSmallerCondition(2, 1),
@@ -396,11 +396,11 @@ func TestDagBuilder(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	workflow, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
 		NextBranch(fc.CreateSequenceDag(f)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(width).
 			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
@@ -473,11 +473,11 @@ func TestDagBuilder(t *testing.T) {
 func TestVisit(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
-	complexDag, err := fc.NewDagBuilder().
+	complexDag, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
 		NextBranch(fc.CreateSequenceDag(f)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(3).
 			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
