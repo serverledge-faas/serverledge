@@ -37,7 +37,7 @@ type ProgressCache struct {
 type DagNodeInfo struct {
 	Id     TaskId
 	Type   TaskType
-	Status DagNodeStatus
+	Status TaskStatus
 	Group  int // The group helps represent the order of execution of nodes. Nodes with the same group should run concurrently
 	Branch int // copied from task
 }
@@ -56,7 +56,7 @@ func (ni *DagNodeInfo) Equals(ni2 *DagNodeInfo) bool {
 	return ni.Id == ni2.Id && ni.Type == ni2.Type && ni.Status == ni2.Status && ni.Group == ni2.Group && ni.Branch == ni2.Branch
 }
 
-type DagNodeStatus string
+type TaskStatus string
 
 const (
 	Pending  = "Pending"
@@ -65,7 +65,7 @@ const (
 	Failed   = "Failed"
 )
 
-func printStatus(s DagNodeStatus) string {
+func printStatus(s TaskStatus) string {
 	switch s {
 	case Pending:
 		return "Pending"
