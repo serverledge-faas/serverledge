@@ -311,15 +311,15 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 		c.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", c.builder.BranchNumber)
 		// recreates a workflow executing the same function
-		workflowCopy, errDag := dagger()
-		if errDag != nil {
-			c.builder.appendError(errDag)
+		workflowCopy, err := dagger()
+		if err != nil {
+			c.builder.appendError(err)
 		}
 		nextNode, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		c.builder.workflow.addNode(nextNode)
-		err := c.builder.workflow.chain(choiceNode, nextNode)
+		err = c.builder.workflow.chain(choiceNode, nextNode)
 		if err != nil {
-			c.builder.appendError(errDag)
+			c.builder.appendError(err)
 		}
 		// adds the nodes to the building workflow, but only once!
 		for _, n := range workflowCopy.Nodes {
@@ -361,13 +361,13 @@ func (p *ParallelBroadcastBranchBuilder) ForEachParallelBranch(dagger func() (*W
 		p.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", i)
 		// recreates a workflow executing the same function
-		workflowCopy, errDag := dagger()
-		if errDag != nil {
-			p.builder.appendError(errDag)
+		workflowCopy, err := dagger()
+		if err != nil {
+			p.builder.appendError(err)
 		}
 		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		p.builder.workflow.addNode(next)
-		err := p.builder.workflow.chain(fanOutNode, next)
+		err = p.builder.workflow.chain(fanOutNode, next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
@@ -406,13 +406,13 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 		p.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", i)
 		// recreates a workflow executing the same function
-		workflowCopy, errDag := dagger()
-		if errDag != nil {
-			p.builder.appendError(errDag)
+		workflowCopy, err := dagger()
+		if err != nil {
+			p.builder.appendError(err)
 		}
 		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		p.builder.workflow.addNode(next)
-		err := p.builder.workflow.chain(fanOutNode, next)
+		err = p.builder.workflow.chain(fanOutNode, next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
