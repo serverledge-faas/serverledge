@@ -5,7 +5,7 @@ type void struct{}
 
 var null void
 
-// NodeSet is a utility struct that defines a simple ordered Set of DagNodes
+// NodeSet is a utility struct that defines a simple ordered Set of TaskInfos
 type NodeSet struct {
 	elements map[Task]void
 	ordered  []Task

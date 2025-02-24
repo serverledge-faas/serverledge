@@ -26,7 +26,7 @@ func newProgressId(reqId ReqId) ProgressId {
 // Progress tracks the progress of a Workflow, i.e. which nodes are executed, and what is the next node to run. Workflow progress is saved in ETCD and retrieved by the next node
 type Progress struct {
 	ReqId     ReqId // requestId, used to distinguish different workflow's progresses
-	DagNodes  []*TaskInfo
+	TaskInfos []*TaskInfo
 	NextGroup int
 }
 
@@ -174,7 +174,7 @@ func printType(t TaskType) string {
 }
 
 func (p *Progress) IsCompleted() bool {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Status == Pending {
 			return false
 		}
@@ -187,7 +187,7 @@ func (p *Progress) IsCompleted() bool {
 func (p *Progress) NextNodes() ([]TaskId, error) {
 	minPendingGroup := -1
 	// find the min group with node pending
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Status == Pending {
 			minPendingGroup = node.Group
 			break
@@ -198,7 +198,7 @@ func (p *Progress) NextNodes() ([]TaskId, error) {
 	}
 	// get all node Ids within that group
 	nodeIds := make([]TaskId, 0)
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Group == minPendingGroup && node.Status == Pending {
 			nodeIds = append(nodeIds, node.Id)
 		}
@@ -209,7 +209,7 @@ func (p *Progress) NextNodes() ([]TaskId, error) {
 
 // CompleteNode sets the progress status of the node with the id input to 'Completed'
 func (p *Progress) CompleteNode(id TaskId) error {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Id == id {
 			node.Status = Executed
 			return nil
@@ -219,7 +219,7 @@ func (p *Progress) CompleteNode(id TaskId) error {
 }
 
 func (p *Progress) SkipNode(id TaskId) error {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Id == id {
 			node.Status = Skipped
 			// fmt.Printf("skipped node %s\n", id)
@@ -241,7 +241,7 @@ func (p *Progress) SkipAll(nodes []Task) error {
 
 // FailNode marks a node progress to failed
 func (p *Progress) FailNode(id TaskId) error {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Id == id {
 			node.Status = Failed
 			return nil
@@ -251,7 +251,7 @@ func (p *Progress) FailNode(id TaskId) error {
 }
 
 func (p *Progress) GetInfo(nodeId TaskId) *TaskInfo {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Id == nodeId {
 			return node
 		}
@@ -260,7 +260,7 @@ func (p *Progress) GetInfo(nodeId TaskId) *TaskInfo {
 }
 
 func (p *Progress) GetGroup(nodeId TaskId) int {
-	for _, node := range p.DagNodes {
+	for _, node := range p.TaskInfos {
 		if node.Id == nodeId {
 			return node.Group
 		}
@@ -303,7 +303,7 @@ func InitProgressRecursive(reqId ReqId, workflow *Workflow) *Progress {
 	nodeInfos = reorder(nodeInfos)
 	return &Progress{
 		ReqId:     reqId,
-		DagNodes:  nodeInfos,
+		TaskInfos: nodeInfos,
 		NextGroup: 0,
 	}
 }
@@ -443,7 +443,7 @@ func (p *Progress) PrettyString() string {
 	str := fmt.Sprintf("\nProgress for composition request %s - G = node group, B = node branch\n", p.ReqId)
 	str += fmt.Sprintln("G. |B| Type   (        NodeID        ) - Status")
 	str += fmt.Sprintln("-------------------------------------------------")
-	for _, info := range p.DagNodes {
+	for _, info := range p.TaskInfos {
 		str += fmt.Sprintf("%d. |%d| %-6s (%-22s) - %s\n", info.Group, info.Branch, printType(info.Type), info.Id, printStatus(info.Status))
 	}
 	return str
@@ -451,9 +451,9 @@ func (p *Progress) PrettyString() string {
 
 func (p *Progress) String() string {
 	tasks := "["
-	for i, node := range p.DagNodes {
+	for i, node := range p.TaskInfos {
 		tasks += string(node.Id)
-		if i != len(p.DagNodes)-1 {
+		if i != len(p.TaskInfos)-1 {
 			tasks += ", "
 		}
 	}
@@ -461,14 +461,14 @@ func (p *Progress) String() string {
 
 	return fmt.Sprintf(`Progress{
 		ReqId:     %s,
-		DagNodes:  %s,
+		TaskInfos:  %s,
 		NextGroup: %d,
 	}`, p.ReqId, tasks, p.NextGroup)
 }
 
 func (p *Progress) Equals(p2 *Progress) bool {
-	for i := range p.DagNodes {
-		if !p.DagNodes[i].Equals(p2.DagNodes[i]) {
+	for i := range p.TaskInfos {
+		if !p.TaskInfos[i].Equals(p2.TaskInfos[i]) {
 			return false
 		}
 	}
