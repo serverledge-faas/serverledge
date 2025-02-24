@@ -717,15 +717,6 @@ func CreateBroadcastWorkflow(dagger func() (*Workflow, error), fanOutDegree int)
 		Build()
 }
 
-func CreateAdHOCBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int, funct *function.Function) (*Workflow, error) {
-	return NewBuilder().
-		AddBroadcastFanOutNode(fanOutDegree).
-		ForEachParallelBranch(dagger).
-		AddFanInNode(AddNewMapEntry).
-		AddSimpleNode(funct).
-		Build()
-}
-
 // CreateBroadcastMultiFunctionDag if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
 // The number of branch is defined as the number of dagger functions.
 func CreateBroadcastMultiFunctionDag(dagger ...func() (*Workflow, error)) (*Workflow, error) {
