@@ -67,7 +67,7 @@ type HasNodeType interface {
 }
 
 type Buildable interface {
-	BuildDag(builder *DagBuilder) (*DagBuilder, error)
+	BuildDag(builder *Builder) (*Builder, error)
 }
 
 func Equals[D DagNode](d1 D, d2 D) bool {

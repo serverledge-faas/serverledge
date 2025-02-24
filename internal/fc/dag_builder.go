@@ -7,10 +7,10 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
-// DagBuilder is a utility struct that helps easily define the Workflow, using the Builder pattern.
+// Builder is a utility struct that helps easily define the Workflow, using the Builder pattern.
 // Use NewDagBuilder() to safely initialize it. Then use the available methods to iteratively build the workflow.
 // Finally use Build() to get the complete Workflow.
-type DagBuilder struct {
+type Builder struct {
 	workflow     Workflow
 	branches     int
 	prevNode     DagNode
@@ -18,18 +18,18 @@ type DagBuilder struct {
 	BranchNumber int
 }
 
-func (b *DagBuilder) appendError(err error) {
+func (b *Builder) appendError(err error) {
 	b.errors = append(b.errors, err)
 }
 
 type ChoiceBranchBuilder struct {
-	dagBuilder *DagBuilder
+	dagBuilder *Builder
 	completed  int // counter of branches that reach the end node
 }
 
 // ParallelScatterBranchBuilder can only hold the same workflow executed in parallel in each branch
 type ParallelScatterBranchBuilder struct {
-	dagBuilder    *DagBuilder
+	dagBuilder    *Builder
 	completed     int
 	terminalNodes []DagNode
 	fanOutId      DagNodeId
@@ -37,14 +37,14 @@ type ParallelScatterBranchBuilder struct {
 
 // ParallelBroadcastBranchBuilder can hold different dags executed in parallel
 type ParallelBroadcastBranchBuilder struct {
-	dagBuilder    *DagBuilder
+	dagBuilder    *Builder
 	completed     int
 	terminalNodes []DagNode
 	fanOutId      DagNodeId
 }
 
-func NewDagBuilder() *DagBuilder {
-	db := DagBuilder{
+func NewDagBuilder() *Builder {
+	db := Builder{
 		workflow:     NewDAG(),
 		branches:     1,
 		errors:       make([]error, 0),
@@ -55,7 +55,7 @@ func NewDagBuilder() *DagBuilder {
 }
 
 // AddSimpleNode connects a simple node to the previous node
-func (b *DagBuilder) AddSimpleNode(f *function.Function) *DagBuilder {
+func (b *Builder) AddSimpleNode(f *function.Function) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -78,7 +78,7 @@ func (b *DagBuilder) AddSimpleNode(f *function.Function) *DagBuilder {
 }
 
 // AddSimpleNodeWithId connects a simple node with the specified id to the previous node
-func (b *DagBuilder) AddSimpleNodeWithId(f *function.Function, id string) *DagBuilder {
+func (b *Builder) AddSimpleNodeWithId(f *function.Function, id string) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -102,7 +102,7 @@ func (b *DagBuilder) AddSimpleNodeWithId(f *function.Function, id string) *DagBu
 }
 
 // AddChoiceNode connects a choice node to the previous node. From the choice node, multiple branch are created and each one of those must be fully defined
-func (b *DagBuilder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder {
+func (b *Builder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("NextBranch skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -130,7 +130,7 @@ func (b *DagBuilder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder
 }
 
 // AddScatterFanOutNode connects a fanout node to the previous node. From the fanout node, multiple branch are created and each one of those must be fully defined, eventually ending in a FanInNode
-func (b *DagBuilder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBranchBuilder {
+func (b *Builder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBranchBuilder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("NextBranch skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -156,7 +156,7 @@ func (b *DagBuilder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBran
 }
 
 // AddBroadcastFanOutNode connects a fanout node to the previous node. From the fanout node, multiple branch are created and each one of those must be fully defined, eventually ending in a FanInNode
-func (b *DagBuilder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBranchBuilder {
+func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBranchBuilder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("NextBranch skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -301,7 +301,7 @@ func (c *ChoiceBranchBuilder) EndChoiceAndBuild() (*Workflow, error) {
 	return &c.dagBuilder.workflow, nil
 }
 
-// ForEachBranch chains each (remaining) output of a choice node to the same subsequent node, then returns the DagBuilder
+// ForEachBranch chains each (remaining) output of a choice node to the same subsequent node, then returns the Builder
 func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *ChoiceBranchBuilder {
 	choiceNode := c.dagBuilder.prevNode.(*ChoiceNode)
 	// we suppose the branches 0, ..., (completed-1) are already completed
@@ -442,7 +442,7 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 	return p
 }
 
-func (p *ParallelScatterBranchBuilder) AddFanInNode(mergeMode MergeMode) *DagBuilder {
+func (p *ParallelScatterBranchBuilder) AddFanInNode(mergeMode MergeMode) *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
 	workflow := &p.dagBuilder.workflow
 	fanInNode := NewFanInNode(mergeMode, p.dagBuilder.prevNode.Width(), nil)
@@ -469,7 +469,7 @@ func (p *ParallelScatterBranchBuilder) AddFanInNode(mergeMode MergeMode) *DagBui
 	return p.dagBuilder
 }
 
-func (p *ParallelBroadcastBranchBuilder) AddFanInNode(mergeMode MergeMode) *DagBuilder {
+func (p *ParallelBroadcastBranchBuilder) AddFanInNode(mergeMode MergeMode) *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
 	workflow := &p.dagBuilder.workflow
 	fanInNode := NewFanInNode(mergeMode, p.dagBuilder.prevNode.Width(), nil)
@@ -549,7 +549,7 @@ func (p *ParallelBroadcastBranchBuilder) HasNextBranch() bool {
 	return p.dagBuilder.branches > 0
 }
 
-func (b *DagBuilder) AddFailNodeAndBuild(errorName, errorMessage string) (*Workflow, error) {
+func (b *Builder) AddFailNodeAndBuild(errorName, errorMessage string) (*Workflow, error) {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		return nil, fmt.Errorf("AddFailNodeAndBuild failed because of the following %d error(s) in dagBuilder\n%v", nErrors, b.errors)
@@ -567,7 +567,7 @@ func (b *DagBuilder) AddFailNodeAndBuild(errorName, errorMessage string) (*Workf
 	return b.Build()
 }
 
-func (b *DagBuilder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
+func (b *Builder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		return nil, fmt.Errorf("AddSucceedNodeAndBuild failed because of the following %d error(s) in dagBuilder\n%v", nErrors, b.errors)
@@ -585,7 +585,7 @@ func (b *DagBuilder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
 	return b.Build()
 }
 
-func (b *DagBuilder) AddPassNode(result string) *DagBuilder {
+func (b *Builder) AddPassNode(result string) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -606,7 +606,7 @@ func (b *DagBuilder) AddPassNode(result string) *DagBuilder {
 	return b
 }
 
-func (b *DagBuilder) AddWaitNode(seconds int) *DagBuilder {
+func (b *Builder) AddWaitNode(seconds int) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -627,7 +627,7 @@ func (b *DagBuilder) AddWaitNode(seconds int) *DagBuilder {
 	return b
 }
 
-func (b *DagBuilder) AddWaitNodeWithTimestamp(timestampRFC3339 string) *DagBuilder {
+func (b *Builder) AddWaitNodeWithTimestamp(timestampRFC3339 string) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in dagBuilder\n", nErrors)
@@ -653,7 +653,7 @@ func (b *DagBuilder) AddWaitNodeWithTimestamp(timestampRFC3339 string) *DagBuild
 }
 
 // Build ends the single branch with an EndNode. If there is more than one branch, it panics!
-func (b *DagBuilder) Build() (*Workflow, error) {
+func (b *Builder) Build() (*Workflow, error) {
 	switch b.prevNode.(type) {
 	case nil:
 		return &b.workflow, nil
