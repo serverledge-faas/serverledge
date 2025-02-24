@@ -20,7 +20,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 		workflow, errSequence := fc.CreateSequenceWorkflow(py, py, py)
 		return workflow, []*function.Function{py}, errSequence
 	case "choice":
-		workflow, errChoice := fc.CreateChoiceDag(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
+		workflow, errChoice := fc.CreateChoiceWorkflow(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
 		return workflow, []*function.Function{py}, errChoice
 	case "parallel":
 		workflow, errParallel := fc.CreateBroadcastDag(fc.LambdaSequenceWorkflow(py, py), 3)
