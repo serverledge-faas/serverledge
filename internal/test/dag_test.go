@@ -10,7 +10,7 @@ import (
 	u "github.com/grussorusso/serverledge/utils"
 )
 
-func TestDagMarshaling(t *testing.T) {
+func TestWorkflowMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
 	dag1, _ := fc.CreateEmptyWorkflow()

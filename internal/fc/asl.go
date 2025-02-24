@@ -16,7 +16,7 @@ func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	}
 	workflow, err := FromStateMachine(stateMachine)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge DAG: %v", err)
+		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge Workflow: %v", err)
 	}
 
 	workflow.Name = name
