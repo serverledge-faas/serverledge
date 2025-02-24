@@ -246,7 +246,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
+	fcomp, errDag := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)
 

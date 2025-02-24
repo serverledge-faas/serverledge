@@ -707,9 +707,9 @@ func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree in
 		Build()
 }
 
-// CreateBroadcastDag if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
+// CreateBroadcastWorkflow if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
 // The number of branches is defined by the number of given functions
-func CreateBroadcastDag(dagger func() (*Workflow, error), fanOutDegree int) (*Workflow, error) {
+func CreateBroadcastWorkflow(dagger func() (*Workflow, error), fanOutDegree int) (*Workflow, error) {
 	return NewBuilder().
 		AddBroadcastFanOutNode(fanOutDegree).
 		ForEachParallelBranch(dagger).

@@ -23,7 +23,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 		workflow, errChoice := fc.CreateChoiceWorkflow(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
 		return workflow, []*function.Function{py}, errChoice
 	case "parallel":
-		workflow, errParallel := fc.CreateBroadcastDag(fc.LambdaSequenceWorkflow(py, py), 3)
+		workflow, errParallel := fc.CreateBroadcastWorkflow(fc.LambdaSequenceWorkflow(py, py), 3)
 		return workflow, []*function.Function{py}, errParallel
 	case "multifn_sequence":
 		funSlice := make([]*function.Function, 0)
