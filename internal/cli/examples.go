@@ -20,10 +20,10 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 		workflow, errSequence := fc.CreateSequenceWorkflow(py, py, py)
 		return workflow, []*function.Function{py}, errSequence
 	case "choice":
-		workflow, errChoice := fc.CreateChoiceDag(fc.LambdaSequenceDag(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
+		workflow, errChoice := fc.CreateChoiceDag(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
 		return workflow, []*function.Function{py}, errChoice
 	case "parallel":
-		workflow, errParallel := fc.CreateBroadcastDag(fc.LambdaSequenceDag(py, py), 3)
+		workflow, errParallel := fc.CreateBroadcastDag(fc.LambdaSequenceWorkflow(py, py), 3)
 		return workflow, []*function.Function{py}, errParallel
 	case "multifn_sequence":
 		funSlice := make([]*function.Function, 0)
@@ -72,7 +72,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 			NextBranch(fc.CreateSequenceWorkflow(fnSummarize)).
 			NextBranch(fc.NewBuilder().
 				AddScatterFanOutNode(2).
-				ForEachParallelBranch(fc.LambdaSequenceDag(fnGrep)).
+				ForEachParallelBranch(fc.LambdaSequenceWorkflow(fnGrep)).
 				AddFanInNode(fc.AddToArrayEntry).
 				Build()).
 			EndChoiceAndBuild()

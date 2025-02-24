@@ -682,7 +682,9 @@ func CreateSequenceWorkflow(funcs ...*function.Function) (*Workflow, error) {
 	return builder.Build()
 }
 
-func LambdaSequenceDag(funcs ...*function.Function) func() (*Workflow, error) {
+// LambdaSequenceWorkflow
+// TODO: why is this function needed?
+func LambdaSequenceWorkflow(funcs ...*function.Function) func() (*Workflow, error) {
 	return func() (*Workflow, error) { return CreateSequenceWorkflow(funcs...) }
 }
 
