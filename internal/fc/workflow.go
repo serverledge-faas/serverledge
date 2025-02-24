@@ -70,7 +70,7 @@ func (workflow *Workflow) addNode(node Task) {
 	}
 }
 
-func isDagNodePresent(node Task, infos []Task) bool {
+func isTaskPresent(node Task, infos []Task) bool {
 	isPresent := false
 	for _, nodeInfo := range infos {
 		if nodeInfo == node {
@@ -92,14 +92,14 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 	if !ok {
 		return []Task{}
 	}
-	if !isDagNodePresent(node, nodes) {
+	if !isTaskPresent(node, nodes) {
 		nodes = append(nodes, node)
 	}
 	switch n := node.(type) {
 	case *StartNode:
 		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
-			if !isDagNodePresent(add, nodes) {
+			if !isTaskPresent(add, nodes) {
 				// only when isEndNode = true, excludeEnd = true -> we don't add the node
 				if !isEndNode(add) || !excludeEnd {
 					nodes = append(nodes, add)
@@ -110,7 +110,7 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
 		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
-			if !isDagNodePresent(add, nodes) {
+			if !isTaskPresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
 					nodes = append(nodes, add)
 				}
@@ -138,7 +138,7 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 		for _, alternative := range n.Alternatives {
 			toAdd := Visit(workflow, alternative, nodes, excludeEnd)
 			for _, add := range toAdd {
-				if !isDagNodePresent(add, nodes) {
+				if !isTaskPresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
 						nodes = append(nodes, add)
 					}
@@ -150,7 +150,7 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 		for _, parallelBranch := range n.GetNext() {
 			toAdd := Visit(workflow, parallelBranch, nodes, excludeEnd)
 			for _, add := range toAdd {
-				if !isDagNodePresent(add, nodes) {
+				if !isTaskPresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
 						nodes = append(nodes, add)
 					}
@@ -161,7 +161,7 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 	case *FanInNode:
 		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
-			if !isDagNodePresent(add, nodes) {
+			if !isTaskPresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
 					nodes = append(nodes, add)
 				}
@@ -660,8 +660,8 @@ func (workflow *Workflow) getEtcdKey() string {
 	return getEtcdKey(workflow.Name)
 }
 
-func getEtcdKey(dagName string) string {
-	return fmt.Sprintf("/fc/%s", dagName)
+func getEtcdKey(workflowName string) string {
+	return fmt.Sprintf("/fc/%s", workflowName)
 }
 
 // GetAllFC returns the function composition names
@@ -838,21 +838,21 @@ func (workflow *Workflow) Exists() bool {
 
 func (workflow *Workflow) Equals(comparer types.Comparable) bool {
 
-	dag2 := comparer.(*Workflow)
+	workflow2 := comparer.(*Workflow)
 
-	if workflow.Name != dag2.Name {
+	if workflow.Name != workflow2.Name {
 		return false
 	}
 
 	for k := range workflow.Nodes {
-		if !workflow.Nodes[k].Equals(dag2.Nodes[k]) {
+		if !workflow.Nodes[k].Equals(workflow2.Nodes[k]) {
 			return false
 		}
 	}
-	return workflow.Start.Equals(dag2.Start) &&
-		workflow.End.Equals(dag2.End) &&
-		workflow.Width == dag2.Width &&
-		len(workflow.Nodes) == len(dag2.Nodes)
+	return workflow.Start.Equals(workflow2.Start) &&
+		workflow.End.Equals(workflow2.End) &&
+		workflow.Width == workflow2.Width &&
+		len(workflow.Nodes) == len(workflow2.Nodes)
 }
 
 func (workflow *Workflow) String() string {
