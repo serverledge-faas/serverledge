@@ -329,7 +329,7 @@ func TestComplexProgress2(t *testing.T) {
 	finishProgress(t, progress)
 }
 
-func checkAndCompleteNext(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) fc.DagNode {
+func checkAndCompleteNext(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) fc.Task {
 	nextNode, err := progress.NextNodes()
 	u.AssertNil(t, err)
 	nodeId := nextNode[0]
@@ -360,9 +360,9 @@ func checkAndCompleteChoice(t *testing.T, progress *fc.Progress, choice *fc.Choi
 	u.AssertNil(t, err)
 }
 
-func checkAndCompleteMultiple(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) []fc.DagNode {
+func checkAndCompleteMultiple(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) []fc.Task {
 	nextNode, err := progress.NextNodes()
-	completedNodes := make([]fc.DagNode, 0)
+	completedNodes := make([]fc.Task, 0)
 	u.AssertNil(t, err)
 	for _, nodeId := range nextNode {
 		node, ok := workflow.Find(nodeId)

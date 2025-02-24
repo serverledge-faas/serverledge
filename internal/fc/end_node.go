@@ -7,7 +7,7 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-// EndNode is a DagNode that represents the end of the Workflow.
+// EndNode is a Task that represents the end of the Workflow.
 type EndNode struct {
 	Id       DagNodeId
 	NodeType DagNodeType

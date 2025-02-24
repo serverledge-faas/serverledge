@@ -9,7 +9,7 @@ import (
 
 type ExecutionReportId string
 
-func CreateExecutionReportId(dagNode DagNode) ExecutionReportId {
+func CreateExecutionReportId(dagNode Task) ExecutionReportId {
 	return ExecutionReportId(printType(dagNode.GetNodeType()) + "_" + string(dagNode.GetId()))
 }
 

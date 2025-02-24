@@ -20,7 +20,7 @@ var compositionRequestsPool = sync.Pool{
 	},
 }
 
-// SimpleNode is a DagNode that receives one input and sends one result
+// SimpleNode is a Task that receives one input and sends one result
 type SimpleNode struct {
 	Id       DagNodeId
 	NodeType DagNodeType
@@ -152,7 +152,7 @@ func (s *SimpleNode) Equals(cmp types.Comparable) bool {
 	}
 }
 
-// AddOutput connects the output of the SimpleNode to another DagNode
+// AddOutput connects the output of the SimpleNode to another Task
 func (s *SimpleNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	s.OutputTo = dagNode
 	return nil

@@ -13,7 +13,7 @@ import (
 type Builder struct {
 	workflow     Workflow
 	branches     int
-	prevNode     DagNode
+	prevNode     Task
 	errors       []error
 	BranchNumber int
 }
@@ -31,7 +31,7 @@ type ChoiceBranchBuilder struct {
 type ParallelScatterBranchBuilder struct {
 	dagBuilder    *Builder
 	completed     int
-	terminalNodes []DagNode
+	terminalNodes []Task
 	fanOutId      DagNodeId
 }
 
@@ -39,7 +39,7 @@ type ParallelScatterBranchBuilder struct {
 type ParallelBroadcastBranchBuilder struct {
 	dagBuilder    *Builder
 	completed     int
-	terminalNodes []DagNode
+	terminalNodes []Task
 	fanOutId      DagNodeId
 }
 
@@ -134,11 +134,11 @@ func (b *Builder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBranchB
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("NextBranch skipped, because of %d error(s) in dagBuilder\n", nErrors)
-		return &ParallelScatterBranchBuilder{dagBuilder: b, terminalNodes: make([]DagNode, 0)}
+		return &ParallelScatterBranchBuilder{dagBuilder: b, terminalNodes: make([]Task, 0)}
 	}
 	if fanOutDegree <= 1 {
 		b.appendError(errors.New("fanOutDegree should be at least 1"))
-		return &ParallelScatterBranchBuilder{dagBuilder: b, terminalNodes: make([]DagNode, 0)}
+		return &ParallelScatterBranchBuilder{dagBuilder: b, terminalNodes: make([]Task, 0)}
 	}
 	fanOut := NewFanOutNode(fanOutDegree, Scatter)
 	fanOut.setBranchId(b.BranchNumber)
@@ -146,13 +146,13 @@ func (b *Builder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBranchB
 	err := b.workflow.chain(b.prevNode, fanOut)
 	if err != nil {
 		b.appendError(err)
-		return &ParallelScatterBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]DagNode, 0)}
+		return &ParallelScatterBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]Task, 0)}
 	}
 	//fmt.Println("Added fan out node to Workflow")
 	b.branches = fanOutDegree
 	b.prevNode = fanOut
 	b.workflow.Width = fanOutDegree
-	return &ParallelScatterBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]DagNode, 0), fanOutId: fanOut.Id}
+	return &ParallelScatterBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]Task, 0), fanOutId: fanOut.Id}
 }
 
 // AddBroadcastFanOutNode connects a fanout node to the previous node. From the fanout node, multiple branch are created and each one of those must be fully defined, eventually ending in a FanInNode
@@ -160,7 +160,7 @@ func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBra
 	nErrors := len(b.errors)
 	if nErrors > 0 {
 		fmt.Printf("NextBranch skipped, because of %d error(s) in dagBuilder\n", nErrors)
-		return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]DagNode, 0)}
+		return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]Task, 0)}
 	}
 	fanOut := NewFanOutNode(fanOutDegree, Broadcast)
 	fanOut.setBranchId(b.BranchNumber)
@@ -168,13 +168,13 @@ func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBra
 	err := b.workflow.chain(b.prevNode, fanOut)
 	if err != nil {
 		b.appendError(err)
-		return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]DagNode, 0)}
+		return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]Task, 0)}
 	}
 	b.branches = fanOutDegree
 	b.prevNode = fanOut
 	b.workflow.Width = fanOutDegree
 
-	return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]DagNode, 0), fanOutId: fanOut.Id}
+	return &ParallelBroadcastBranchBuilder{dagBuilder: b, completed: 0, terminalNodes: make([]Task, 0), fanOutId: fanOut.Id}
 }
 
 // NextBranch is used to chain the next branch to a Workflow and then returns the ChoiceBranchBuilder.
@@ -261,7 +261,7 @@ func (c *ChoiceBranchBuilder) EndNextBranch() *ChoiceBranchBuilder {
 		//fmt.Printf("Ending branch %d for Workflow\n", c.dagBuilder.BranchNumber)
 		// chain the alternative of the choice node to the end node of the building workflow
 		choice := c.dagBuilder.prevNode.(*ChoiceNode)
-		var alternative DagNode
+		var alternative Task
 		if c.completed < len(choice.Alternatives) {
 			x := choice.Alternatives[c.completed]
 			alternative, _ = workflow.Find(x)

@@ -8,9 +8,9 @@ import (
 
 type DagNodeId string
 
-// DagNode is an interface for a single node in the Workflow
+// Task is an interface for a single node in the Workflow
 // all implementors must be pointers to a struct
-type DagNode interface {
+type Task interface {
 	types.Comparable
 	Display
 	Executable
@@ -39,7 +39,7 @@ type Display interface {
 }
 
 type Executable interface {
-	// Exec defines how the DagNode is executed. If successful, returns the output of the execution
+	// Exec defines how the Task is executed. If successful, returns the output of the execution
 	Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error)
 }
 
@@ -70,6 +70,6 @@ type Buildable interface {
 	BuildDag(builder *Builder) (*Builder, error)
 }
 
-func Equals[D DagNode](d1 D, d2 D) bool {
+func Equals[D Task](d1 D, d2 D) bool {
 	return d1.Equals(d2)
 }

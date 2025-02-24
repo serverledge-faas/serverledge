@@ -25,7 +25,7 @@ import (
 type Workflow struct {
 	Name  string     // identifier of the Workflow
 	Start *StartNode // a single start must be added
-	Nodes map[DagNodeId]DagNode
+	Nodes map[DagNodeId]Task
 	End   *EndNode // a single endNode must be added
 	Width int      // width is the max fanOut degree of the Workflow
 }
@@ -39,7 +39,7 @@ func NewDAGWithName(name string) Workflow {
 func NewDAG() Workflow {
 	start := NewStartNode()
 	end := NewEndNode()
-	nodes := make(map[DagNodeId]DagNode)
+	nodes := make(map[DagNodeId]Task)
 	nodes[start.Id] = start
 	nodes[end.Id] = end
 
@@ -52,7 +52,7 @@ func NewDAG() Workflow {
 	return workflow
 }
 
-func (workflow *Workflow) Find(nodeId DagNodeId) (DagNode, bool) {
+func (workflow *Workflow) Find(nodeId DagNodeId) (Task, bool) {
 	dagNode, found := workflow.Nodes[nodeId]
 	return dagNode, found
 }
@@ -61,7 +61,7 @@ func (workflow *Workflow) Find(nodeId DagNodeId) (DagNode, bool) {
 //  the remaining should be private after the builder APIs work well!!!
 
 // addNode can be used to add a new node to the Workflow. Does not chain anything, but updates Workflow width
-func (workflow *Workflow) addNode(node DagNode) {
+func (workflow *Workflow) addNode(node Task) {
 	workflow.Nodes[node.GetId()] = node // if already exists, overwrites!
 	// updates width
 	nodeWidth := node.Width()
@@ -70,7 +70,7 @@ func (workflow *Workflow) addNode(node DagNode) {
 	}
 }
 
-func isDagNodePresent(node DagNode, infos []DagNode) bool {
+func isDagNodePresent(node Task, infos []Task) bool {
 	isPresent := false
 	for _, nodeInfo := range infos {
 		if nodeInfo == node {
@@ -81,16 +81,16 @@ func isDagNodePresent(node DagNode, infos []DagNode) bool {
 	return isPresent
 }
 
-func isEndNode(node DagNode) bool {
+func isEndNode(node Task) bool {
 	_, ok := node.(*EndNode)
 	return ok
 }
 
 // VisitDag visits the workflow starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
-func VisitDag(workflow *Workflow, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []DagNode {
+func VisitDag(workflow *Workflow, nodeId DagNodeId, nodes []Task, excludeEnd bool) []Task {
 	node, ok := workflow.Find(nodeId)
 	if !ok {
-		return []DagNode{}
+		return []Task{}
 	}
 	if !isDagNodePresent(node, nodes) {
 		nodes = append(nodes, node)
@@ -172,17 +172,17 @@ func VisitDag(workflow *Workflow, nodeId DagNodeId, nodes []DagNode, excludeEnd 
 }
 
 // chain can be used to connect the output of node1 to the node2
-func (workflow *Workflow) chain(node1 DagNode, node2 DagNode) error {
+func (workflow *Workflow) chain(node1 Task, node2 Task) error {
 	return node1.AddOutput(workflow, node2.GetId())
 }
 
 // ChainToEndNode (node, i) can be used as a shorthand to chain(node, workflow.end[i]) to chain a node to a specific end node
-func (workflow *Workflow) ChainToEndNode(node1 DagNode) error {
+func (workflow *Workflow) ChainToEndNode(node1 Task) error {
 	return workflow.chain(node1, workflow.End)
 }
 
 func (workflow *Workflow) Print() string {
-	var currentNode DagNode = workflow.Start
+	var currentNode Task = workflow.Start
 	result := ""
 
 	// prints the StartNode
@@ -379,13 +379,13 @@ func (workflow *Workflow) executeFanOut(progress *Progress, partialData *Partial
 
 func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []DagNodeId, r *CompositionRequest) (*PartialData, *Progress, error) {
 	// preparing workflow nodes and channels for parallel execution
-	parallelDagNodes := make([]DagNode, 0)
+	parallelDagNodes := make([]Task, 0)
 	inputs := make([]map[string]interface{}, 0)
 	outputChannels := make([]chan map[string]interface{}, 0)
 	errorChannels := make([]chan error, 0)
 	requestId := ReqId(r.ReqId)
 	outputMap := make(map[string]interface{}, 0)
-	var node DagNode
+	var node Task
 	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
 
 	for _, nodeId := range nextNodes {
@@ -406,7 +406,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	}
 	// executing all nodes in parallel
 	for i, node := range parallelDagNodes {
-		go func(i int, params map[string]interface{}, node DagNode) {
+		go func(i int, params map[string]interface{}, node Task) {
 			output, err := node.Exec(r, params)
 			// for simple node, we also prepare output
 			if simpleNode, isSimple := node.(*SimpleNode); isSimple {
@@ -530,7 +530,7 @@ func (workflow *Workflow) executeFailNode(progress *Progress, partialData *Parti
 	return commonExec(workflow, progress, partialData, failNode, r)
 }
 
-func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node DagNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node Task, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 	var pd *PartialData
 	nodeId := node.GetId()
 	requestId := ReqId(r.ReqId)
@@ -865,7 +865,7 @@ func (workflow *Workflow) String() string {
 	}`, workflow.Name, workflow.Start.String(), workflow.Nodes, workflow.End.String(), workflow.Width)
 }
 
-// MarshalJSON is needed because DagNode is an interface
+// MarshalJSON is needed because Task is an interface
 // This is automatically used when calling json.Marshal()
 func (workflow *Workflow) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON representation of the Workflow
@@ -888,7 +888,7 @@ func (workflow *Workflow) MarshalJSON() ([]byte, error) {
 	return json.Marshal(data)
 }
 
-// UnmarshalJSON is needed because DagNode is an interface
+// UnmarshalJSON is needed because Task is an interface
 // This is automatically used when calling json.Unmarshal()
 func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	// Create a temporary map to decode the JSON data
@@ -934,7 +934,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(tempMap["Nodes"], &tempNodeMap); err != nil {
 		return err
 	}
-	workflow.Nodes = make(map[DagNodeId]DagNode)
+	workflow.Nodes = make(map[DagNodeId]Task)
 	for nodeId, value := range tempNodeMap {
 		err := workflow.decodeNode(nodeId, value)
 		if err != nil {

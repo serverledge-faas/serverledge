@@ -166,8 +166,8 @@ func (s *ChoiceNode) MapOutput(output map[string]interface{}, sign function.Sign
 }
 
 // GetChoiceBranch returns all node ids of a branch under a choice node; branch number starts from 0
-func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []DagNode {
-	branchNodes := make([]DagNode, 0)
+func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []Task {
+	branchNodes := make([]Task, 0)
 	if len(c.Alternatives) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
 		return branchNodes
@@ -179,8 +179,8 @@ func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []DagNode {
 // GetNodesToSkip skips all node that are in a branch that will not be executed.
 // If a skipped branch contains one or more node that is used by the current branch, the node,
 // should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
-func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []DagNode {
-	nodesToSkip := make([]DagNode, 0)
+func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []Task {
+	nodesToSkip := make([]Task, 0)
 	if c.FirstMatch == -1 || c.FirstMatch >= len(c.Alternatives) {
 		return nodesToSkip
 	}

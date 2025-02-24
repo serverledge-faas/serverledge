@@ -76,8 +76,8 @@ func TestSimpleDag(t *testing.T) {
 	_, found := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, found)
 	end := false
-	var prevNode fc.DagNode = workflow.Start
-	var currentNode fc.DagNode
+	var prevNode fc.Task = workflow.Start
+	var currentNode fc.Task
 	for !end {
 		switch prevNode.(type) {
 		case *fc.StartNode:
@@ -489,7 +489,7 @@ func TestVisit(t *testing.T) {
 
 	choice := startNext.GetNext()[0]
 
-	nodeList := make([]fc.DagNode, 0)
+	nodeList := make([]fc.Task, 0)
 	visitedNodes := fc.VisitDag(complexDag, complexDag.Start.Id, nodeList, false)
 	u.AssertEquals(t, len(complexDag.Nodes), len(visitedNodes))
 

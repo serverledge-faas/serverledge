@@ -42,7 +42,7 @@ type DagNodeInfo struct {
 	Branch int // copied from dagNode
 }
 
-func newNodeInfo(dNode DagNode, group int) *DagNodeInfo {
+func newNodeInfo(dNode Task, group int) *DagNodeInfo {
 	return &DagNodeInfo{
 		Id:     dNode.GetId(),
 		Type:   parseType(dNode),
@@ -94,7 +94,7 @@ const (
 	Wait    DagNodeType = "WaitNode"
 )
 
-func DagNodeFromType(nodeType DagNodeType) DagNode {
+func DagNodeFromType(nodeType DagNodeType) Task {
 	switch nodeType {
 	case Start:
 		return &StartNode{}
@@ -121,7 +121,7 @@ func DagNodeFromType(nodeType DagNodeType) DagNode {
 	}
 }
 
-func parseType(dNode DagNode) DagNodeType {
+func parseType(dNode Task) DagNodeType {
 	switch dNode.(type) {
 	case *StartNode:
 		return Start
@@ -229,7 +229,7 @@ func (p *Progress) SkipNode(id DagNodeId) error {
 	return fmt.Errorf("no node to skip with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
-func (p *Progress) SkipAll(nodes []DagNode) error {
+func (p *Progress) SkipAll(nodes []Task) error {
 	for _, node := range nodes {
 		err := p.SkipNode(node.GetId())
 		if err != nil {
@@ -367,7 +367,7 @@ func isNodeInfoPresent(node DagNodeId, infos []*DagNodeInfo) bool {
 }
 
 // extractNodeInfo retrieves all needed information from nodes and sets node groups. It duplicates end nodes.
-func extractNodeInfo(workflow *Workflow, node DagNode, group int, infos []*DagNodeInfo) []*DagNodeInfo {
+func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*DagNodeInfo) []*DagNodeInfo {
 	info := newNodeInfo(node, group)
 	if !isNodeInfoPresent(node.GetId(), infos) {
 		infos = append(infos, info)

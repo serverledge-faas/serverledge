@@ -65,7 +65,7 @@ func (p *PassNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-// AddOutput for a PassNode connects it to another DagNode, except StartNode
+// AddOutput for a PassNode connects it to another Task, except StartNode
 func (p *PassNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	_, ok := workflow.Nodes[dagNode].(*StartNode)
 	if ok {

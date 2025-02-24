@@ -9,7 +9,7 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-// StartNode is a DagNode from which the execution of the Workflow starts. Invokes the first DagNode
+// StartNode is a Task from which the execution of the Workflow starts. Invokes the first Task
 type StartNode struct {
 	Id       DagNodeId
 	NodeType DagNodeType
