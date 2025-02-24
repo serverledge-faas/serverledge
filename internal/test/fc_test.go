@@ -98,9 +98,9 @@ func TestInvokeFC(t *testing.T) {
 	length := 5
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
-	fcomp, errDag := fc.CreateSequenceWorkflow(fArr...)
+	fcomp, err := fc.CreateSequenceWorkflow(fArr...)
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -139,7 +139,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddChoiceNode(
 			fc.NewConstCondition(false),
 			fc.NewSmallerCondition(2, 1),
@@ -151,7 +151,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 		EndChoiceAndBuild()
 
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -194,7 +194,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 		Build())
 	u.AssertNil(t, errF2)
 
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddSimpleNode(fDouble).
 		AddSimpleNode(fInc).
 		AddSimpleNode(fDouble).
@@ -202,7 +202,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 		Build()
 	fcomp.Name = fcName
 
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -246,9 +246,9 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
+	fcomp, err := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -288,9 +288,9 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	for i := 0; i < length; i++ {
 		builder.AddSimpleNodeWithId(f, fmt.Sprintf("simple %d", i))
 	}
-	fcomp, errDag := builder.Build()
+	fcomp, err := builder.Build()
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -361,9 +361,9 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateScatterSingleFunctionWorkflow(fDouble, width)
+	fcomp, err := fc.CreateScatterSingleFunctionWorkflow(fDouble, width)
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -426,7 +426,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddSimpleNode(isPrimePy).
 		AddChoiceNode(
 			fc.NewEqParamCondition(fc.NewParam("IsPrime"), fc.NewValue(true)),
@@ -437,7 +437,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 		EndChoiceAndBuild()
 	fcomp.Name = fcName
 
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -475,7 +475,7 @@ func TestInvokeCompositionError(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddChoiceNode(
 			fc.NewEqParamCondition(fc.NewParam("NonExistentParam"), fc.NewValue(true)),
 			fc.NewEqCondition(2, 3),
@@ -483,7 +483,7 @@ func TestInvokeCompositionError(t *testing.T) {
 		NextBranch(fc.CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
 	fcomp.Name = fcName
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
 
@@ -501,7 +501,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddChoiceNode(
 			fc.NewEqParamCondition(fc.NewParam("value"), fc.NewValue(1)),
 			fc.NewConstCondition(true),
@@ -509,7 +509,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 		NextBranch(fc.NewBuilder().AddSucceedNodeAndBuild("everything ok")).
 		NextBranch(fc.NewBuilder().AddFailNodeAndBuild("FakeError", "This should be an error")).
 		EndChoiceAndBuild()
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 	fcomp.Name = "fail_succeed"
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -553,13 +553,13 @@ func TestInvokeCompositionPassDoNothing(t *testing.T) {
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddSimpleNode(incPy).
 		AddPassNode(""). // this should not do nothing
 		AddSimpleNode(incPy).
 		Build()
 	fcomp.Name = "pass_do_nothing"
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	err1 := fcomp.SaveToEtcd()
 	u.AssertNil(t, err1)
@@ -585,12 +585,12 @@ func TestInvokeCompositionWait(t *testing.T) {
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
-	fcomp, errDag := fc.NewBuilder().
+	fcomp, err := fc.NewBuilder().
 		AddSimpleNode(incPy).
 		AddWaitNode(2). // this should not do nothing
 		AddSimpleNode(incPy).
 		Build()
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, err)
 
 	fcomp.Name = "pass_do_nothing"
 	err1 := fcomp.SaveToEtcd()
@@ -610,8 +610,8 @@ func TestInvokeCompositionWait(t *testing.T) {
 	// find wait node
 	var waitNode *fc.WaitNode = nil
 	ok := false
-	for _, nodeInDag := range fcomp.Nodes {
-		waitNode, ok = nodeInDag.(*fc.WaitNode)
+	for _, nodes := range fcomp.Nodes {
+		waitNode, ok = nodes.(*fc.WaitNode)
 		if ok {
 			break
 		}
