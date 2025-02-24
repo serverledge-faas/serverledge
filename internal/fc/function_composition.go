@@ -17,11 +17,10 @@ import (
 )
 
 // FunctionComposition is a serverless Function Composition
-// TODO: remove RemoveFnOnDeletion and merge FunctionComposition and Dag into a single struct
+// TODO: merge FunctionComposition and Dag into a single struct
 type FunctionComposition struct {
-	Name               string // al posto del nome potrebbe essere un id da mettere in etcd
-	Workflow           Dag
-	RemoveFnOnDeletion bool
+	Name     string // al posto del nome potrebbe essere un id da mettere in etcd
+	Workflow Dag
 }
 
 type ExecutionReportId string
@@ -71,9 +70,8 @@ func (cer *CompositionExecutionReport) GetAllResults() string {
 // NewFC instantiates a new FunctionComposition with a name and a corresponding dag. The functions parameter can contain duplicate functions (with the same name)
 func NewFC(name string, dag Dag, removeFnOnDeletion bool) *FunctionComposition {
 	return &FunctionComposition{
-		Name:               name,
-		Workflow:           dag,
-		RemoveFnOnDeletion: removeFnOnDeletion,
+		Name:     name,
+		Workflow: dag,
 	}
 }
 
@@ -220,18 +218,6 @@ func (fc *FunctionComposition) Delete() error {
 		return err
 	}
 	ctx := context.TODO()
-	if fc.RemoveFnOnDeletion {
-		for _, fStr := range fc.Workflow.GetUniqueDagFunctions() {
-			f, found := function.GetFunction(fStr)
-			if !found {
-				continue
-			}
-			err = f.Delete()
-			if err != nil {
-				fmt.Printf("failed to delete function %s associated to function composition %s: %v", f.Name, fc.Name, err)
-			}
-		}
-	}
 
 	dresp, err := cli.Delete(ctx, fc.getEtcdKey())
 	if err != nil || dresp.Deleted != 1 {
@@ -315,9 +301,8 @@ func (fc *FunctionComposition) String() string {
 	return fmt.Sprintf(`FunctionComposition{
 		Name: %s,
 		Functions: %s,
-		Workflow:\n%s,
-		RemoveFnOnDeletion: %t
-	}`, fc.Name, functions, workflow, fc.RemoveFnOnDeletion)
+		Workflow:\n%s
+	}`, fc.Name, functions, workflow)
 }
 
 func (cer *CompositionExecutionReport) String() string {

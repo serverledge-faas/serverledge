@@ -133,18 +133,6 @@ func DeleteFunctionComposition(c echo.Context) error {
 		log.Printf("Dropping request for non existing function '%s'", comp.Name)
 		return c.JSON(http.StatusNotFound, "the request function composition to delete does not exist")
 	}
-	// only if RemoveFnOnDeletion is true, we also remove functions and associated warm (idle) containers
-	if composition.RemoveFnOnDeletion {
-		for _, fStr := range composition.Workflow.GetUniqueDagFunctions() {
-			f, found := function.GetFunction(fStr)
-			if !found {
-				fmt.Printf("Could not find function to delete: %s\n", fStr)
-				continue
-			}
-			// Delete local warm containers
-			node.ShutdownWarmContainersFor(f)
-		}
-	}
 
 	log.Printf("New request: deleting %s", composition.Name)
 	err = composition.Delete()
