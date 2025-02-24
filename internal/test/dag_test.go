@@ -17,7 +17,7 @@ func TestDagMarshaling(t *testing.T) {
 	dag2, _ := fc.CreateSequenceWorkflow(f, f, f)
 	dag3, _ := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
 	dag4, _ := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
-	dag5, _ := fc.CreateScatterSingleFunctionDag(f, 5)
+	dag5, _ := fc.CreateScatterSingleFunctionWorkflow(f, 5)
 	dag6, _ := fc.CreateBroadcastMultiFunctionDag(
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) },
@@ -263,7 +263,7 @@ func TestScatterDag(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	workflow, errDag := fc.CreateScatterSingleFunctionDag(f, width)
+	workflow, errDag := fc.CreateScatterSingleFunctionWorkflow(f, width)
 	u.AssertNil(t, errDag)
 
 	u.AssertNonNil(t, workflow.Start)

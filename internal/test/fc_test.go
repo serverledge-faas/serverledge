@@ -361,7 +361,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateScatterSingleFunctionDag(fDouble, width)
+	fcomp, errDag := fc.CreateScatterSingleFunctionWorkflow(fDouble, width)
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)
 

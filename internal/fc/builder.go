@@ -697,9 +697,9 @@ func CreateChoiceWorkflow(dagger func() (*Workflow, error), condArr ...Condition
 		EndChoiceAndBuild()
 }
 
-// CreateScatterSingleFunctionDag if successful, returns a workflow with one fan out, N simple node with the same function
+// CreateScatterSingleFunctionWorkflow if successful, returns a workflow with one fan out, N simple node with the same function
 // and then a fan in node that merges all the result in an array.
-func CreateScatterSingleFunctionDag(fun *function.Function, fanOutDegree int) (*Workflow, error) {
+func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree int) (*Workflow, error) {
 	return NewBuilder().
 		AddScatterFanOutNode(fanOutDegree).
 		ForEachParallelBranch(func() (*Workflow, error) { return CreateSequenceWorkflow(fun) }).
