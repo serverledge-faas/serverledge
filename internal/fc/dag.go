@@ -1,9 +1,13 @@
 package fc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/grussorusso/serverledge/internal/cache"
+	"github.com/grussorusso/serverledge/utils"
+	"github.com/labstack/gommon/log"
 	"math"
 	"sort"
 	"strings"
@@ -19,10 +23,17 @@ import (
 
 // Dag is a Workflow to drive the execution of the function composition
 type Dag struct {
+	Name  string     // identifier of the Dag
 	Start *StartNode // a single start must be added
 	Nodes map[DagNodeId]DagNode
 	End   *EndNode // a single endNode must be added
 	Width int      // width is the max fanOut degree of the Dag
+}
+
+func NewDAGWithName(name string) Dag {
+	dag := NewDAG()
+	dag.Name = name
+	return dag
 }
 
 func NewDAG() Dag {
@@ -645,9 +656,193 @@ func (dag *Dag) GetUniqueDagFunctions() []string {
 	return uniqueFunctions
 }
 
+func (dag *Dag) getEtcdKey() string {
+	return getEtcdKey(dag.Name)
+}
+
+func getEtcdKey(dagName string) string {
+	return fmt.Sprintf("/fc/%s", dagName)
+}
+
+// GetAllFC returns the function composition names
+func GetAllFC() ([]string, error) {
+	return function.GetAllWithPrefix("/fc")
+}
+
+func getFCFromCache(name string) (*Dag, bool) {
+	localCache := cache.GetCacheInstance()
+	cachedObj, found := localCache.Get(name)
+	if !found {
+		return nil, false
+	}
+	//cache hit
+	//return a safe copy of the function composition previously obtained
+	fc := *cachedObj.(*Dag)
+	return &fc, true
+}
+
+func getFCFromEtcd(name string) (*Dag, error) {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return nil, errors.New("failed to connect to ETCD")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	key := getEtcdKey(name)
+	getResponse, err := cli.Get(ctx, key)
+	if err != nil || len(getResponse.Kvs) < 1 {
+		return nil, fmt.Errorf("failed to retrieve value for key %s", key)
+	}
+
+	var f Dag
+	err = json.Unmarshal(getResponse.Kvs[0].Value, &f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal json: %v", err)
+	}
+
+	return &f, nil
+}
+
+// GetFC gets the Dag from cache or from ETCD
+func GetFC(name string) (*Dag, bool) {
+	val, found := getFCFromCache(name)
+	if !found {
+		// cache miss
+		f, err := getFCFromEtcd(name)
+		if err != nil {
+			return nil, false
+		}
+		//insert a new element to the cache
+		cache.GetCacheInstance().Set(name, f, cache.DefaultExp)
+		return f, true
+	}
+
+	return val, true
+}
+
+// SaveToEtcd creates and register the function composition in Serverledge
+// It is like SaveToEtcd for a simple function
+func (dag *Dag) SaveToEtcd() error {
+	if len(dag.Name) == 0 {
+		return fmt.Errorf("cannot save an anonymous dag (no name set)")
+	}
+
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.TODO()
+
+	// marshal the function composition object into json
+	payload, err := json.Marshal(*dag)
+	if err != nil {
+		return fmt.Errorf("could not marshal function composition: %v", err)
+	}
+	// saves the json object into etcd
+	_, err = cli.Put(ctx, dag.getEtcdKey(), string(payload))
+	if err != nil {
+		return fmt.Errorf("failed etcd Put: %v", err)
+	}
+
+	// Add the function composition to the local cache
+	cache.GetCacheInstance().Set(dag.Name, dag, cache.DefaultExp)
+
+	return nil
+}
+
+// Invoke schedules each function of the composition and invokes them
+func (dag *Dag) Invoke(r *CompositionRequest) (CompositionExecutionReport, error) {
+
+	var err error
+	requestId := ReqId(r.ReqId)
+	input := r.Params
+	// initialize struct progress from dag
+	progress := InitProgressRecursive(requestId, dag)
+
+	// initialize partial data with input, directly from the Start.Next node
+	pd := NewPartialData(requestId, dag.Start.Next, "nil", input)
+	pd.Data = input
+
+	shouldContinue := true
+	for shouldContinue {
+		// executing dag
+		pd, progress, shouldContinue, err = dag.Execute(r, pd, progress)
+		if err != nil {
+			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed dag execution: %v", err)
+		}
+	}
+
+	// saving partialData and progress on etcd - implementing workflow offloading policies
+	err = savePartialDataToEtcd(pd)
+	if err != nil {
+		return CompositionExecutionReport{}, err
+	}
+	err = saveProgressToEtcd(progress)
+	if err != nil {
+		return CompositionExecutionReport{}, err
+	}
+
+	// deleting progresses and partial datas from cache and etcd
+	err = DeleteProgress(requestId, cache.Persist)
+	if err != nil {
+		return CompositionExecutionReport{}, err
+	}
+	_, errDel := DeleteAllPartialData(requestId, cache.Persist)
+	if errDel != nil {
+		return CompositionExecutionReport{}, errDel
+	}
+	r.ExecReport.Result = pd.Data
+
+	return r.ExecReport, nil
+}
+
+// Delete removes the FunctionComposition from cache and from etcd, so it cannot be invoked anymore
+func (fc *Dag) Delete() error {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return err
+	}
+	ctx := context.TODO()
+
+	dresp, err := cli.Delete(ctx, fc.getEtcdKey())
+	if err != nil || dresp.Deleted != 1 {
+		return fmt.Errorf("failed Delete: %v", err)
+	}
+
+	// Remove the function from the local cache
+	cache.GetCacheInstance().Delete(fc.Name)
+
+	return nil
+}
+
+// Exists return true if the function composition exists either in etcd or in cache. If it only exists in Etcd, it saves the composition also in caches
+func (fc *Dag) Exists() bool {
+	_, found := getFCFromCache(fc.Name)
+	if !found {
+		// cache miss
+		f, err := getFCFromEtcd(fc.Name)
+		if err != nil {
+			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(fc.Name)) {
+				return false
+			} else {
+				log.Error(err.Error())
+				return false
+			}
+		}
+		//insert a new element to the cache
+		cache.GetCacheInstance().Set(f.Name, f, cache.DefaultExp)
+		return true
+	}
+	return found
+}
+
 func (dag *Dag) Equals(comparer types.Comparable) bool {
 
 	dag2 := comparer.(*Dag)
+
+	if dag.Name != dag2.Name {
+		return false
+	}
 
 	for k := range dag.Nodes {
 		if !dag.Nodes[k].Equals(dag2.Nodes[k]) {
@@ -662,19 +857,22 @@ func (dag *Dag) Equals(comparer types.Comparable) bool {
 
 func (dag *Dag) String() string {
 	return fmt.Sprintf(`Dag{
+		Name: %s,
 		Start: %s,
 		Nodes: %s,
 		End:   %s,
 		Width: %d,
-	}`, dag.Start.String(), dag.Nodes, dag.End.String(), dag.Width)
+	}`, dag.Name, dag.Start.String(), dag.Nodes, dag.End.String(), dag.Width)
 }
 
 // MarshalJSON is needed because DagNode is an interface
+// This is automatically used when calling json.Marshal()
 func (dag *Dag) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON representation of the Dag
 	data := make(map[string]interface{})
 
 	// Add the field to the map
+	data["Name"] = dag.Name
 	data["Start"] = dag.Start
 	data["End"] = dag.End
 	data["Width"] = dag.Width
@@ -691,6 +889,7 @@ func (dag *Dag) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON is needed because DagNode is an interface
+// This is automatically used when calling json.Unmarshal()
 func (dag *Dag) UnmarshalJSON(data []byte) error {
 	// Create a temporary map to decode the JSON data
 	var tempMap map[string]json.RawMessage
@@ -720,6 +919,14 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 		}
 	} else {
 		return fmt.Errorf("missing 'Width' field in JSON")
+	}
+
+	if rawName, ok := tempMap["Name"]; ok {
+		if err := json.Unmarshal(rawName, &dag.Name); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("missing 'Name' field in JSON")
 	}
 
 	// Cycle on each map entry and decode the type

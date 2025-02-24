@@ -523,9 +523,8 @@ func createComposition(cmd *cobra.Command, args []string) {
 	}
 	encoded := base64.StdEncoding.EncodeToString(src)
 	request := client.CompositionCreationFromASLRequest{
-		Name:               compName,
-		RmFnOnDeletionFlag: rmFnOnDeletion,
-		ASLSrc:             encoded}
+		Name:   compName,
+		ASLSrc: encoded}
 
 	requestBody, err := json.Marshal(request)
 	if err != nil {
@@ -548,8 +547,8 @@ func deleteComposition(cmd *cobra.Command, args []string) {
 		cmd.Help()
 		os.Exit(1)
 	}
-	request := fc.FunctionComposition{
-		Name: compName,
+	request := fc.Dag{
+		Name: compName, // TODO: passing the name as a string is enough
 	}
 	requestBody, err := json.Marshal(request)
 	if err != nil {

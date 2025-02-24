@@ -153,12 +153,12 @@ func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function
 }
 
 // parseFileName takes the name of the file, without .json and parses it
-func parseFileName(t *testing.T, rmFnOnDeletion bool, aslFileName string) *fc.FunctionComposition {
+func parseFileName(t *testing.T, aslFileName string) *fc.Dag {
 	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
 	utils.AssertNilMsg(t, err, "unable to read file")
 
 	// for now, we use the same name as the filename to create the composition
-	comp, err := fc.FromASL(aslFileName, rmFnOnDeletion, body)
+	comp, err := fc.FromASL(aslFileName, body)
 	fmt.Println(err)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 	return comp
@@ -226,17 +226,6 @@ func invokeApiTest(fn string, params map[string]interface{}, host string, port i
 	return nil
 }
 
-func getFunctionApiTest(t *testing.T, host string, port int) []string {
-	url := fmt.Sprintf("http://%s:%d/function", host, port)
-	resp, err := http.Get(url)
-	utils.AssertNil(t, err)
-	var functionNames []string
-	functionListJson := utils.GetJsonResponse(resp.Body)
-	err = json.Unmarshal([]byte(functionListJson), &functionNames)
-	utils.AssertNil(t, err)
-	return functionNames
-}
-
 func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	request := function.Function{Name: fn}
 	requestBody, err := json.Marshal(request)
@@ -249,7 +238,7 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(fc *fc.FunctionComposition, host string, port int) error {
+func createCompositionApiTest(fc *fc.Dag, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
 	if err != nil {
 		return err
@@ -292,7 +281,7 @@ func getCompositionsApiTest(t *testing.T, host string, port int) []string {
 }
 
 func deleteCompositionApiTest(t *testing.T, fcName string, host string, port int) {
-	request := fc.FunctionComposition{Name: fcName}
+	request := fc.Dag{Name: fcName}
 	requestBody, err := json.Marshal(request)
 	utils.AssertNilMsg(t, err, "failed to marshal composition to delete")
 

@@ -68,9 +68,9 @@ func TestCreateComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
+	dag.Name = fcName
 	utils.AssertNil(t, err)
-	composition := fc.NewFC(fcName, *dag, true)
-	err = createCompositionApiTest(composition, HOST, PORT)
+	err = createCompositionApiTest(dag, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -79,8 +79,8 @@ func TestCreateComposition(t *testing.T) {
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, composition.Equals(getFC), "composition comparison failed")
-	err = composition.Delete()
+	utils.AssertTrueMsg(t, dag.Equals(getFC), "composition comparison failed")
+	err = dag.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -97,9 +97,9 @@ func TestInvokeComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
+	dag.Name = fcName
 	utils.AssertNil(t, err)
-	composition := fc.NewFC(fcName, *dag, true)
-	err = createCompositionApiTest(composition, HOST, PORT)
+	err = createCompositionApiTest(dag, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -113,8 +113,8 @@ func TestInvokeComposition(t *testing.T) {
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, composition.Equals(getFC), "composition comparison failed")
-	err = composition.Delete()
+	utils.AssertTrueMsg(t, dag.Equals(getFC), "composition comparison failed")
+	err = dag.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -136,9 +136,9 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
 	dag, err := fc.CreateSequenceDag(fnPy, fnJs, fnPy, fnJs)
+	dag.Name = fcName
 	utils.AssertNil(t, err)
-	composition := fc.NewFC(fcName, *dag, true)
-	err = createCompositionApiTest(composition, HOST, PORT)
+	err = createCompositionApiTest(dag, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -152,8 +152,8 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, composition.Equals(getFC), "composition comparison failed")
-	err = composition.Delete()
+	utils.AssertTrueMsg(t, dag.Equals(getFC), "composition comparison failed")
+	err = dag.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -178,17 +178,14 @@ func TestDeleteComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, db, fn)
+	dag.Name = fcName
 	utils.AssertNil(t, err)
 
-	for _, b := range []bool{true, false} {
-		composition := fc.NewFC(fcName, *dag, b)
-		err = composition.SaveToEtcd()
-		utils.AssertNil(t, err)
+	err = dag.SaveToEtcd()
+	utils.AssertNil(t, err)
 
-		// the API under test is the following
-		deleteCompositionApiTest(t, fcName, HOST, PORT) // TODO: check success
-
-	}
+	// the API under test is the following
+	deleteCompositionApiTest(t, fcName, HOST, PORT) // TODO: check success
 
 	// delete the container when not used
 	// deleteApiTest(t, fn.Name, HOST, PORT) // the function has already been deleted during composition deletion
@@ -209,9 +206,9 @@ func TestAsyncInvokeComposition(t *testing.T) {
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	dag, err := fc.CreateSequenceDag(fn, fn, fn)
+	dag.Name = fcName
 	utils.AssertNil(t, err)
-	composition := fc.NewFC(fcName, *dag, true)
-	err = createCompositionApiTest(composition, HOST, PORT)
+	err = createCompositionApiTest(dag, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -253,7 +250,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	// here we do not use REST API
 	getFC, b := fc.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, composition.Equals(getFC), "composition comparison failed")
-	err = composition.Delete()
+	utils.AssertTrueMsg(t, dag.Equals(getFC), "composition comparison failed")
+	err = dag.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 }

@@ -19,7 +19,7 @@ func TestParsedCompositionName(t *testing.T) {
 	initializeAllPyFunctionFromNames(t, "inc", "double", "hello")
 
 	expectedName := "simple"
-	comp := parseFileName(t, false, expectedName)
+	comp := parseFileName(t, expectedName)
 	// the name should be simple, because we parsed the "simple.json" file
 	utils.AssertEquals(t, comp.Name, expectedName)
 
@@ -37,7 +37,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 
 	//initializeAllPyFunctionFromNames(t, "inc", "double", "hello", "noop")
 
-	comp := parseFileName(t, false, name)
+	comp := parseFileName(t, name)
 	defer func() {
 		err = comp.Delete()
 		utils.AssertNilMsg(t, err, "failed to delete composition")
@@ -117,7 +117,7 @@ func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_numeq_succeed_fail.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice", false, body)
+	comp, err := fc.FromASL("choice", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	// runs the workflow, making it going to the fail part
@@ -157,7 +157,7 @@ func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_datatestexpr.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice3", false, body)
+	comp, err := fc.FromASL("choice3", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	incFn := funcs[0]
@@ -208,7 +208,7 @@ func TestParsingChoiceDagWithBoolExpr(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_boolexpr.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice2", false, body)
+	comp, err := fc.FromASL("choice2", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	// 1st branch (type != "Private")
