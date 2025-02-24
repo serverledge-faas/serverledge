@@ -8,6 +8,7 @@ import (
 )
 
 // FIXME: unused function
+// TODO: this file can be removed. I'll keep it if we are interested in using the following workflows in tests.
 func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 
 	py, err := InitializePyFunction("inc", "handler", function.NewSignature().AddInput("input", function.Int{}).AddOutput("result", function.Int{}).Build())
