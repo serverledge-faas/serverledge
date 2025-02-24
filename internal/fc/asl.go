@@ -239,7 +239,7 @@ func buildTestExpr(t *asl.TestExpression) (Condition, error) {
 }
 
 func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Workflow, error) {
-	return DagBuildingLoop(sm, sm.States[nextState], nextState)
+	return WorkflowBuildingLoop(sm, sm.States[nextState], nextState)
 }
 
 // BuildFromParallelState adds a FanOutNode and a FanInNode and as many branches as defined in the ParallelState

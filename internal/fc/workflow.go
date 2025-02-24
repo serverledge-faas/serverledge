@@ -1024,7 +1024,7 @@ func (workflow *Workflow) IsEmpty() bool {
 	return false
 }
 
-func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
+func WorkflowBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
 	builder := NewBuilder()
 	isTerminal := false
 	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
@@ -1097,7 +1097,7 @@ func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName st
 func FromStateMachine(sm *asl.StateMachine) (*Workflow, error) {
 	nextStateName := sm.StartAt
 	nextState := sm.States[nextStateName]
-	return DagBuildingLoop(sm, nextState, nextStateName)
+	return WorkflowBuildingLoop(sm, nextState, nextStateName)
 }
 
 // findNextOrTerminate returns the State, its name and if it is terminal or not
