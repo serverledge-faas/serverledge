@@ -36,7 +36,7 @@ func NewChoiceNode(conds []Condition) *ChoiceNode {
 	}
 }
 
-// The condition function must be created from the Dag specification in State Function Language or AFCL
+// The condition function must be created from the Workflow specification in State Function Language or AFCL
 
 func (c *ChoiceNode) Equals(cmp types.Comparable) bool {
 	switch cmp.(type) {
@@ -102,7 +102,7 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (c *ChoiceNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (c *ChoiceNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
@@ -118,10 +118,10 @@ func (c *ChoiceNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (c *ChoiceNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (c *ChoiceNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	// we should map the output to the input of the node that first matches the condition and not to every alternative
 	for _, n := range c.GetNext() {
-		dagNode, ok := dag.Find(n)
+		dagNode, ok := workflow.Find(n)
 		if !ok {
 			return fmt.Errorf("node not found while preparing output")
 		}
@@ -166,31 +166,31 @@ func (s *ChoiceNode) MapOutput(output map[string]interface{}, sign function.Sign
 }
 
 // GetChoiceBranch returns all node ids of a branch under a choice node; branch number starts from 0
-func (c *ChoiceNode) GetChoiceBranch(dag *Dag, branch int) []DagNode {
+func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []DagNode {
 	branchNodes := make([]DagNode, 0)
 	if len(c.Alternatives) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
 		return branchNodes
 	}
 	node := c.Alternatives[branch]
-	return VisitDag(dag, node, branchNodes, true)
+	return VisitDag(workflow, node, branchNodes, true)
 }
 
 // GetNodesToSkip skips all node that are in a branch that will not be executed.
 // If a skipped branch contains one or more node that is used by the current branch, the node,
 // should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
-func (c *ChoiceNode) GetNodesToSkip(dag *Dag) []DagNode {
+func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []DagNode {
 	nodesToSkip := make([]DagNode, 0)
 	if c.FirstMatch == -1 || c.FirstMatch >= len(c.Alternatives) {
 		return nodesToSkip
 	}
 
-	nodesToNotSkip := c.GetChoiceBranch(dag, c.FirstMatch)
+	nodesToNotSkip := c.GetChoiceBranch(workflow, c.FirstMatch)
 	for i := 0; i < len(c.Alternatives); i++ {
 		if i == c.FirstMatch {
 			continue
 		}
-		branchNodes := c.GetChoiceBranch(dag, i)
+		branchNodes := c.GetChoiceBranch(workflow, i)
 		for _, node := range branchNodes {
 			shouldBeSkipped := true
 			for _, nodeToNotSkip := range nodesToNotSkip {

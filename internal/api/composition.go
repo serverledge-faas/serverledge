@@ -66,7 +66,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 }
 
 func CreateFunctionComposition(e echo.Context) error {
-	var comp fc.Dag
+	var comp fc.Workflow
 	// here we expect to receive the function composition struct already parsed from JSON/YAML
 	var body []byte
 	body, errReadBody := io.ReadAll(e.Request().Body)
@@ -120,7 +120,7 @@ func GetFunctionCompositions(c echo.Context) error {
 
 // DeleteFunctionComposition handles a function deletion request.
 func DeleteFunctionComposition(c echo.Context) error {
-	var comp fc.Dag
+	var comp fc.Workflow
 	// here we only need the name of the function composition (and if all function should be deleted with it)
 	err := json.NewDecoder(c.Request().Body).Decode(&comp)
 	if err != nil && err != io.EOF {

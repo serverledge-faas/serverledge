@@ -91,8 +91,8 @@ func (w *WaitNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (w *WaitNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*StartNode)
+func (w *WaitNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+	_, ok := workflow.Nodes[dagNode].(*StartNode)
 	if ok {
 		return fmt.Errorf("the WaitNode cannot be chained to a startNode")
 	}
@@ -100,14 +100,14 @@ func (w *WaitNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
 	return nil
 }
 
-func (w *WaitNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (w *WaitNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if len(w.GetNext()) == 0 {
 		return fmt.Errorf("failed to map output: there are no next node after PassNode")
 	}
 	// Get the next node.
 	nextNodeId := w.GetNext()[0]
 
-	nextNode, ok := dag.Find(nextNodeId)
+	nextNode, ok := workflow.Find(nextNodeId)
 	if !ok {
 		return fmt.Errorf("failed to find next node")
 	}

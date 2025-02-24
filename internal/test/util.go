@@ -153,7 +153,7 @@ func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function
 }
 
 // parseFileName takes the name of the file, without .json and parses it
-func parseFileName(t *testing.T, aslFileName string) *fc.Dag {
+func parseFileName(t *testing.T, aslFileName string) *fc.Workflow {
 	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
 	utils.AssertNilMsg(t, err, "unable to read file")
 
@@ -238,7 +238,7 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(fc *fc.Dag, host string, port int) error {
+func createCompositionApiTest(fc *fc.Workflow, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
 	if err != nil {
 		return err
@@ -281,7 +281,7 @@ func getCompositionsApiTest(t *testing.T, host string, port int) []string {
 }
 
 func deleteCompositionApiTest(t *testing.T, fcName string, host string, port int) {
-	request := fc.Dag{Name: fcName}
+	request := fc.Workflow{Name: fcName}
 	requestBody, err := json.Marshal(request)
 	utils.AssertNilMsg(t, err, "failed to marshal composition to delete")
 

@@ -192,7 +192,7 @@ func (sm *StateMachine) GetFunctionNames() []string {
 		//	condBuilder.NextBranch(subDag, nil)
 		//	i++
 		//}
-		// dag, err := condBuilder.EndChoiceAndBuild()
+		// workflow, err := condBuilder.EndChoiceAndBuild()
 		return nil, nil, nil
 	case "Fail":
 		return nil, nil, nil

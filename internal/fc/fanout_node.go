@@ -46,10 +46,10 @@ func NewFanOutNode(fanOutDegree int, fanOutType FanOutType) *FanOutNode {
 	}
 }
 
-func (f *FanOutNode) getBranchNumbers(dag *Dag) []int {
+func (f *FanOutNode) getBranchNumbers(workflow *Workflow) []int {
 	branchNumbers := make([]int, f.FanOutDegree)
 	for i, o := range f.OutputTo {
-		nod, _ := dag.Find(o)
+		nod, _ := workflow.Find(o)
 		branchNumbers[i] = nod.GetBranchId()
 	}
 	return branchNumbers
@@ -135,7 +135,7 @@ func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (f *FanOutNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (f *FanOutNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	if len(f.OutputTo) == f.FanOutDegree {
 		return errors.New("cannot add more output. Create a FanOutNode with a higher fanout degree")
 	}
@@ -149,9 +149,9 @@ func (f *FanOutNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput sends output to the next node in each parallel branch
-func (f *FanOutNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (f *FanOutNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	for i, nodeId := range f.GetNext() {
-		outputNode, ok := dag.Find(nodeId)
+		outputNode, ok := workflow.Find(nodeId)
 		if !ok {
 			return fmt.Errorf("FanoutNode.PrepareOutput: cannot find node")
 		}

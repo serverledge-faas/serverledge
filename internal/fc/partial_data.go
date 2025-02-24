@@ -191,7 +191,7 @@ func DeleteAllPartialData(reqId ReqId, alsoFromEtcd bool) (int64, error) {
 	return 1, nil
 }
 
-// savePartialDataInCache appends in cache a partial data related to a specific request and dagNode in a Dag
+// savePartialDataInCache appends in cache a partial data related to a specific request and dagNode in a Workflow
 func savePartialDataInCache(pds ...*PartialData) bool {
 	var partialDataIdType PartialDataId
 	pdCacheMutex.Lock()
@@ -248,7 +248,7 @@ func getPartialDataFromCache(pdId PartialDataId, nodeId DagNodeId) ([]*PartialDa
 	// getting the slice
 	slice, sliceFound := subMapTyped.Load(nodeId)
 	if !sliceFound {
-		return nil, fmt.Errorf("cannot find slice of partial data for request id %s and dag node %s\n", pdId, nodeId)
+		return nil, fmt.Errorf("cannot find slice of partial data for request id %s and workflow node %s\n", pdId, nodeId)
 	}
 	sliceTyped := slice.([]*PartialData)
 	// end debug

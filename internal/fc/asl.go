@@ -7,21 +7,21 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
-// FromASL parses a AWS State Language specification file and returns a Function Composition with the corresponding Serverledge Dag
+// FromASL parses a AWS State Language specification file and returns a Function Composition with the corresponding Serverledge Workflow
 // The name of the composition should not be the file name by default, to avoid problems when adding the same composition multiple times.
-func FromASL(name string, aslSrc []byte) (*Dag, error) {
+func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	stateMachine, err := asl.ParseFrom(name, aslSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the ASL file: %v", err)
 	}
-	dag, err := FromStateMachine(stateMachine)
+	workflow, err := FromStateMachine(stateMachine)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge DAG: %v", err)
 	}
 
-	dag.Name = name
+	workflow.Name = name
 
-	return dag, nil
+	return workflow, nil
 }
 
 /* ============== Build from ASL States =================== */
@@ -37,7 +37,7 @@ func BuildFromTaskState(builder *DagBuilder, t *asl.TaskState, name string) (*Da
 }
 
 // BuildFromChoiceState adds a ChoiceNode as defined in the ChoiceState, connects it to the previous Node, and TERMINATES the DAG
-func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, entireSM *asl.StateMachine) (*Dag, error) {
+func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, entireSM *asl.StateMachine) (*Workflow, error) {
 	conds, err := BuildConditionFromRule(c.Choices)
 	if err != nil {
 		return nil, err
@@ -56,11 +56,11 @@ func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, 
 
 			nextState = c.Default
 		}
-		dag, errBranch := GetBranchForChoiceFromStates(entireSM, nextState, i)
+		workflow, errBranch := GetBranchForChoiceFromStates(entireSM, nextState, i)
 		if errBranch != nil {
 			return nil, errBranch
 		}
-		branchBuilder = branchBuilder.NextBranch(dag, errBranch)
+		branchBuilder = branchBuilder.NextBranch(workflow, errBranch)
 		i++
 	}
 	return branchBuilder.EndChoiceAndBuild()
@@ -238,7 +238,7 @@ func buildTestExpr(t *asl.TestExpression) (Condition, error) {
 	return condition, nil
 }
 
-func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Dag, error) {
+func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Workflow, error) {
 	return DagBuildingLoop(sm, sm.States[nextState], nextState)
 }
 
@@ -270,7 +270,7 @@ func BuildFromWaitState(builder *DagBuilder, w *asl.WaitState, name string) (*Da
 
 // BuildFromSucceedState adds a SucceedNode and an EndNode. When executing, the EndNode Result map will have the key 'Message' and if the message as value.
 // If the message is "", it will have a generic success message.
-func BuildFromSucceedState(builder *DagBuilder, s *asl.SucceedState, name string) (*Dag, error) {
+func BuildFromSucceedState(builder *DagBuilder, s *asl.SucceedState, name string) (*Workflow, error) {
 	// 'Message' will be the key in the EndNode Result field
 	// 'Execution completed successfully' will be the value in the EndNode Result field
 	return builder.AddSucceedNodeAndBuild("Execution completed successfully")
@@ -278,7 +278,7 @@ func BuildFromSucceedState(builder *DagBuilder, s *asl.SucceedState, name string
 
 // BuildFromFailState adds a FailNode and an EndNode. When executing, the EndNode Result map will have the FailNode Error as key and the FailNode Cause as value.
 // if error and cause are not specified, a GenericError key and a generic message will be set in the EndNode Result field.
-func BuildFromFailState(builder *DagBuilder, s *asl.FailState, name string) (*Dag, error) {
+func BuildFromFailState(builder *DagBuilder, s *asl.FailState, name string) (*Workflow, error) {
 	// Error or ErrorPath will be the key in the EndNode Result field
 	// Cause oe CausePath will be the string value in the EndNode Result field.
 	return builder.AddFailNodeAndBuild(s.GetError(), s.GetCause())

@@ -21,19 +21,19 @@ func TestMarshalingFunctionComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	u.AssertNilMsg(t, err, "failed to initialize function")
-	dag, err := fc.CreateSequenceDag(fn, fn, fn)
-	dag.Name = fcName
+	workflow, err := fc.CreateSequenceDag(fn, fn, fn)
+	workflow.Name = fcName
 	u.AssertNil(t, err)
 
-	marshaledFunc, errMarshal := json.Marshal(dag)
+	marshaledFunc, errMarshal := json.Marshal(workflow)
 	u.AssertNilMsg(t, errMarshal, "failed to marshal composition")
-	var retrieved fc.Dag
+	var retrieved fc.Workflow
 	errUnmarshal := json.Unmarshal(marshaledFunc, &retrieved)
 	u.AssertNilMsg(t, errUnmarshal, "failed composition unmarshal")
 
-	u.AssertTrueMsg(t, retrieved.Equals(dag),
+	u.AssertTrueMsg(t, retrieved.Equals(workflow),
 		fmt.Sprintf("retrieved composition is not equal to initial composition. Retrieved : %s, Expected %s ",
-			retrieved.String(), dag.String()))
+			retrieved.String(), workflow.String()))
 }
 
 // TestComposeFC checks the CREATE, GET and DELETE functionality of the Function Composition
@@ -56,11 +56,11 @@ func TestComposeFC(t *testing.T) {
 	_, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	dag, err := fc.CreateSequenceDag(fArr...)
-	dag.Name = fcName
+	workflow, err := fc.CreateSequenceDag(fArr...)
+	workflow.Name = fcName
 	u.AssertNil(t, err)
 
-	err2 := dag.SaveToEtcd()
+	err2 := workflow.SaveToEtcd()
 
 	u.AssertNil(t, err2)
 
@@ -73,10 +73,10 @@ func TestComposeFC(t *testing.T) {
 	// the function is exactly the one i created?
 	fun, ok := fc.GetFC(fcName)
 	u.AssertTrue(t, ok)
-	u.AssertTrue(t, dag.Equals(fun))
+	u.AssertTrue(t, workflow.Equals(fun))
 
 	// DELETE
-	err4 := dag.Delete()
+	err4 := workflow.Delete()
 	u.AssertNil(t, err4)
 
 	// The deletion is successful?
@@ -86,7 +86,7 @@ func TestComposeFC(t *testing.T) {
 	u.AssertEqualsMsg(t, len(funcs3), lenFuncs, "deletion of function failed")
 }
 
-// TestInvokeFC executes a Sequential Dag of length N, where each node executes a simple increment function.
+// TestInvokeFC executes a Sequential Workflow of length N, where each node executes a simple increment function.
 func TestInvokeFC(t *testing.T) {
 
 	if testing.Short() {
@@ -122,7 +122,7 @@ func TestInvokeFC(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-// TestInvokeChoiceFC executes a Choice Dag with N alternatives, and it executes only the second one. The functions are all the same increment function
+// TestInvokeChoiceFC executes a Choice Workflow with N alternatives, and it executes only the second one. The functions are all the same increment function
 func TestInvokeChoiceFC(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
@@ -174,7 +174,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-// TestInvokeFC_DifferentFunctions executes a Sequential Dag of length 2, with two different functions (in different languages)
+// TestInvokeFC_DifferentFunctions executes a Sequential Workflow of length 2, with two different functions (in different languages)
 func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
@@ -231,7 +231,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-// TestInvokeFC_BroadcastFanOut executes a Parallel Dag with N parallel branches
+// TestInvokeFC_BroadcastFanOut executes a Parallel Workflow with N parallel branches
 func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
@@ -246,7 +246,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	fcomp, errDag := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fDouble) }, width)
+	fcomp, errDag := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(fDouble) }, width)
 	fcomp.Name = fcName
 	u.AssertNil(t, errDag)
 
@@ -272,7 +272,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	//u.AssertNil(t, err3)
 }
 
-// TestInvokeFC_Concurrent executes concurrently m times a Sequential Dag of length N, where each node executes a simple increment function.
+// TestInvokeFC_Concurrent executes concurrently m times a Sequential Workflow of length N, where each node executes a simple increment function.
 func TestInvokeFC_Concurrent(t *testing.T) {
 
 	if testing.Short() {
@@ -345,7 +345,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-// TestInvokeFC_ScatterFanOut executes a Parallel Dag with N parallel branches
+// TestInvokeFC_ScatterFanOut executes a Parallel Workflow with N parallel branches
 func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")

@@ -21,52 +21,52 @@ import (
 // used to send output from parallel nodes to fan in node or to the next node
 // var outputChannel = make(chan map[string]interface{})
 
-// Dag is a Workflow to drive the execution of the function composition
-type Dag struct {
-	Name  string     // identifier of the Dag
+// Workflow is a Workflow to drive the execution of the function composition
+type Workflow struct {
+	Name  string     // identifier of the Workflow
 	Start *StartNode // a single start must be added
 	Nodes map[DagNodeId]DagNode
 	End   *EndNode // a single endNode must be added
-	Width int      // width is the max fanOut degree of the Dag
+	Width int      // width is the max fanOut degree of the Workflow
 }
 
-func NewDAGWithName(name string) Dag {
-	dag := NewDAG()
-	dag.Name = name
-	return dag
+func NewDAGWithName(name string) Workflow {
+	workflow := NewDAG()
+	workflow.Name = name
+	return workflow
 }
 
-func NewDAG() Dag {
+func NewDAG() Workflow {
 	start := NewStartNode()
 	end := NewEndNode()
 	nodes := make(map[DagNodeId]DagNode)
 	nodes[start.Id] = start
 	nodes[end.Id] = end
 
-	dag := Dag{
+	workflow := Workflow{
 		Start: start,
 		End:   end,
 		Nodes: nodes,
 		Width: 1,
 	}
-	return dag
+	return workflow
 }
 
-func (dag *Dag) Find(nodeId DagNodeId) (DagNode, bool) {
-	dagNode, found := dag.Nodes[nodeId]
+func (workflow *Workflow) Find(nodeId DagNodeId) (DagNode, bool) {
+	dagNode, found := workflow.Nodes[nodeId]
 	return dagNode, found
 }
 
 // TODO: only the subsequent APIs should be public: NewDag, Print, GetUniqueDagFunctions, Equals
 //  the remaining should be private after the builder APIs work well!!!
 
-// addNode can be used to add a new node to the Dag. Does not chain anything, but updates Dag width
-func (dag *Dag) addNode(node DagNode) {
-	dag.Nodes[node.GetId()] = node // if already exists, overwrites!
+// addNode can be used to add a new node to the Workflow. Does not chain anything, but updates Workflow width
+func (workflow *Workflow) addNode(node DagNode) {
+	workflow.Nodes[node.GetId()] = node // if already exists, overwrites!
 	// updates width
 	nodeWidth := node.Width()
-	if nodeWidth > dag.Width {
-		dag.Width = nodeWidth
+	if nodeWidth > workflow.Width {
+		workflow.Width = nodeWidth
 	}
 }
 
@@ -86,9 +86,9 @@ func isEndNode(node DagNode) bool {
 	return ok
 }
 
-// VisitDag visits the dag starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
-func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []DagNode {
-	node, ok := dag.Find(nodeId)
+// VisitDag visits the workflow starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
+func VisitDag(workflow *Workflow, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []DagNode {
+	node, ok := workflow.Find(nodeId)
 	if !ok {
 		return []DagNode{}
 	}
@@ -97,7 +97,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 	}
 	switch n := node.(type) {
 	case *StartNode:
-		toAdd := VisitDag(dag, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				// only when isEndNode = true, excludeEnd = true -> we don't add the node
@@ -108,7 +108,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 		}
 		return nodes
 	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
-		toAdd := VisitDag(dag, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
@@ -136,7 +136,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 		return nodes
 	case *ChoiceNode:
 		for _, alternative := range n.Alternatives {
-			toAdd := VisitDag(dag, alternative, nodes, excludeEnd)
+			toAdd := VisitDag(workflow, alternative, nodes, excludeEnd)
 			for _, add := range toAdd {
 				if !isDagNodePresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
@@ -148,7 +148,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 		return nodes
 	case *FanOutNode:
 		for _, parallelBranch := range n.GetNext() {
-			toAdd := VisitDag(dag, parallelBranch, nodes, excludeEnd)
+			toAdd := VisitDag(workflow, parallelBranch, nodes, excludeEnd)
 			for _, add := range toAdd {
 				if !isDagNodePresent(add, nodes) {
 					if !isEndNode(add) || !excludeEnd {
@@ -159,7 +159,7 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 		}
 		return nodes
 	case *FanInNode:
-		toAdd := VisitDag(dag, n.GetNext()[0], nodes, excludeEnd)
+		toAdd := VisitDag(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isDagNodePresent(add, nodes) {
 				if !isEndNode(add) || !excludeEnd {
@@ -172,26 +172,26 @@ func VisitDag(dag *Dag, nodeId DagNodeId, nodes []DagNode, excludeEnd bool) []Da
 }
 
 // chain can be used to connect the output of node1 to the node2
-func (dag *Dag) chain(node1 DagNode, node2 DagNode) error {
-	return node1.AddOutput(dag, node2.GetId())
+func (workflow *Workflow) chain(node1 DagNode, node2 DagNode) error {
+	return node1.AddOutput(workflow, node2.GetId())
 }
 
-// ChainToEndNode (node, i) can be used as a shorthand to chain(node, dag.end[i]) to chain a node to a specific end node
-func (dag *Dag) ChainToEndNode(node1 DagNode) error {
-	return dag.chain(node1, dag.End)
+// ChainToEndNode (node, i) can be used as a shorthand to chain(node, workflow.end[i]) to chain a node to a specific end node
+func (workflow *Workflow) ChainToEndNode(node1 DagNode) error {
+	return workflow.chain(node1, workflow.End)
 }
 
-func (dag *Dag) Print() string {
-	var currentNode DagNode = dag.Start
+func (workflow *Workflow) Print() string {
+	var currentNode DagNode = workflow.Start
 	result := ""
 
 	// prints the StartNode
-	if dag.Width == 1 {
+	if workflow.Width == 1 {
 		result += fmt.Sprintf("[%s]\n   |\n", currentNode.Name())
-	} else if dag.Width%2 == 0 {
-		result += fmt.Sprintf("%s[%s]\n%s|\n", strings.Repeat(" ", 7*dag.Width/2-3), currentNode.Name(), strings.Repeat(" ", 7*dag.Width/2))
+	} else if workflow.Width%2 == 0 {
+		result += fmt.Sprintf("%s[%s]\n%s|\n", strings.Repeat(" ", 7*workflow.Width/2-3), currentNode.Name(), strings.Repeat(" ", 7*workflow.Width/2))
 	} else {
-		result += fmt.Sprintf("%s[%s]\n%s|\n", strings.Repeat(" ", 7*int(math.Floor(float64(dag.Width/2)))), currentNode.Name(), strings.Repeat(" ", 7*int(math.Floor(float64(dag.Width/2)))+3))
+		result += fmt.Sprintf("%s[%s]\n%s|\n", strings.Repeat(" ", 7*int(math.Floor(float64(workflow.Width/2)))), currentNode.Name(), strings.Repeat(" ", 7*int(math.Floor(float64(workflow.Width/2)))+3))
 	}
 
 	currentNodes := currentNode.GetNext()
@@ -201,7 +201,7 @@ func (dag *Dag) Print() string {
 		result += "["
 		var currentNodesToAdd []DagNodeId
 		for i, nodeId := range currentNodes {
-			node, _ := dag.Find(nodeId)
+			node, _ := workflow.Find(nodeId)
 			result += fmt.Sprintf("%s", node.Name())
 
 			doneNodes.AddIfNotExists(node)
@@ -229,7 +229,7 @@ func (dag *Dag) Print() string {
 	return result
 }
 
-func (dag *Dag) executeStart(progress *Progress, partialData *PartialData, node *StartNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialData, node *StartNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 
 	err := progress.CompleteNode(node.GetId())
 	if err != nil {
@@ -239,7 +239,7 @@ func (dag *Dag) executeStart(progress *Progress, partialData *PartialData, node 
 	return partialData, progress, true, nil
 }
 
-func (dag *Dag) executeSimple(progress *Progress, partialData *PartialData, simpleNode *SimpleNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeSimple(progress *Progress, partialData *PartialData, simpleNode *SimpleNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 	// retrieving input
 	var pd *PartialData
 	nodeId := simpleNode.GetId()
@@ -264,7 +264,7 @@ func (dag *Dag) executeSimple(progress *Progress, partialData *PartialData, simp
 
 	forNode := simpleNode.GetNext()[0]
 
-	errSend := simpleNode.PrepareOutput(dag, output)
+	errSend := simpleNode.PrepareOutput(workflow, output)
 	if errSend != nil {
 		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", simpleNode.String(), errSend)
 	}
@@ -281,7 +281,7 @@ func (dag *Dag) executeSimple(progress *Progress, partialData *PartialData, simp
 	return pd, progress, true, nil
 }
 
-func (dag *Dag) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	nodeId := choice.GetId()
@@ -302,13 +302,13 @@ func (dag *Dag) executeChoice(progress *Progress, partialData *PartialData, choi
 	pd.ForNode = choice.GetNext()[0]
 	pd.Data = output
 
-	errSend := choice.PrepareOutput(dag, output)
+	errSend := choice.PrepareOutput(workflow, output)
 	if errSend != nil {
 		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", choice.String(), errSend)
 	}
 
 	// for choice node, we skip all branch that will not be executed
-	nodesToSkip := choice.GetNodesToSkip(dag)
+	nodesToSkip := choice.GetNodesToSkip(workflow)
 	errSkip := progress.SkipAll(nodesToSkip)
 	if errSkip != nil {
 		return pd, progress, false, errSkip
@@ -322,7 +322,7 @@ func (dag *Dag) executeChoice(progress *Progress, partialData *PartialData, choi
 	return pd, progress, true, nil
 }
 
-func (dag *Dag) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	outputMap := make(map[string]interface{})
@@ -341,7 +341,7 @@ func (dag *Dag) executeFanOut(progress *Progress, partialData *PartialData, fanO
 		return pd, progress, false, err
 	}
 	// sends output to each next node
-	errSend := fanOut.PrepareOutput(dag, output)
+	errSend := fanOut.PrepareOutput(workflow, output)
 	if errSend != nil {
 		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", fanOut.String(), errSend)
 	}
@@ -377,8 +377,8 @@ func (dag *Dag) executeFanOut(progress *Progress, partialData *PartialData, fanO
 	return pd, progress, true, nil
 }
 
-func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, nextNodes []DagNodeId, r *CompositionRequest) (*PartialData, *Progress, error) {
-	// preparing dag nodes and channels for parallel execution
+func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []DagNodeId, r *CompositionRequest) (*PartialData, *Progress, error) {
+	// preparing workflow nodes and channels for parallel execution
 	parallelDagNodes := make([]DagNode, 0)
 	inputs := make([]map[string]interface{}, 0)
 	outputChannels := make([]chan map[string]interface{}, 0)
@@ -389,7 +389,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
 
 	for _, nodeId := range nextNodes {
-		node, ok := dag.Find(nodeId)
+		node, ok := workflow.Find(nodeId)
 		if ok {
 			parallelDagNodes = append(parallelDagNodes, node)
 			outputChannels = append(outputChannels, make(chan map[string]interface{}))
@@ -410,7 +410,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 			output, err := node.Exec(r, params)
 			// for simple node, we also prepare output
 			if simpleNode, isSimple := node.(*SimpleNode); isSimple {
-				errSend := simpleNode.PrepareOutput(dag, output)
+				errSend := simpleNode.PrepareOutput(workflow, output)
 				if errSend != nil {
 					errorChannels[i] <- err
 					outputChannels[i] <- nil
@@ -470,7 +470,7 @@ func (dag *Dag) executeParallel(progress *Progress, partialData *PartialData, ne
 	return pd, progress, nil
 }
 
-func (dag *Dag) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 	nodeId := fanIn.GetId()
 	requestId := ReqId(r.ReqId)
 	var err error
@@ -522,15 +522,15 @@ func (dag *Dag) executeFanIn(progress *Progress, partialData *PartialData, fanIn
 	return pd, progress, true, nil
 }
 
-func (dag *Dag) executeSucceedNode(progress *Progress, partialData *PartialData, succeedNode *SucceedNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
-	return commonExec(dag, progress, partialData, succeedNode, r)
+func (workflow *Workflow) executeSucceedNode(progress *Progress, partialData *PartialData, succeedNode *SucceedNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+	return commonExec(workflow, progress, partialData, succeedNode, r)
 }
 
-func (dag *Dag) executeFailNode(progress *Progress, partialData *PartialData, failNode *FailNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
-	return commonExec(dag, progress, partialData, failNode, r)
+func (workflow *Workflow) executeFailNode(progress *Progress, partialData *PartialData, failNode *FailNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+	return commonExec(workflow, progress, partialData, failNode, r)
 }
 
-func commonExec(dag *Dag, progress *Progress, partialData *PartialData, node DagNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node DagNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 	var pd *PartialData
 	nodeId := node.GetId()
 	requestId := ReqId(r.ReqId)
@@ -552,7 +552,7 @@ func commonExec(dag *Dag, progress *Progress, partialData *PartialData, node Dag
 	// 	return false, errDbg
 	// }
 
-	errSend := node.PrepareOutput(dag, output)
+	errSend := node.PrepareOutput(workflow, output)
 	if errSend != nil {
 		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", node.String(), errSend)
 	}
@@ -572,7 +572,7 @@ func commonExec(dag *Dag, progress *Progress, partialData *PartialData, node Dag
 	return pd, progress, true, nil
 }
 
-func (dag *Dag) executeEnd(progress *Progress, partialData *PartialData, node *EndNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialData, node *EndNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
 	r.ExecReport.Reports.Set(CreateExecutionReportId(node), &function.ExecutionReport{Result: "end"})
 	err := progress.CompleteNode(node.Id)
 	if err != nil {
@@ -581,7 +581,7 @@ func (dag *Dag) executeEnd(progress *Progress, partialData *PartialData, node *E
 	return partialData, progress, false, nil // false because we want to stop when reaching the end
 }
 
-func (dag *Dag) Execute(r *CompositionRequest, data *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) Execute(r *CompositionRequest, data *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	nextNodes, err := progress.NextNodes()
@@ -591,37 +591,37 @@ func (dag *Dag) Execute(r *CompositionRequest, data *PartialData, progress *Prog
 	shouldContinue := true
 
 	if len(nextNodes) > 1 {
-		pd, progress, err = dag.executeParallel(progress, data, nextNodes, r)
+		pd, progress, err = workflow.executeParallel(progress, data, nextNodes, r)
 		if err != nil {
 			return pd, progress, true, err
 		}
 	} else if len(nextNodes) == 1 {
-		n, ok := dag.Find(nextNodes[0])
+		n, ok := workflow.Find(nextNodes[0])
 		if !ok {
 			return data, progress, true, fmt.Errorf("failed to find node %s", n.GetId())
 		}
 
 		switch node := n.(type) {
 		case *SimpleNode:
-			pd, progress, shouldContinue, err = dag.executeSimple(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeSimple(progress, data, node, r)
 		case *ChoiceNode:
-			pd, progress, shouldContinue, err = dag.executeChoice(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeChoice(progress, data, node, r)
 		case *FanInNode:
-			pd, progress, shouldContinue, err = dag.executeFanIn(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeFanIn(progress, data, node, r)
 		case *StartNode:
-			pd, progress, shouldContinue, err = dag.executeStart(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeStart(progress, data, node, r)
 		case *FanOutNode:
-			pd, progress, shouldContinue, err = dag.executeFanOut(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeFanOut(progress, data, node, r)
 		case *PassNode:
-			pd, progress, shouldContinue, err = commonExec(dag, progress, data, node, r)
+			pd, progress, shouldContinue, err = commonExec(workflow, progress, data, node, r)
 		case *WaitNode:
-			pd, progress, shouldContinue, err = commonExec(dag, progress, data, node, r)
+			pd, progress, shouldContinue, err = commonExec(workflow, progress, data, node, r)
 		case *FailNode:
-			pd, progress, shouldContinue, err = dag.executeFailNode(progress, data, node, r) // TODO: use commonExec
+			pd, progress, shouldContinue, err = workflow.executeFailNode(progress, data, node, r) // TODO: use commonExec
 		case *SucceedNode:
-			pd, progress, shouldContinue, err = dag.executeSucceedNode(progress, data, node, r) // TODO: use commonExec
+			pd, progress, shouldContinue, err = workflow.executeSucceedNode(progress, data, node, r) // TODO: use commonExec
 		case *EndNode:
-			pd, progress, shouldContinue, err = dag.executeEnd(progress, data, node, r)
+			pd, progress, shouldContinue, err = workflow.executeEnd(progress, data, node, r)
 		}
 		if err != nil {
 			_ = progress.FailNode(n.GetId())
@@ -635,10 +635,10 @@ func (dag *Dag) Execute(r *CompositionRequest, data *PartialData, progress *Prog
 	return pd, progress, shouldContinue, nil
 }
 
-// GetUniqueDagFunctions returns a list with the function names used in the Dag. The returned function names are unique and in alphabetical order
-func (dag *Dag) GetUniqueDagFunctions() []string {
+// GetUniqueDagFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
+func (workflow *Workflow) GetUniqueDagFunctions() []string {
 	allFunctionsMap := make(map[string]void)
-	for _, node := range dag.Nodes {
+	for _, node := range workflow.Nodes {
 		switch n := node.(type) {
 		case *SimpleNode:
 			allFunctionsMap[n.Func] = null
@@ -656,8 +656,8 @@ func (dag *Dag) GetUniqueDagFunctions() []string {
 	return uniqueFunctions
 }
 
-func (dag *Dag) getEtcdKey() string {
-	return getEtcdKey(dag.Name)
+func (workflow *Workflow) getEtcdKey() string {
+	return getEtcdKey(workflow.Name)
 }
 
 func getEtcdKey(dagName string) string {
@@ -669,7 +669,7 @@ func GetAllFC() ([]string, error) {
 	return function.GetAllWithPrefix("/fc")
 }
 
-func getFCFromCache(name string) (*Dag, bool) {
+func getFCFromCache(name string) (*Workflow, bool) {
 	localCache := cache.GetCacheInstance()
 	cachedObj, found := localCache.Get(name)
 	if !found {
@@ -677,11 +677,11 @@ func getFCFromCache(name string) (*Dag, bool) {
 	}
 	//cache hit
 	//return a safe copy of the function composition previously obtained
-	fc := *cachedObj.(*Dag)
+	fc := *cachedObj.(*Workflow)
 	return &fc, true
 }
 
-func getFCFromEtcd(name string) (*Dag, error) {
+func getFCFromEtcd(name string) (*Workflow, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
@@ -694,7 +694,7 @@ func getFCFromEtcd(name string) (*Dag, error) {
 		return nil, fmt.Errorf("failed to retrieve value for key %s", key)
 	}
 
-	var f Dag
+	var f Workflow
 	err = json.Unmarshal(getResponse.Kvs[0].Value, &f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal json: %v", err)
@@ -703,8 +703,8 @@ func getFCFromEtcd(name string) (*Dag, error) {
 	return &f, nil
 }
 
-// GetFC gets the Dag from cache or from ETCD
-func GetFC(name string) (*Dag, bool) {
+// GetFC gets the Workflow from cache or from ETCD
+func GetFC(name string) (*Workflow, bool) {
 	val, found := getFCFromCache(name)
 	if !found {
 		// cache miss
@@ -722,9 +722,9 @@ func GetFC(name string) (*Dag, bool) {
 
 // SaveToEtcd creates and register the function composition in Serverledge
 // It is like SaveToEtcd for a simple function
-func (dag *Dag) SaveToEtcd() error {
-	if len(dag.Name) == 0 {
-		return fmt.Errorf("cannot save an anonymous dag (no name set)")
+func (workflow *Workflow) SaveToEtcd() error {
+	if len(workflow.Name) == 0 {
+		return fmt.Errorf("cannot save an anonymous workflow (no name set)")
 	}
 
 	cli, err := utils.GetEtcdClient()
@@ -734,41 +734,41 @@ func (dag *Dag) SaveToEtcd() error {
 	ctx := context.TODO()
 
 	// marshal the function composition object into json
-	payload, err := json.Marshal(*dag)
+	payload, err := json.Marshal(*workflow)
 	if err != nil {
 		return fmt.Errorf("could not marshal function composition: %v", err)
 	}
 	// saves the json object into etcd
-	_, err = cli.Put(ctx, dag.getEtcdKey(), string(payload))
+	_, err = cli.Put(ctx, workflow.getEtcdKey(), string(payload))
 	if err != nil {
 		return fmt.Errorf("failed etcd Put: %v", err)
 	}
 
 	// Add the function composition to the local cache
-	cache.GetCacheInstance().Set(dag.Name, dag, cache.DefaultExp)
+	cache.GetCacheInstance().Set(workflow.Name, workflow, cache.DefaultExp)
 
 	return nil
 }
 
 // Invoke schedules each function of the composition and invokes them
-func (dag *Dag) Invoke(r *CompositionRequest) (CompositionExecutionReport, error) {
+func (workflow *Workflow) Invoke(r *CompositionRequest) (CompositionExecutionReport, error) {
 
 	var err error
 	requestId := ReqId(r.ReqId)
 	input := r.Params
-	// initialize struct progress from dag
-	progress := InitProgressRecursive(requestId, dag)
+	// initialize struct progress from workflow
+	progress := InitProgressRecursive(requestId, workflow)
 
 	// initialize partial data with input, directly from the Start.Next node
-	pd := NewPartialData(requestId, dag.Start.Next, "nil", input)
+	pd := NewPartialData(requestId, workflow.Start.Next, "nil", input)
 	pd.Data = input
 
 	shouldContinue := true
 	for shouldContinue {
-		// executing dag
-		pd, progress, shouldContinue, err = dag.Execute(r, pd, progress)
+		// executing workflow
+		pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 		if err != nil {
-			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed dag execution: %v", err)
+			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed workflow execution: %v", err)
 		}
 	}
 
@@ -797,7 +797,7 @@ func (dag *Dag) Invoke(r *CompositionRequest) (CompositionExecutionReport, error
 }
 
 // Delete removes the FunctionComposition from cache and from etcd, so it cannot be invoked anymore
-func (fc *Dag) Delete() error {
+func (fc *Workflow) Delete() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
@@ -816,7 +816,7 @@ func (fc *Dag) Delete() error {
 }
 
 // Exists return true if the function composition exists either in etcd or in cache. If it only exists in Etcd, it saves the composition also in caches
-func (fc *Dag) Exists() bool {
+func (fc *Workflow) Exists() bool {
 	_, found := getFCFromCache(fc.Name)
 	if !found {
 		// cache miss
@@ -836,50 +836,50 @@ func (fc *Dag) Exists() bool {
 	return found
 }
 
-func (dag *Dag) Equals(comparer types.Comparable) bool {
+func (workflow *Workflow) Equals(comparer types.Comparable) bool {
 
-	dag2 := comparer.(*Dag)
+	dag2 := comparer.(*Workflow)
 
-	if dag.Name != dag2.Name {
+	if workflow.Name != dag2.Name {
 		return false
 	}
 
-	for k := range dag.Nodes {
-		if !dag.Nodes[k].Equals(dag2.Nodes[k]) {
+	for k := range workflow.Nodes {
+		if !workflow.Nodes[k].Equals(dag2.Nodes[k]) {
 			return false
 		}
 	}
-	return dag.Start.Equals(dag2.Start) &&
-		dag.End.Equals(dag2.End) &&
-		dag.Width == dag2.Width &&
-		len(dag.Nodes) == len(dag2.Nodes)
+	return workflow.Start.Equals(dag2.Start) &&
+		workflow.End.Equals(dag2.End) &&
+		workflow.Width == dag2.Width &&
+		len(workflow.Nodes) == len(dag2.Nodes)
 }
 
-func (dag *Dag) String() string {
-	return fmt.Sprintf(`Dag{
+func (workflow *Workflow) String() string {
+	return fmt.Sprintf(`Workflow{
 		Name: %s,
 		Start: %s,
 		Nodes: %s,
 		End:   %s,
 		Width: %d,
-	}`, dag.Name, dag.Start.String(), dag.Nodes, dag.End.String(), dag.Width)
+	}`, workflow.Name, workflow.Start.String(), workflow.Nodes, workflow.End.String(), workflow.Width)
 }
 
 // MarshalJSON is needed because DagNode is an interface
 // This is automatically used when calling json.Marshal()
-func (dag *Dag) MarshalJSON() ([]byte, error) {
-	// Create a map to hold the JSON representation of the Dag
+func (workflow *Workflow) MarshalJSON() ([]byte, error) {
+	// Create a map to hold the JSON representation of the Workflow
 	data := make(map[string]interface{})
 
 	// Add the field to the map
-	data["Name"] = dag.Name
-	data["Start"] = dag.Start
-	data["End"] = dag.End
-	data["Width"] = dag.Width
+	data["Name"] = workflow.Name
+	data["Start"] = workflow.Start
+	data["End"] = workflow.End
+	data["Width"] = workflow.Width
 	nodes := make(map[DagNodeId]interface{})
 
 	// Marshal the interface and store it as concrete node value in the map
-	for nodeId, node := range dag.Nodes {
+	for nodeId, node := range workflow.Nodes {
 		nodes[nodeId] = node
 	}
 	data["Nodes"] = nodes
@@ -890,7 +890,7 @@ func (dag *Dag) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is needed because DagNode is an interface
 // This is automatically used when calling json.Unmarshal()
-func (dag *Dag) UnmarshalJSON(data []byte) error {
+func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	// Create a temporary map to decode the JSON data
 	var tempMap map[string]json.RawMessage
 	if err := json.Unmarshal(data, &tempMap); err != nil {
@@ -898,7 +898,7 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	}
 	// extract simple fields
 	if rawStart, ok := tempMap["Start"]; ok {
-		if err := json.Unmarshal(rawStart, &dag.Start); err != nil {
+		if err := json.Unmarshal(rawStart, &workflow.Start); err != nil {
 			return err
 		}
 	} else {
@@ -906,7 +906,7 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	}
 
 	if rawEnd, ok := tempMap["End"]; ok {
-		if err := json.Unmarshal(rawEnd, &dag.End); err != nil {
+		if err := json.Unmarshal(rawEnd, &workflow.End); err != nil {
 			return err
 		}
 	} else {
@@ -914,7 +914,7 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	}
 
 	if rawWidth, ok := tempMap["Width"]; ok {
-		if err := json.Unmarshal(rawWidth, &dag.Width); err != nil {
+		if err := json.Unmarshal(rawWidth, &workflow.Width); err != nil {
 			return err
 		}
 	} else {
@@ -922,7 +922,7 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	}
 
 	if rawName, ok := tempMap["Name"]; ok {
-		if err := json.Unmarshal(rawName, &dag.Name); err != nil {
+		if err := json.Unmarshal(rawName, &workflow.Name); err != nil {
 			return err
 		}
 	} else {
@@ -934,9 +934,9 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(tempMap["Nodes"], &tempNodeMap); err != nil {
 		return err
 	}
-	dag.Nodes = make(map[DagNodeId]DagNode)
+	workflow.Nodes = make(map[DagNodeId]DagNode)
 	for nodeId, value := range tempNodeMap {
-		err := dag.decodeNode(nodeId, value)
+		err := workflow.decodeNode(nodeId, value)
 		if err != nil {
 			return err
 		}
@@ -944,7 +944,7 @@ func (dag *Dag) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
+func (workflow *Workflow) decodeNode(nodeId string, value json.RawMessage) error {
 	var tempNodeMap map[string]interface{}
 	if err := json.Unmarshal(value, &tempNodeMap); err != nil {
 		return err
@@ -962,27 +962,27 @@ func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
 		node := &StartNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Next != "" {
-			dag.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
 	case Simple:
 		node := &SimpleNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Func != "" {
-			dag.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
 	case Choice:
 		node := &ChoiceNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Alternatives != nil && len(node.Alternatives) == len(node.Conditions) {
-			dag.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
 	default:
 		err = json.Unmarshal(value, node)
 		if err == nil && node.GetId() != "" {
-			dag.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[DagNodeId(nodeId)] = node
 			return nil
 		}
 	}
@@ -995,18 +995,18 @@ func (dag *Dag) decodeNode(nodeId string, value json.RawMessage) error {
 	return fmt.Errorf("failed to decode node")
 }
 
-// IsEmpty returns true if the dag has 0 nodes or exactly one StartNode and one EndNode.
-func (dag *Dag) IsEmpty() bool {
-	if len(dag.Nodes) == 0 {
+// IsEmpty returns true if the workflow has 0 nodes or exactly one StartNode and one EndNode.
+func (workflow *Workflow) IsEmpty() bool {
+	if len(workflow.Nodes) == 0 {
 		return true
 	}
 
-	onlyTwoNodes := len(dag.Nodes) == 2
+	onlyTwoNodes := len(workflow.Nodes) == 2
 	hasOnlyStartAndEnd := false
 	if onlyTwoNodes {
 		hasStart := 0
 		hasEnd := 0
-		for _, node := range dag.Nodes {
+		for _, node := range workflow.Nodes {
 			if node.GetNodeType() == Start {
 				hasStart++
 			}
@@ -1024,7 +1024,7 @@ func (dag *Dag) IsEmpty() bool {
 	return false
 }
 
-func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Dag, error) {
+func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
 	builder := NewDagBuilder()
 	isTerminal := false
 	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
@@ -1079,7 +1079,7 @@ func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName st
 			break
 		case asl.Choice:
 			choiceState := nextState.(*asl.ChoiceState)
-			// In this case, the choice state will automatically build the dag, because it is terminal
+			// In this case, the choice state will automatically build the workflow, because it is terminal
 			return BuildFromChoiceState(builder, choiceState, nextStateName, sm)
 		case asl.Succeed:
 			succeed := nextState.(*asl.SucceedState)
@@ -1094,7 +1094,7 @@ func DagBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName st
 	return builder.Build()
 }
 
-func FromStateMachine(sm *asl.StateMachine) (*Dag, error) {
+func FromStateMachine(sm *asl.StateMachine) (*Workflow, error) {
 	nextStateName := sm.StartAt
 	nextState := sm.States[nextStateName]
 	return DagBuildingLoop(sm, nextState, nextStateName)

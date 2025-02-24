@@ -7,7 +7,7 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-// EndNode is a DagNode that represents the end of the Dag.
+// EndNode is a DagNode that represents the end of the Workflow.
 type EndNode struct {
 	Id       DagNodeId
 	NodeType DagNodeType
@@ -45,7 +45,7 @@ func (e *EndNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[stri
 	return e.Result, nil
 }
 
-func (e *EndNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (e *EndNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	return nil // should not do anything. End node cannot be chained to anything
 }
 
@@ -55,7 +55,7 @@ func (e *EndNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput doesn't need to do nothing for EndNode
-func (e *EndNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (e *EndNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	return nil
 }
 

@@ -51,7 +51,7 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		fmt.Printf("executing simple node %s for request %s with input %v\n", s.Id, compRequest.ReqId, s.input)
 		s.inputMutex.Unlock()
 	*/
-	// creates the function if not exists. Maybe someone deleted by accident the function before starting the dag.
+	// creates the function if not exists. Maybe someone deleted by accident the function before starting the workflow.
 	if !funct.Exists() {
 		errNotSaved := funct.SaveToEtcd()
 		return nil, fmt.Errorf("the function %s cannot be saved while trying to exec the function composition %v", s.Func, errNotSaved)
@@ -153,7 +153,7 @@ func (s *SimpleNode) Equals(cmp types.Comparable) bool {
 }
 
 // AddOutput connects the output of the SimpleNode to another DagNode
-func (s *SimpleNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (s *SimpleNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	s.OutputTo = dagNode
 	return nil
 }
@@ -180,7 +180,7 @@ func (s *SimpleNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput is used to send the output to the following function and if needed can be used to modify the SimpleNode output representation, like OutputPath
-func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func) // we are getting the function from cache if not already downloaded
 	if !exists {
 		return fmt.Errorf("funtion %s doesn't exists", s.Func)
@@ -196,7 +196,7 @@ func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) erro
 	// get signature of next nodes, if present and maps the output there
 	for _, n := range s.GetNext() {
 		// we have only one output node
-		dagNode, _ := dag.Find(n)
+		dagNode, _ := workflow.Find(n)
 
 		switch nodeType := dagNode.(type) {
 

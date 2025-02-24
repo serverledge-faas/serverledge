@@ -22,7 +22,7 @@ type FailNode struct {
 	BranchId int
 }
 
-func (f *FailNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (f *FailNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	output[f.Error] = f.Cause
 	return nil
 }
@@ -78,8 +78,8 @@ func (f *FailNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (f *FailNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*EndNode)
+func (f *FailNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+	_, ok := workflow.Nodes[dagNode].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the FailNode can only be chained to an end node")
 	}
@@ -87,7 +87,7 @@ func (f *FailNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
 	return nil
 }
 
-//func (f *FailNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+//func (f *FailNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 //	return nil
 //}
 

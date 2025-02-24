@@ -65,7 +65,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	utils.AssertNil(t, err2)
 }
 
-// TestParsingSimple verifies that a simple json with 2 state is correctly parsed and it is equal to a sequence dag with 2 simple nodes
+// TestParsingSimple verifies that a simple json with 2 state is correctly parsed and it is equal to a sequence workflow with 2 simple nodes
 
 func TestParsingSimple(t *testing.T) {
 	if testing.Short() {
@@ -102,7 +102,7 @@ func TestParsingMixedUpSequence(t *testing.T) {
 	deleteApiTest(t, "inc", HOST, PORT)
 }
 
-// / TestParsingChoiceFunctionDagWithDefaultFail verifies that a json file with three different choices is correctly parsed in a Dag with a Choice node and three simple nodes.
+// / TestParsingChoiceFunctionDagWithDefaultFail verifies that a json file with three different choices is correctly parsed in a Workflow with a Choice node and three simple nodes.
 func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")

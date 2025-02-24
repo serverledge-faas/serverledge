@@ -23,9 +23,9 @@ func newProgressId(reqId ReqId) ProgressId {
 	return ProgressId("progress_" + reqId)
 }
 
-// Progress tracks the progress of a Dag, i.e. which nodes are executed, and what is the next node to run. Dag progress is saved in ETCD and retrieved by the next node
+// Progress tracks the progress of a Workflow, i.e. which nodes are executed, and what is the next node to run. Workflow progress is saved in ETCD and retrieved by the next node
 type Progress struct {
-	ReqId     ReqId // requestId, used to distinguish different dag's progresses
+	ReqId     ReqId // requestId, used to distinguish different workflow's progresses
 	DagNodes  []*DagNodeInfo
 	NextGroup int
 }
@@ -215,7 +215,7 @@ func (p *Progress) CompleteNode(id DagNodeId) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("no node to complete with id %s exists in the dag for request %s", id, p.ReqId)
+	return fmt.Errorf("no node to complete with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
 func (p *Progress) SkipNode(id DagNodeId) error {
@@ -226,7 +226,7 @@ func (p *Progress) SkipNode(id DagNodeId) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("no node to skip with id %s exists in the dag for request %s", id, p.ReqId)
+	return fmt.Errorf("no node to skip with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
 func (p *Progress) SkipAll(nodes []DagNode) error {
@@ -247,7 +247,7 @@ func (p *Progress) FailNode(id DagNodeId) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("no node to fail with id %s exists in the dag for request %s", id, p.ReqId)
+	return fmt.Errorf("no node to fail with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
 func (p *Progress) GetInfo(nodeId DagNodeId) *DagNodeInfo {
@@ -297,8 +297,8 @@ func moveEndNodeAtTheEnd(nodeInfos []*DagNodeInfo) []*DagNodeInfo {
 }
 
 // InitProgressRecursive initialize the node list assigning a group to each node, so that we can know which nodes should run in parallel or is a choice branch
-func InitProgressRecursive(reqId ReqId, dag *Dag) *Progress {
-	nodeInfos := extractNodeInfo(dag, dag.Start, 0, make([]*DagNodeInfo, 0))
+func InitProgressRecursive(reqId ReqId, workflow *Workflow) *Progress {
+	nodeInfos := extractNodeInfo(workflow, workflow.Start, 0, make([]*DagNodeInfo, 0))
 	nodeInfos = moveEndNodeAtTheEnd(nodeInfos)
 	nodeInfos = reorder(nodeInfos)
 	return &Progress{
@@ -367,7 +367,7 @@ func isNodeInfoPresent(node DagNodeId, infos []*DagNodeInfo) bool {
 }
 
 // extractNodeInfo retrieves all needed information from nodes and sets node groups. It duplicates end nodes.
-func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []*DagNodeInfo {
+func extractNodeInfo(workflow *Workflow, node DagNode, group int, infos []*DagNodeInfo) []*DagNodeInfo {
 	info := newNodeInfo(node, group)
 	if !isNodeInfoPresent(node.GetId(), infos) {
 		infos = append(infos, info)
@@ -382,8 +382,8 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 	group++
 	switch n := node.(type) {
 	case *StartNode:
-		startNode, _ := dag.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(dag, startNode, group, infos)
+		startNode, _ := workflow.Find(n.GetNext()[0])
+		toAdd := extractNodeInfo(workflow, startNode, group, infos)
 		for _, add := range toAdd {
 			if !isNodeInfoPresent(add.Id, infos) {
 				infos = append(infos, add)
@@ -391,8 +391,8 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 		}
 		return infos
 	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
-		dagNode, _ := dag.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(dag, dagNode, group, infos)
+		dagNode, _ := workflow.Find(n.GetNext()[0])
+		toAdd := extractNodeInfo(workflow, dagNode, group, infos)
 		for _, add := range toAdd {
 			if !isNodeInfoPresent(add.Id, infos) {
 				infos = append(infos, add)
@@ -403,8 +403,8 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 		return infos
 	case *ChoiceNode:
 		for _, alternativeId := range n.Alternatives {
-			alternative, _ := dag.Find(alternativeId)
-			toAdd := extractNodeInfo(dag, alternative, group, infos)
+			alternative, _ := workflow.Find(alternativeId)
+			toAdd := extractNodeInfo(workflow, alternative, group, infos)
 			for _, add := range toAdd {
 				if !isNodeInfoPresent(add.Id, infos) {
 					infos = append(infos, add)
@@ -414,8 +414,8 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 		return infos
 	case *FanOutNode:
 		for _, parallelBranchId := range n.GetNext() {
-			parallelBranch, _ := dag.Find(parallelBranchId)
-			toAdd := extractNodeInfo(dag, parallelBranch, group, infos)
+			parallelBranch, _ := workflow.Find(parallelBranchId)
+			toAdd := extractNodeInfo(workflow, parallelBranch, group, infos)
 			for _, add := range toAdd {
 				if !isNodeInfoPresent(add.Id, infos) {
 					infos = append(infos, add)
@@ -424,8 +424,8 @@ func extractNodeInfo(dag *Dag, node DagNode, group int, infos []*DagNodeInfo) []
 		}
 		return infos
 	case *FanInNode:
-		fanInNode, _ := dag.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(dag, fanInNode, group, infos)
+		fanInNode, _ := workflow.Find(n.GetNext()[0])
+		toAdd := extractNodeInfo(workflow, fanInNode, group, infos)
 		for _, add := range toAdd {
 			if !isNodeInfoPresent(add.Id, infos) {
 				infos = append(infos, add)

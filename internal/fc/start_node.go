@@ -9,7 +9,7 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-// StartNode is a DagNode from which the execution of the Dag starts. Invokes the first DagNode
+// StartNode is a DagNode from which the execution of the Workflow starts. Invokes the first DagNode
 type StartNode struct {
 	Id       DagNodeId
 	NodeType DagNodeType
@@ -32,8 +32,8 @@ func (s *StartNode) Equals(cmp types.Comparable) bool {
 	}
 }
 
-func (s *StartNode) AddOutput(dag *Dag, nodeId DagNodeId) error {
-	node, found := dag.Find(nodeId)
+func (s *StartNode) AddOutput(workflow *Workflow, nodeId DagNodeId) error {
+	node, found := workflow.Find(nodeId)
 	if !found {
 		return fmt.Errorf("node %s not found", nodeId)
 	}
@@ -56,8 +56,8 @@ func (s *StartNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput for StartNode just send to the next node what it receives
-func (s *StartNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
-	nextNode, ok := dag.Find(s.Next)
+func (s *StartNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
+	nextNode, ok := workflow.Find(s.Next)
 	if !ok {
 		return fmt.Errorf("node %s not found", s.Next)
 	}

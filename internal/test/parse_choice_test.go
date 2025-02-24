@@ -7,7 +7,7 @@ import (
 	"github.com/grussorusso/serverledge/utils"
 )
 
-// TestParseTerminalChoiceWithThreeBranches tests that the following dag...
+// TestParseTerminalChoiceWithThreeBranches tests that the following workflow...
 //
 //	   			[ Task ]
 //	   			   |
@@ -118,7 +118,7 @@ func TestParseChoiceWithDataTestExpr(t *testing.T) {
 	utils.AssertTrueMsg(t, ok, "state machines differs")
 }
 
-// TestParseTerminalChoiceWithThreeBranches tests that the following dag...
+// TestParseTerminalChoiceWithThreeBranches tests that the following workflow...
 //
 //	   [ Task ]
 //	      |

@@ -124,7 +124,7 @@ func (f *FanInNode) Exec(compRequest *CompositionRequest, params ...map[string]i
 	return fanInOutput, nil
 }
 
-func (f *FanInNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (f *FanInNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 	f.OutputTo = dagNode
 	return nil
 }
@@ -134,7 +134,7 @@ func (f *FanInNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (f *FanInNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (f *FanInNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	return nil // we should not do nothing, the output should be already ok
 }
 

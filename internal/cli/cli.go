@@ -547,7 +547,7 @@ func deleteComposition(cmd *cobra.Command, args []string) {
 		cmd.Help()
 		os.Exit(1)
 	}
-	request := fc.Dag{
+	request := fc.Workflow{
 		Name: compName, // TODO: passing the name as a string is enough
 	}
 	requestBody, err := json.Marshal(request)

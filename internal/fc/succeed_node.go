@@ -70,8 +70,8 @@ func (s *SucceedNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (s *SucceedNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*EndNode)
+func (s *SucceedNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+	_, ok := workflow.Nodes[dagNode].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the SucceedNode can only be chained to an end node")
 	}
@@ -80,7 +80,7 @@ func (s *SucceedNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
 }
 
 // PrepareOutput can be used in a SucceedNode to modify the composition output representation
-func (s *SucceedNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (s *SucceedNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if s.OutputPath != "" {
 		return fmt.Errorf("OutputPath not currently implemented") // TODO: implement it
 	}
