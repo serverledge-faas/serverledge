@@ -181,7 +181,7 @@ func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBra
 // Tip: use a NewBuilder() as a parameter, instead of manually creating the Workflow!
 // Internally, NextBranch replaces the StartNode of the input workflow with the choice alternative
 // and chains the last node of the workflow to the EndNode of the building workflow
-func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Workflow, err1 error) *ChoiceBranchBuilder {
+func (c *ChoiceBranchBuilder) NextBranch(toMerge *Workflow, err1 error) *ChoiceBranchBuilder {
 	if err1 != nil {
 		c.builder.appendError(err1)
 	}
@@ -195,17 +195,17 @@ func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Workflow, err1 error) *Choi
 	if c.HasNextBranch() {
 		c.builder.BranchNumber++
 		baseBranchNumber := c.builder.BranchNumber
-		// getting start.Next from the dagToChain
-		startNext, _ := dagToChain.Find(dagToChain.Start.Next)
+		// getting start.Next from the toMerge
+		startNext, _ := toMerge.Find(toMerge.Start.Next)
 		// chains the alternative to the input workflow, which is already connected to a whole series of nodes
-		if !dagToChain.IsEmpty() {
+		if !toMerge.IsEmpty() {
 			c.builder.workflow.addNode(startNext)
 			err := c.builder.workflow.chain(c.builder.prevNode.(*ChoiceNode), startNext)
 			if err != nil {
 				c.builder.appendError(err)
 			}
 			// adds the nodes to the building workflow
-			for _, n := range dagToChain.Nodes {
+			for _, n := range toMerge.Nodes {
 				switch n.(type) {
 				case *StartNode:
 					continue
@@ -222,10 +222,10 @@ func (c *ChoiceBranchBuilder) NextBranch(dagToChain *Workflow, err1 error) *Choi
 				default:
 					c.builder.workflow.addNode(n)
 					n.setBranchId(n.GetBranchId() + baseBranchNumber)
-					nextNode, _ := dagToChain.Find(n.GetNext()[0])
+					nextNode, _ := toMerge.Find(n.GetNext()[0])
 					// chain the last node(s) of the input workflow to the end node of the building workflow
 
-					if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == dagToChain.End {
+					if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == toMerge.End {
 						errEnd := c.builder.workflow.ChainToEndNode(n)
 						if errEnd != nil {
 							c.builder.appendError(errEnd)
