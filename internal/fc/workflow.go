@@ -955,7 +955,7 @@ func (workflow *Workflow) decodeNode(nodeId string, value json.RawMessage) error
 	}
 	var err error
 
-	node := DagNodeFromType(TaskType(taskType))
+	node := TaskFromType(TaskType(taskType))
 
 	switch TaskType(taskType) {
 	case Start:

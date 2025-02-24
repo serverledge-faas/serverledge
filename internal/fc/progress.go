@@ -94,7 +94,7 @@ const (
 	Wait    TaskType = "WaitNode"
 )
 
-func DagNodeFromType(nodeType TaskType) Task {
+func TaskFromType(nodeType TaskType) Task {
 	switch nodeType {
 	case Start:
 		return &StartNode{}
