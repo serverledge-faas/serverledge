@@ -110,12 +110,12 @@ func TestProgressCache(t *testing.T) {
 		fc.NewGreaterCondition(1, 3),
 	).Build()
 
-	progress1, dag1 := simpleProgress(t)
-	progress2, dag2 := choiceProgress(t, condition)
-	progress3, dag3 := parallelProgress(t)
-	progress4, dag4 := complexProgress(t, condition)
+	progress1, workflow1 := simpleProgress(t)
+	progress2, workflow2 := choiceProgress(t, condition)
+	progress3, workflow3 := parallelProgress(t)
+	progress4, workflow4 := complexProgress(t, condition)
 	progresses := []*fc.Progress{progress1, progress2, progress3, progress4}
-	workflows := []*fc.Workflow{dag1, dag2, dag3, dag4}
+	workflows := []*fc.Workflow{workflow1, workflow2, workflow3, workflow4}
 
 	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
