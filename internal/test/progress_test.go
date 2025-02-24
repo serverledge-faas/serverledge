@@ -115,11 +115,11 @@ func TestProgressCache(t *testing.T) {
 	progress3, dag3 := parallelProgress(t)
 	progress4, dag4 := complexProgress(t, condition)
 	progresses := []*fc.Progress{progress1, progress2, progress3, progress4}
-	dags := []*fc.Workflow{dag1, dag2, dag3, dag4}
+	workflows := []*fc.Workflow{dag1, dag2, dag3, dag4}
 
-	for i := 0; i < len(dags); i++ {
+	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
-		workflow := dags[i]
+		workflow := workflows[i]
 		err := fc.SaveProgress(progress, cache.Persist)
 		u.AssertNilMsg(t, err, "failed to save progress")
 

@@ -13,18 +13,18 @@ import (
 func TestWorkflowMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
-	dag1, _ := fc.CreateEmptyWorkflow()
-	dag2, _ := fc.CreateSequenceWorkflow(f, f, f)
-	dag3, _ := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
-	dag4, _ := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
-	dag5, _ := fc.CreateScatterSingleFunctionWorkflow(f, 5)
-	dag6, _ := fc.CreateBroadcastMultiFunctionWorkflow(
+	workflow1, _ := fc.CreateEmptyWorkflow()
+	workflow2, _ := fc.CreateSequenceWorkflow(f, f, f)
+	workflow3, _ := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
+	workflow4, _ := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
+	workflow5, _ := fc.CreateScatterSingleFunctionWorkflow(f, 5)
+	workflow6, _ := fc.CreateBroadcastMultiFunctionWorkflow(
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f, f) },
 	)
-	dags := []*fc.Workflow{dag1, dag2, dag3, dag4, dag5, dag6}
-	for i, workflow := range dags {
+	workflows := []*fc.Workflow{workflow1, workflow2, workflow3, workflow4, workflow5, workflow6}
+	for i, workflow := range workflows {
 		marshal, errMarshal := json.Marshal(workflow)
 		u.AssertNilMsg(t, errMarshal, "error during marshaling "+string(rune(i)))
 		var retrieved fc.Workflow
@@ -35,7 +35,7 @@ func TestWorkflowMarshaling(t *testing.T) {
 }
 
 // test for workflow connections
-func TestEmptyDag(t *testing.T) {
+func TestEmptyWorkflow(t *testing.T) {
 	// fc.BranchNumber = 0
 
 	input := 1
@@ -51,8 +51,8 @@ func TestEmptyDag(t *testing.T) {
 	u.AssertEquals(t, workflow.Start.Next, workflow.End.GetId())
 }
 
-// TestSimpleDag creates a simple Workflow with one StartNode, two SimpleNode and one EndNode, executes it and gets the result.
-func TestSimpleDag(t *testing.T) {
+// TestSimpleWorkflow creates a simple Workflow with one StartNode, two SimpleNode and one EndNode, executes it and gets the result.
+func TestSimpleWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	input := 1
@@ -98,7 +98,7 @@ func TestSimpleDag(t *testing.T) {
 	u.AssertEquals(t, prevNode.(*fc.EndNode), workflow.End)
 }
 
-func TestChoiceDag(t *testing.T) {
+func TestChoiceWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -122,8 +122,8 @@ func TestChoiceDag(t *testing.T) {
 	// u.AssertEquals(t, width+1, len(workflow.Nodes))
 
 	//tasks := fc.NewNodeSetFrom(workflow.Nodes)
-	choiceDag, found := workflow.Find(workflow.Start.Next)
-	choice := choiceDag.(*fc.ChoiceNode)
+	choiceWorkflow, found := workflow.Find(workflow.Start.Next)
+	choice := choiceWorkflow.(*fc.ChoiceNode)
 	u.AssertTrue(t, found)
 	for _, n := range workflow.Nodes {
 		switch n.(type) {
@@ -147,7 +147,7 @@ func TestChoiceDag(t *testing.T) {
 	}
 }
 
-func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
+func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -167,8 +167,8 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
 		EndChoiceAndBuild()
 
-	choiceDag, foundStartNext := workflow.Find(workflow.Start.Next)
-	choice := choiceDag.(*fc.ChoiceNode)
+	choiceWorkflow, foundStartNext := workflow.Find(workflow.Start.Next)
+	choice := choiceWorkflow.(*fc.ChoiceNode)
 	width := len(choice.Alternatives)
 
 	u.AssertNil(t, err)
@@ -206,9 +206,9 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	}
 }
 
-// TestBroadcastDag verifies that a broadcast workflow is created correctly with fan out, simple nodes and fan in.
+// TestBroadcastWorkflow verifies that a broadcast workflow is created correctly with fan out, simple nodes and fan in.
 // All workflow branches have the same sequence of simple nodes.
-func TestBroadcastDag(t *testing.T) {
+func TestBroadcastWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -218,8 +218,8 @@ func TestBroadcastDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	workflow, errDag := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, width)
-	u.AssertNil(t, errDag)
+	workflow, errWorkflow := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, width)
+	u.AssertNil(t, errWorkflow)
 
 	u.AssertNonNil(t, workflow.Start)
 	u.AssertNonNil(t, workflow.End)
@@ -257,14 +257,14 @@ func TestBroadcastDag(t *testing.T) {
 	}
 }
 
-func TestScatterDag(t *testing.T) {
+func TestScatterWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	workflow, errDag := fc.CreateScatterSingleFunctionWorkflow(f, width)
-	u.AssertNil(t, errDag)
+	workflow, errWorkflow := fc.CreateScatterSingleFunctionWorkflow(f, width)
+	u.AssertNil(t, errWorkflow)
 
 	u.AssertNonNil(t, workflow.Start)
 	u.AssertNonNil(t, workflow.End)
@@ -309,7 +309,7 @@ func TestScatterDag(t *testing.T) {
 	u.AssertEquals(t, width, simpleNodeChainedToFanIn)
 }
 
-func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
+func TestCreateBroadcastMultiFunctionWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	length1 := 2
@@ -318,11 +318,11 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	length2 := 3
 	_, fArrJs, err2 := initializeSameFunctionSlice(length2, "js")
 	u.AssertNil(t, err2)
-	workflow, errDag := fc.CreateBroadcastMultiFunctionWorkflow(
+	workflow, errWorkflow := fc.CreateBroadcastMultiFunctionWorkflow(
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrPy...) },
 		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrJs...) },
 	)
-	u.AssertNil(t, errDag)
+	u.AssertNil(t, errWorkflow)
 	startNext, startNextFound := workflow.Find(workflow.Start.Next)
 	fanOutDegree := startNext.(*fc.FanOutNode).FanOutDegree
 
@@ -375,7 +375,7 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	u.AssertEquals(t, 2, simpleNodeChainedToFanIn)
 }
 
-// TestDagBuilder tests a complex Workflow with every type of node in it
+// TestWorkflowBuilder tests a complex Workflow with every type of node in it
 //
 //		    [Start ]
 //	           |
@@ -390,7 +390,7 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 //	       |     [FanIn ] // AddToArrayEntry
 //	       |        |
 //	       |---->[ End  ]
-func TestDagBuilder(t *testing.T) {
+func TestWorkflowBuilder(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	f, err := initializeExamplePyFunction()
@@ -473,7 +473,7 @@ func TestDagBuilder(t *testing.T) {
 func TestVisit(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
-	complexDag, err := fc.NewBuilder().
+	complexWorkflow, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
 		NextBranch(fc.CreateSequenceWorkflow(f)).
@@ -485,21 +485,21 @@ func TestVisit(t *testing.T) {
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	startNext, _ := complexDag.Find(complexDag.Start.Next)
+	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.Next)
 
 	choice := startNext.GetNext()[0]
 
 	nodeList := make([]fc.Task, 0)
-	visitedNodes := fc.Visit(complexDag, complexDag.Start.Id, nodeList, false)
-	u.AssertEquals(t, len(complexDag.Nodes), len(visitedNodes))
+	visitedNodes := fc.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, false)
+	u.AssertEquals(t, len(complexWorkflow.Nodes), len(visitedNodes))
 
-	visitedNodes = fc.Visit(complexDag, complexDag.Start.Id, nodeList, true)
-	u.AssertEquals(t, len(complexDag.Nodes)-1, len(visitedNodes))
+	visitedNodes = fc.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, true)
+	u.AssertEquals(t, len(complexWorkflow.Nodes)-1, len(visitedNodes))
 
-	visitedNodes = fc.Visit(complexDag, choice, nodeList, false)
+	visitedNodes = fc.Visit(complexWorkflow, choice, nodeList, false)
 	u.AssertEquals(t, 8, len(visitedNodes))
 
-	visitedNodes = fc.Visit(complexDag, choice, nodeList, true)
+	visitedNodes = fc.Visit(complexWorkflow, choice, nodeList, true)
 	u.AssertEquals(t, 7, len(visitedNodes))
 
 }

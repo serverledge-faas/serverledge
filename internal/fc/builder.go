@@ -311,18 +311,18 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 		c.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", c.builder.BranchNumber)
 		// recreates a workflow executing the same function
-		dagCopy, errDag := dagger()
+		workflowCopy, errDag := dagger()
 		if errDag != nil {
 			c.builder.appendError(errDag)
 		}
-		nextNode, _ := dagCopy.Find(dagCopy.Start.Next)
+		nextNode, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		c.builder.workflow.addNode(nextNode)
 		err := c.builder.workflow.chain(choiceNode, nextNode)
 		if err != nil {
 			c.builder.appendError(errDag)
 		}
 		// adds the nodes to the building workflow, but only once!
-		for _, n := range dagCopy.Nodes {
+		for _, n := range workflowCopy.Nodes {
 			switch n.(type) {
 			case *StartNode:
 				continue
@@ -336,7 +336,7 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 				n.setBranchId(c.builder.BranchNumber)
 				c.builder.workflow.addNode(n)
 				// chain the last node(s) of the input workflow to the end node of the building workflow
-				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == dagCopy.End.GetId() {
+				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == workflowCopy.End.GetId() {
 					errEnd := c.builder.workflow.ChainToEndNode(n)
 					if errEnd != nil {
 						c.builder.appendError(errEnd)
@@ -361,18 +361,18 @@ func (p *ParallelBroadcastBranchBuilder) ForEachParallelBranch(dagger func() (*W
 		p.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", i)
 		// recreates a workflow executing the same function
-		dagCopy, errDag := dagger()
+		workflowCopy, errDag := dagger()
 		if errDag != nil {
 			p.builder.appendError(errDag)
 		}
-		next, _ := dagCopy.Find(dagCopy.Start.Next)
+		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		p.builder.workflow.addNode(next)
 		err := p.builder.workflow.chain(fanOutNode, next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
 		// adds the nodes to the building workflow, but only once!
-		for _, n := range dagCopy.Nodes {
+		for _, n := range workflowCopy.Nodes {
 			// chain the last node(s) of the input workflow to the end node of the building workflow
 			switch n.(type) {
 			case *StartNode:
@@ -385,7 +385,7 @@ func (p *ParallelBroadcastBranchBuilder) ForEachParallelBranch(dagger func() (*W
 			default:
 				p.builder.workflow.addNode(n)
 				n.setBranchId(p.builder.BranchNumber)
-				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == dagCopy.End.GetId() {
+				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == workflowCopy.End.GetId() {
 					p.terminalNodes = append(p.terminalNodes, n) // we do not chain to end node, only add to terminal nodes, so that we can chain to a fan in later
 				}
 			}
@@ -406,18 +406,18 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 		p.builder.BranchNumber++
 		//fmt.Printf("Adding workflow to branch %d\n", i)
 		// recreates a workflow executing the same function
-		dagCopy, errDag := dagger()
+		workflowCopy, errDag := dagger()
 		if errDag != nil {
 			p.builder.appendError(errDag)
 		}
-		next, _ := dagCopy.Find(dagCopy.Start.Next)
+		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
 		p.builder.workflow.addNode(next)
 		err := p.builder.workflow.chain(fanOutNode, next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
 		// adds the nodes to the building workflow, but only once!
-		for _, n := range dagCopy.Nodes {
+		for _, n := range workflowCopy.Nodes {
 			// chain the last node(s) of the input workflow to the end node of the building workflow
 			switch n.(type) {
 			case *StartNode:
@@ -430,7 +430,7 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 			default:
 				p.builder.workflow.addNode(n)
 				n.setBranchId(p.builder.BranchNumber)
-				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == dagCopy.End.GetId() {
+				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == workflowCopy.End.GetId() {
 					p.terminalNodes = append(p.terminalNodes, n) // we do not chain to end node, only add to terminal nodes, so that we can chain to a fan in later
 				}
 			}
