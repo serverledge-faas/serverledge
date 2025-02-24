@@ -25,7 +25,7 @@ import (
 type Workflow struct {
 	Name  string     // identifier of the Workflow
 	Start *StartNode // a single start must be added
-	Nodes map[DagNodeId]Task
+	Nodes map[TaskId]Task
 	End   *EndNode // a single endNode must be added
 	Width int      // width is the max fanOut degree of the Workflow
 }
@@ -39,7 +39,7 @@ func NewDAGWithName(name string) Workflow {
 func NewDAG() Workflow {
 	start := NewStartNode()
 	end := NewEndNode()
-	nodes := make(map[DagNodeId]Task)
+	nodes := make(map[TaskId]Task)
 	nodes[start.Id] = start
 	nodes[end.Id] = end
 
@@ -52,7 +52,7 @@ func NewDAG() Workflow {
 	return workflow
 }
 
-func (workflow *Workflow) Find(nodeId DagNodeId) (Task, bool) {
+func (workflow *Workflow) Find(nodeId TaskId) (Task, bool) {
 	dagNode, found := workflow.Nodes[nodeId]
 	return dagNode, found
 }
@@ -87,7 +87,7 @@ func isEndNode(node Task) bool {
 }
 
 // VisitDag visits the workflow starting from the input node and return a list of visited nodes. If excludeEnd = true, the EndNode will not be in the output list
-func VisitDag(workflow *Workflow, nodeId DagNodeId, nodes []Task, excludeEnd bool) []Task {
+func VisitDag(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []Task {
 	node, ok := workflow.Find(nodeId)
 	if !ok {
 		return []Task{}
@@ -199,7 +199,7 @@ func (workflow *Workflow) Print() string {
 
 	for len(currentNodes) > 0 {
 		result += "["
-		var currentNodesToAdd []DagNodeId
+		var currentNodesToAdd []TaskId
 		for i, nodeId := range currentNodes {
 			node, _ := workflow.Find(nodeId)
 			result += fmt.Sprintf("%s", node.Name())
@@ -209,7 +209,7 @@ func (workflow *Workflow) Print() string {
 			if i != len(currentNodes)-1 {
 				result += "|"
 			}
-			var addNodes []DagNodeId
+			var addNodes []TaskId
 			switch t := node.(type) {
 			case *ChoiceNode:
 				addNodes = t.Alternatives
@@ -377,7 +377,7 @@ func (workflow *Workflow) executeFanOut(progress *Progress, partialData *Partial
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []DagNodeId, r *CompositionRequest) (*PartialData, *Progress, error) {
+func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *CompositionRequest) (*PartialData, *Progress, error) {
 	// preparing workflow nodes and channels for parallel execution
 	parallelDagNodes := make([]Task, 0)
 	inputs := make([]map[string]interface{}, 0)
@@ -876,7 +876,7 @@ func (workflow *Workflow) MarshalJSON() ([]byte, error) {
 	data["Start"] = workflow.Start
 	data["End"] = workflow.End
 	data["Width"] = workflow.Width
-	nodes := make(map[DagNodeId]interface{})
+	nodes := make(map[TaskId]interface{})
 
 	// Marshal the interface and store it as concrete node value in the map
 	for nodeId, node := range workflow.Nodes {
@@ -934,7 +934,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(tempMap["Nodes"], &tempNodeMap); err != nil {
 		return err
 	}
-	workflow.Nodes = make(map[DagNodeId]Task)
+	workflow.Nodes = make(map[TaskId]Task)
 	for nodeId, value := range tempNodeMap {
 		err := workflow.decodeNode(nodeId, value)
 		if err != nil {
@@ -962,27 +962,27 @@ func (workflow *Workflow) decodeNode(nodeId string, value json.RawMessage) error
 		node := &StartNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Next != "" {
-			workflow.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[TaskId(nodeId)] = node
 			return nil
 		}
 	case Simple:
 		node := &SimpleNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Func != "" {
-			workflow.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[TaskId(nodeId)] = node
 			return nil
 		}
 	case Choice:
 		node := &ChoiceNode{}
 		err = json.Unmarshal(value, node)
 		if err == nil && node.Id != "" && node.Alternatives != nil && len(node.Alternatives) == len(node.Conditions) {
-			workflow.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[TaskId(nodeId)] = node
 			return nil
 		}
 	default:
 		err = json.Unmarshal(value, node)
 		if err == nil && node.GetId() != "" {
-			workflow.Nodes[DagNodeId(nodeId)] = node
+			workflow.Nodes[TaskId(nodeId)] = node
 			return nil
 		}
 	}

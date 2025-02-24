@@ -16,22 +16,22 @@ import (
 
 // ChoiceNode receives one input and produces one result to one of two alternative nodes, based on condition
 type ChoiceNode struct {
-	Id           DagNodeId
+	Id           TaskId
 	NodeType     DagNodeType
 	BranchId     int
 	input        map[string]interface{}
-	Alternatives []DagNodeId
+	Alternatives []TaskId
 	Conditions   []Condition
 	FirstMatch   int
 }
 
 func NewChoiceNode(conds []Condition) *ChoiceNode {
 	return &ChoiceNode{
-		Id:       DagNodeId(shortuuid.New()),
+		Id:       TaskId(shortuuid.New()),
 		NodeType: Choice,
 		//input         make(map[string]interface{}, )
 		Conditions:   conds,
-		Alternatives: make([]DagNodeId, len(conds)),
+		Alternatives: make([]TaskId, len(conds)),
 		FirstMatch:   -1,
 	}
 }
@@ -102,7 +102,7 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (c *ChoiceNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (c *ChoiceNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
@@ -207,7 +207,7 @@ func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []Task {
 	return nodesToSkip
 }
 
-func (c *ChoiceNode) GetNext() []DagNodeId {
+func (c *ChoiceNode) GetNext() []TaskId {
 	// you should have called exec before calling GetNext
 	if c.FirstMatch >= len(c.Alternatives) {
 		panic("there aren't sufficient alternatives!")
@@ -217,7 +217,7 @@ func (c *ChoiceNode) GetNext() []DagNodeId {
 		panic("first match cannot be less then 0. You should call Exec() before GetNext()")
 	}
 
-	return []DagNodeId{c.Alternatives[c.FirstMatch]}
+	return []TaskId{c.Alternatives[c.FirstMatch]}
 }
 
 func (c *ChoiceNode) Width() int {
@@ -261,7 +261,7 @@ func (c *ChoiceNode) String() string {
 	return fmt.Sprintf("[ChoiceNode(%d): %s] ", len(c.Alternatives), conditions)
 }
 
-func (c *ChoiceNode) GetId() DagNodeId {
+func (c *ChoiceNode) GetId() TaskId {
 	return c.Id
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 type SucceedNode struct {
-	Id         DagNodeId
+	Id         TaskId
 	NodeType   DagNodeType
 	InputPath  string
 	OutputPath string
@@ -18,13 +18,13 @@ type SucceedNode struct {
 	/* (Serverledge specific) */
 	Message string
 	// OutputTo for a SucceedNode is used to send the output to the EndNode
-	OutputTo DagNodeId
+	OutputTo TaskId
 	BranchId int
 }
 
 func NewSucceedNode(message string) *SucceedNode {
 	succeedNode := SucceedNode{
-		Id:       DagNodeId("succeed_" + shortuuid.New()),
+		Id:       TaskId("succeed_" + shortuuid.New()),
 		NodeType: Succeed,
 		Message:  message,
 	}
@@ -70,7 +70,7 @@ func (s *SucceedNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (s *SucceedNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (s *SucceedNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	_, ok := workflow.Nodes[dagNode].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the SucceedNode can only be chained to an end node")
@@ -87,8 +87,8 @@ func (s *SucceedNode) PrepareOutput(workflow *Workflow, output map[string]interf
 	return nil
 }
 
-func (s *SucceedNode) GetNext() []DagNodeId {
-	return []DagNodeId{s.OutputTo}
+func (s *SucceedNode) GetNext() []TaskId {
+	return []TaskId{s.OutputTo}
 }
 
 func (s *SucceedNode) Width() int {
@@ -111,7 +111,7 @@ func (s *SucceedNode) GetBranchId() int {
 	return s.BranchId
 }
 
-func (s *SucceedNode) GetId() DagNodeId {
+func (s *SucceedNode) GetId() TaskId {
 	return s.Id
 }
 

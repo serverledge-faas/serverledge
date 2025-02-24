@@ -6,7 +6,7 @@ import (
 	"github.com/grussorusso/serverledge/internal/types"
 )
 
-type DagNodeId string
+type TaskId string
 
 // Task is an interface for a single node in the Workflow
 // all implementors must be pointers to a struct
@@ -34,7 +34,7 @@ type HasBranch interface {
 
 type Display interface {
 	fmt.Stringer
-	GetId() DagNodeId
+	GetId() TaskId
 	Name() string
 }
 
@@ -45,7 +45,7 @@ type Executable interface {
 
 type HasOutput interface {
 	// AddOutput  adds a result node, if compatible. For some DagNodes can be called multiple times
-	AddOutput(workflow *Workflow, dagNode DagNodeId) error
+	AddOutput(workflow *Workflow, dagNode TaskId) error
 }
 
 type ChecksInput interface {
@@ -59,7 +59,7 @@ type ReceivesOutput interface {
 }
 
 type HasNext interface {
-	GetNext() []DagNodeId
+	GetNext() []TaskId
 }
 
 type HasNodeType interface {

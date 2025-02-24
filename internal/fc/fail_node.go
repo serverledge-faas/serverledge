@@ -10,7 +10,7 @@ import (
 )
 
 type FailNode struct {
-	Id       DagNodeId
+	Id       TaskId
 	NodeType DagNodeType
 	Error    string
 	Cause    string
@@ -18,7 +18,7 @@ type FailNode struct {
 	/* (Serverledge specific) */
 
 	// OutputTo for a SucceedNode is used to send the output to the EndNode
-	OutputTo DagNodeId
+	OutputTo TaskId
 	BranchId int
 }
 
@@ -32,7 +32,7 @@ func NewFailNode(error, cause string) *FailNode {
 		fmt.Printf("error string identifier should be less than 20 characters but is %d characters long\n", len(error))
 	}
 	fail := FailNode{
-		Id:       DagNodeId("fail_" + shortuuid.New()),
+		Id:       TaskId("fail_" + shortuuid.New()),
 		NodeType: Fail,
 		Error:    error,
 		Cause:    cause,
@@ -78,7 +78,7 @@ func (f *FailNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (f *FailNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (f *FailNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	_, ok := workflow.Nodes[dagNode].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the FailNode can only be chained to an end node")
@@ -91,8 +91,8 @@ func (f *FailNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
 //	return nil
 //}
 
-func (f *FailNode) GetNext() []DagNodeId {
-	return []DagNodeId{f.OutputTo}
+func (f *FailNode) GetNext() []TaskId {
+	return []TaskId{f.OutputTo}
 }
 
 func (f *FailNode) Width() int {
@@ -107,7 +107,7 @@ func (f *FailNode) String() string {
 	return fmt.Sprintf("[Fail: %s]", f.Error)
 }
 
-func (f *FailNode) GetId() DagNodeId {
+func (f *FailNode) GetId() TaskId {
 	return f.Id
 }
 

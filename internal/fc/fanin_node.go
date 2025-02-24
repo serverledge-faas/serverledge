@@ -19,10 +19,10 @@ const (
 
 // FanInNode receives and merges multiple input and produces a single result
 type FanInNode struct {
-	Id          DagNodeId
+	Id          TaskId
 	NodeType    DagNodeType
 	BranchId    int
-	OutputTo    DagNodeId
+	OutputTo    TaskId
 	FanInDegree int
 	Timeout     time.Duration
 	Mode        MergeMode
@@ -37,7 +37,7 @@ func NewFanInNode(mergeMode MergeMode, fanInDegree int, nillableTimeout *time.Du
 		timeout = &DefaultTimeout
 	}
 	fanIn := FanInNode{
-		Id:          DagNodeId(shortuuid.New()),
+		Id:          TaskId(shortuuid.New()),
 		NodeType:    FanIn,
 		OutputTo:    "",
 		FanInDegree: fanInDegree,
@@ -124,7 +124,7 @@ func (f *FanInNode) Exec(compRequest *CompositionRequest, params ...map[string]i
 	return fanInOutput, nil
 }
 
-func (f *FanInNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (f *FanInNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	f.OutputTo = dagNode
 	return nil
 }
@@ -138,9 +138,9 @@ func (f *FanInNode) PrepareOutput(workflow *Workflow, output map[string]interfac
 	return nil // we should not do nothing, the output should be already ok
 }
 
-func (f *FanInNode) GetNext() []DagNodeId {
+func (f *FanInNode) GetNext() []TaskId {
 	// we only have one output
-	return []DagNodeId{f.OutputTo}
+	return []TaskId{f.OutputTo}
 }
 
 func (f *FanInNode) Width() int {
@@ -162,7 +162,7 @@ func (f *FanInNode) GetBranchId() int {
 	return f.BranchId
 }
 
-func (f *FanInNode) GetId() DagNodeId {
+func (f *FanInNode) GetId() TaskId {
 	return f.Id
 }
 

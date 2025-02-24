@@ -35,7 +35,7 @@ type ProgressCache struct {
 }
 
 type DagNodeInfo struct {
-	Id     DagNodeId
+	Id     TaskId
 	Type   DagNodeType
 	Status DagNodeStatus
 	Group  int // The group helps represent the order of execution of nodes. Nodes with the same group should run concurrently
@@ -184,7 +184,7 @@ func (p *Progress) IsCompleted() bool {
 }
 
 // NextNodes retrieves the next nodes to execute, that have the minimum group with state pending
-func (p *Progress) NextNodes() ([]DagNodeId, error) {
+func (p *Progress) NextNodes() ([]TaskId, error) {
 	minPendingGroup := -1
 	// find the min group with node pending
 	for _, node := range p.DagNodes {
@@ -193,11 +193,11 @@ func (p *Progress) NextNodes() ([]DagNodeId, error) {
 			break
 		}
 		if node.Status == Failed {
-			return []DagNodeId{}, fmt.Errorf("the execution is failed ")
+			return []TaskId{}, fmt.Errorf("the execution is failed ")
 		}
 	}
 	// get all node Ids within that group
-	nodeIds := make([]DagNodeId, 0)
+	nodeIds := make([]TaskId, 0)
 	for _, node := range p.DagNodes {
 		if node.Group == minPendingGroup && node.Status == Pending {
 			nodeIds = append(nodeIds, node.Id)
@@ -208,7 +208,7 @@ func (p *Progress) NextNodes() ([]DagNodeId, error) {
 }
 
 // CompleteNode sets the progress status of the node with the id input to 'Completed'
-func (p *Progress) CompleteNode(id DagNodeId) error {
+func (p *Progress) CompleteNode(id TaskId) error {
 	for _, node := range p.DagNodes {
 		if node.Id == id {
 			node.Status = Executed
@@ -218,7 +218,7 @@ func (p *Progress) CompleteNode(id DagNodeId) error {
 	return fmt.Errorf("no node to complete with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
-func (p *Progress) SkipNode(id DagNodeId) error {
+func (p *Progress) SkipNode(id TaskId) error {
 	for _, node := range p.DagNodes {
 		if node.Id == id {
 			node.Status = Skipped
@@ -240,7 +240,7 @@ func (p *Progress) SkipAll(nodes []Task) error {
 }
 
 // FailNode marks a node progress to failed
-func (p *Progress) FailNode(id DagNodeId) error {
+func (p *Progress) FailNode(id TaskId) error {
 	for _, node := range p.DagNodes {
 		if node.Id == id {
 			node.Status = Failed
@@ -250,7 +250,7 @@ func (p *Progress) FailNode(id DagNodeId) error {
 	return fmt.Errorf("no node to fail with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
-func (p *Progress) GetInfo(nodeId DagNodeId) *DagNodeInfo {
+func (p *Progress) GetInfo(nodeId TaskId) *DagNodeInfo {
 	for _, node := range p.DagNodes {
 		if node.Id == nodeId {
 			return node
@@ -259,7 +259,7 @@ func (p *Progress) GetInfo(nodeId DagNodeId) *DagNodeInfo {
 	return nil
 }
 
-func (p *Progress) GetGroup(nodeId DagNodeId) int {
+func (p *Progress) GetGroup(nodeId TaskId) int {
 	for _, node := range p.DagNodes {
 		if node.Id == nodeId {
 			return node.Group
@@ -355,7 +355,7 @@ func reorder(infos []*DagNodeInfo) []*DagNodeInfo {
 	return reordered
 }
 
-func isNodeInfoPresent(node DagNodeId, infos []*DagNodeInfo) bool {
+func isNodeInfoPresent(node TaskId, infos []*DagNodeInfo) bool {
 	isPresent := false
 	for _, nodeInfo := range infos {
 		if nodeInfo.Id == node {

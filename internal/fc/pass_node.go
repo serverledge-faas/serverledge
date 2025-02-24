@@ -10,17 +10,17 @@ import (
 )
 
 type PassNode struct {
-	Id         DagNodeId
+	Id         TaskId
 	NodeType   DagNodeType
 	Result     string
 	ResultPath string
-	OutputTo   DagNodeId
+	OutputTo   TaskId
 	BranchId   int
 }
 
 func NewPassNode(result string) *PassNode {
 	passNode := PassNode{
-		Id:       DagNodeId("pass_" + shortuuid.New()),
+		Id:       TaskId("pass_" + shortuuid.New()),
 		NodeType: Pass,
 		Result:   result,
 	}
@@ -66,7 +66,7 @@ func (p *PassNode) CheckInput(input map[string]interface{}) error {
 }
 
 // AddOutput for a PassNode connects it to another Task, except StartNode
-func (p *PassNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (p *PassNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	_, ok := workflow.Nodes[dagNode].(*StartNode)
 	if ok {
 		return fmt.Errorf("the PassNode cannot be chained to a startNode")
@@ -135,8 +135,8 @@ func (p *PassNode) MapOutput(nextNode *SimpleNode, output map[string]interface{}
 	return nil
 }
 
-func (p *PassNode) GetNext() []DagNodeId {
-	return []DagNodeId{p.OutputTo}
+func (p *PassNode) GetNext() []TaskId {
+	return []TaskId{p.OutputTo}
 }
 
 func (p *PassNode) Width() int {
@@ -159,7 +159,7 @@ func (p *PassNode) GetBranchId() int {
 	return p.BranchId
 }
 
-func (p *PassNode) GetId() DagNodeId {
+func (p *PassNode) GetId() TaskId {
 	return p.Id
 }
 

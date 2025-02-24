@@ -22,18 +22,18 @@ var compositionRequestsPool = sync.Pool{
 
 // SimpleNode is a Task that receives one input and sends one result
 type SimpleNode struct {
-	Id       DagNodeId
+	Id       TaskId
 	NodeType DagNodeType
 	BranchId int
 	// input      map[string]interface{}
-	OutputTo   DagNodeId
+	OutputTo   TaskId
 	Func       string
 	inputMutex sync.Mutex // this is not marshaled
 }
 
 func NewSimpleNode(f string) *SimpleNode {
 	return &SimpleNode{
-		Id:         DagNodeId(shortuuid.New()),
+		Id:         TaskId(shortuuid.New()),
 		NodeType:   Simple,
 		Func:       f,
 		inputMutex: sync.Mutex{},
@@ -153,7 +153,7 @@ func (s *SimpleNode) Equals(cmp types.Comparable) bool {
 }
 
 // AddOutput connects the output of the SimpleNode to another Task
-func (s *SimpleNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (s *SimpleNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	s.OutputTo = dagNode
 	return nil
 }
@@ -248,9 +248,9 @@ func (s *SimpleNode) MapOutput(output map[string]interface{}) error {
 	return nil
 }
 
-func (s *SimpleNode) GetNext() []DagNodeId {
+func (s *SimpleNode) GetNext() []TaskId {
 	// we only have one output
-	return []DagNodeId{s.OutputTo}
+	return []TaskId{s.OutputTo}
 }
 
 func (s *SimpleNode) Width() int {
@@ -271,7 +271,7 @@ func (s *SimpleNode) GetBranchId() int {
 	return s.BranchId
 }
 
-func (s *SimpleNode) GetId() DagNodeId {
+func (s *SimpleNode) GetId() TaskId {
 	return s.Id
 }
 

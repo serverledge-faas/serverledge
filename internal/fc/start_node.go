@@ -11,14 +11,14 @@ import (
 
 // StartNode is a Task from which the execution of the Workflow starts. Invokes the first Task
 type StartNode struct {
-	Id       DagNodeId
+	Id       TaskId
 	NodeType DagNodeType
-	Next     DagNodeId
+	Next     TaskId
 }
 
 func NewStartNode() *StartNode {
 	return &StartNode{
-		Id:       DagNodeId(shortuuid.New()),
+		Id:       TaskId(shortuuid.New()),
 		NodeType: Start,
 	}
 }
@@ -32,7 +32,7 @@ func (s *StartNode) Equals(cmp types.Comparable) bool {
 	}
 }
 
-func (s *StartNode) AddOutput(workflow *Workflow, nodeId DagNodeId) error {
+func (s *StartNode) AddOutput(workflow *Workflow, nodeId TaskId) error {
 	node, found := workflow.Find(nodeId)
 	if !found {
 		return fmt.Errorf("node %s not found", nodeId)
@@ -65,9 +65,9 @@ func (s *StartNode) PrepareOutput(workflow *Workflow, output map[string]interfac
 	return err
 }
 
-func (s *StartNode) GetNext() []DagNodeId {
+func (s *StartNode) GetNext() []TaskId {
 	// we only have one output
-	return []DagNodeId{s.Next}
+	return []TaskId{s.Next}
 }
 
 func (s *StartNode) Width() int {
@@ -88,7 +88,7 @@ func (s *StartNode) GetBranchId() int {
 	return 0
 }
 
-func (s *StartNode) GetId() DagNodeId {
+func (s *StartNode) GetId() TaskId {
 	return s.Id
 }
 

@@ -32,7 +32,7 @@ type ParallelScatterBranchBuilder struct {
 	dagBuilder    *Builder
 	completed     int
 	terminalNodes []Task
-	fanOutId      DagNodeId
+	fanOutId      TaskId
 }
 
 // ParallelBroadcastBranchBuilder can hold different dags executed in parallel
@@ -40,7 +40,7 @@ type ParallelBroadcastBranchBuilder struct {
 	dagBuilder    *Builder
 	completed     int
 	terminalNodes []Task
-	fanOutId      DagNodeId
+	fanOutId      TaskId
 }
 
 func NewDagBuilder() *Builder {
@@ -86,7 +86,7 @@ func (b *Builder) AddSimpleNodeWithId(f *function.Function, id string) *Builder 
 	}
 
 	simpleNode := NewSimpleNode(f.Name)
-	simpleNode.Id = DagNodeId(id)
+	simpleNode.Id = TaskId(id)
 	simpleNode.setBranchId(b.BranchNumber)
 
 	b.workflow.addNode(simpleNode)
@@ -121,7 +121,7 @@ func (b *Builder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder {
 	}
 	b.prevNode = choiceNode
 	b.workflow.Width = len(conditions)
-	emptyBranches := make([]DagNodeId, 0, b.branches)
+	emptyBranches := make([]TaskId, 0, b.branches)
 	choiceNode.Alternatives = emptyBranches
 	// we construct a new slice with capacity (b.branches) and size 0
 	// Here we cannot chain directly, because we do not know which alternative to chain to which node

@@ -102,7 +102,7 @@ func TestPartialDataCache(t *testing.T) {
 	}
 }
 
-func initPartialData(reqId fc.ReqId, to, from fc.DagNodeId, data map[string]interface{}) *fc.PartialData {
+func initPartialData(reqId fc.ReqId, to, from fc.TaskId, data map[string]interface{}) *fc.PartialData {
 	return &fc.PartialData{
 		ReqId:    reqId,
 		ForNode:  to,

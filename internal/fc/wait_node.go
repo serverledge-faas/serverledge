@@ -10,11 +10,11 @@ import (
 )
 
 type WaitNode struct {
-	Id        DagNodeId
+	Id        TaskId
 	NodeType  DagNodeType
 	Seconds   int
 	Timestamp *time.Time
-	OutputTo  DagNodeId
+	OutputTo  TaskId
 	BranchId  int
 }
 
@@ -23,7 +23,7 @@ func NewWaitNode(durationSeconds int) *WaitNode {
 		durationSeconds = 0
 	}
 	waitNode := WaitNode{
-		Id:       DagNodeId("wait_" + shortuuid.New()),
+		Id:       TaskId("wait_" + shortuuid.New()),
 		NodeType: Wait,
 		Seconds:  durationSeconds,
 	}
@@ -35,7 +35,7 @@ func NewWaitNodeFromTimestamp(timestamp time.Time) *WaitNode {
 		timestamp = time.Now()
 	}
 	waitNode := WaitNode{
-		Id:        DagNodeId("wait_" + shortuuid.New()),
+		Id:        TaskId("wait_" + shortuuid.New()),
 		NodeType:  Wait,
 		Timestamp: &timestamp,
 	}
@@ -91,7 +91,7 @@ func (w *WaitNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (w *WaitNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (w *WaitNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	_, ok := workflow.Nodes[dagNode].(*StartNode)
 	if ok {
 		return fmt.Errorf("the WaitNode cannot be chained to a startNode")
@@ -156,8 +156,8 @@ func (w *WaitNode) MapOutput(nextNode *SimpleNode, output map[string]interface{}
 	return nil
 }
 
-func (w *WaitNode) GetNext() []DagNodeId {
-	return []DagNodeId{w.OutputTo}
+func (w *WaitNode) GetNext() []TaskId {
+	return []TaskId{w.OutputTo}
 }
 
 func (w *WaitNode) Width() int {
@@ -180,7 +180,7 @@ func (w *WaitNode) GetBranchId() int {
 	return w.BranchId
 }
 
-func (w *WaitNode) GetId() DagNodeId {
+func (w *WaitNode) GetId() TaskId {
 	return w.Id
 }
 

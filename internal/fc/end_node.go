@@ -9,14 +9,14 @@ import (
 
 // EndNode is a Task that represents the end of the Workflow.
 type EndNode struct {
-	Id       DagNodeId
+	Id       TaskId
 	NodeType DagNodeType
 	Result   map[string]interface{}
 }
 
 func NewEndNode() *EndNode {
 	return &EndNode{
-		Id:       DagNodeId(shortuuid.New()),
+		Id:       TaskId(shortuuid.New()),
 		NodeType: End,
 		Result:   make(map[string]interface{}),
 	}
@@ -45,7 +45,7 @@ func (e *EndNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[stri
 	return e.Result, nil
 }
 
-func (e *EndNode) AddOutput(workflow *Workflow, dagNode DagNodeId) error {
+func (e *EndNode) AddOutput(workflow *Workflow, dagNode TaskId) error {
 	return nil // should not do anything. End node cannot be chained to anything
 }
 
@@ -59,9 +59,9 @@ func (e *EndNode) PrepareOutput(workflow *Workflow, output map[string]interface{
 	return nil
 }
 
-func (e *EndNode) GetNext() []DagNodeId {
+func (e *EndNode) GetNext() []TaskId {
 	// we return an empty array, because this is the EndNode
-	return make([]DagNodeId, 0)
+	return make([]TaskId, 0)
 }
 
 func (e *EndNode) Width() int {
@@ -81,7 +81,7 @@ func (e *EndNode) GetBranchId() int {
 	return 0
 }
 
-func (e *EndNode) GetId() DagNodeId {
+func (e *EndNode) GetId() TaskId {
 	return e.Id
 }
 
