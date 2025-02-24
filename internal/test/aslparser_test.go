@@ -90,7 +90,7 @@ func TestParsingSequence(t *testing.T) {
 
 }
 
-// TestParsingMixedUpSequence verifies that a json file with 5 simple unordered task is parsed correctly and in order in a sequence DAG.
+// TestParsingMixedUpSequence verifies that a json file with 5 simple unordered task is parsed correctly and in order in a sequence workflow.
 func TestParsingMixedUpSequence(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
@@ -102,8 +102,8 @@ func TestParsingMixedUpSequence(t *testing.T) {
 	deleteApiTest(t, "inc", HOST, PORT)
 }
 
-// / TestParsingChoiceFunctionDagWithDefaultFail verifies that a json file with three different choices is correctly parsed in a Workflow with a Choice node and three simple nodes.
-func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
+// / TestParsingChoiceWorkflowWithDefaultFail verifies that a json file with three different choices is correctly parsed in a Workflow with a Choice node and three simple nodes.
+func TestParsingChoiceWorkflowWithDefaultFail(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -146,7 +146,7 @@ func TestParsingChoiceFunctionDagWithDefaultFail(t *testing.T) {
 // 1st branch (input==1): inc + inc (expected nothing)
 // 2nd branch (input==2): double + inc (expected nothing)
 // def branch (true    ): hello (expected nothing)
-func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
+func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -196,7 +196,7 @@ func TestParsingChoiceDagWithDataTestExpr(t *testing.T) {
 	deleteApiTest(t, "double", HOST, PORT)
 }
 
-func TestParsingChoiceDagWithBoolExpr(t *testing.T) {
+func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -251,6 +251,6 @@ func TestParsingChoiceDagWithBoolExpr(t *testing.T) {
 	deleteApiTest(t, "double", HOST, PORT)
 }
 
-func TestParsingDagWithMalformedJson(t *testing.T) {}
+func TestParsingWorkflowWithMalformedJson(t *testing.T) {}
 
-func TestParsingDagWithUnknownFunction(t *testing.T) {}
+func TestParsingWorkflowWithUnknownFunction(t *testing.T) {}
