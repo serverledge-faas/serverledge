@@ -26,7 +26,7 @@ func newProgressId(reqId ReqId) ProgressId {
 // Progress tracks the progress of a Workflow, i.e. which nodes are executed, and what is the next node to run. Workflow progress is saved in ETCD and retrieved by the next node
 type Progress struct {
 	ReqId     ReqId // requestId, used to distinguish different workflow's progresses
-	DagNodes  []*DagNodeInfo
+	DagNodes  []*TaskInfo
 	NextGroup int
 }
 
@@ -34,7 +34,7 @@ type ProgressCache struct {
 	progresses hashmap.Map[ProgressId, *Progress] // a lock-free thread-safe map
 }
 
-type DagNodeInfo struct {
+type TaskInfo struct {
 	Id     TaskId
 	Type   TaskType
 	Status TaskStatus
@@ -42,8 +42,8 @@ type DagNodeInfo struct {
 	Branch int // copied from task
 }
 
-func newNodeInfo(dNode Task, group int) *DagNodeInfo {
-	return &DagNodeInfo{
+func newNodeInfo(dNode Task, group int) *TaskInfo {
+	return &TaskInfo{
 		Id:     dNode.GetId(),
 		Type:   parseType(dNode),
 		Status: Pending,
@@ -52,7 +52,7 @@ func newNodeInfo(dNode Task, group int) *DagNodeInfo {
 	}
 }
 
-func (ni *DagNodeInfo) Equals(ni2 *DagNodeInfo) bool {
+func (ni *TaskInfo) Equals(ni2 *TaskInfo) bool {
 	return ni.Id == ni2.Id && ni.Type == ni2.Type && ni.Status == ni2.Status && ni.Group == ni2.Group && ni.Branch == ni2.Branch
 }
 
@@ -250,7 +250,7 @@ func (p *Progress) FailNode(id TaskId) error {
 	return fmt.Errorf("no node to fail with id %s exists in the workflow for request %s", id, p.ReqId)
 }
 
-func (p *Progress) GetInfo(nodeId TaskId) *DagNodeInfo {
+func (p *Progress) GetInfo(nodeId TaskId) *TaskInfo {
 	for _, node := range p.DagNodes {
 		if node.Id == nodeId {
 			return node
@@ -269,9 +269,9 @@ func (p *Progress) GetGroup(nodeId TaskId) int {
 }
 
 // moveEndNodeAtTheEnd moves the end node at the end of the list and sets its group accordingly
-func moveEndNodeAtTheEnd(nodeInfos []*DagNodeInfo) []*DagNodeInfo {
+func moveEndNodeAtTheEnd(nodeInfos []*TaskInfo) []*TaskInfo {
 	// move the endNode at the end of the list
-	var endNodeInfo *DagNodeInfo
+	var endNodeInfo *TaskInfo
 	// get index of end node to remove
 	indexToRemove := -1
 	maxGroup := 0
@@ -298,7 +298,7 @@ func moveEndNodeAtTheEnd(nodeInfos []*DagNodeInfo) []*DagNodeInfo {
 
 // InitProgressRecursive initialize the node list assigning a group to each node, so that we can know which nodes should run in parallel or is a choice branch
 func InitProgressRecursive(reqId ReqId, workflow *Workflow) *Progress {
-	nodeInfos := extractNodeInfo(workflow, workflow.Start, 0, make([]*DagNodeInfo, 0))
+	nodeInfos := extractNodeInfo(workflow, workflow.Start, 0, make([]*TaskInfo, 0))
 	nodeInfos = moveEndNodeAtTheEnd(nodeInfos)
 	nodeInfos = reorder(nodeInfos)
 	return &Progress{
@@ -309,13 +309,13 @@ func InitProgressRecursive(reqId ReqId, workflow *Workflow) *Progress {
 }
 
 // popMinGroupAndBranchNode removes the node with minimum group and, in case of multiple nodes in the same group, minimum branch
-func popMinGroupAndBranchNode(infos *[]*DagNodeInfo) *DagNodeInfo {
+func popMinGroupAndBranchNode(infos *[]*TaskInfo) *TaskInfo {
 	// finding min group nodes
 	minGroup := math.MaxInt
-	var minGroupNodeInfo []*DagNodeInfo
+	var minGroupNodeInfo []*TaskInfo
 	for _, info := range *infos {
 		if info.Group < minGroup {
-			minGroupNodeInfo = make([]*DagNodeInfo, 0)
+			minGroupNodeInfo = make([]*TaskInfo, 0)
 			minGroup = info.Group
 			minGroupNodeInfo = append(minGroupNodeInfo, info)
 		}
@@ -324,7 +324,7 @@ func popMinGroupAndBranchNode(infos *[]*DagNodeInfo) *DagNodeInfo {
 		}
 	}
 	minBranch := math.MaxInt // when there are ties
-	var minGroupAndBranchNode *DagNodeInfo
+	var minGroupAndBranchNode *TaskInfo
 
 	// finding min branch node from those of the minimum group
 	for _, info := range minGroupNodeInfo {
@@ -346,8 +346,8 @@ func popMinGroupAndBranchNode(infos *[]*DagNodeInfo) *DagNodeInfo {
 	return minGroupAndBranchNode
 }
 
-func reorder(infos []*DagNodeInfo) []*DagNodeInfo {
-	reordered := make([]*DagNodeInfo, 0)
+func reorder(infos []*TaskInfo) []*TaskInfo {
+	reordered := make([]*TaskInfo, 0)
 	for len(infos) > 0 {
 		next := popMinGroupAndBranchNode(&infos)
 		reordered = append(reordered, next)
@@ -355,7 +355,7 @@ func reorder(infos []*DagNodeInfo) []*DagNodeInfo {
 	return reordered
 }
 
-func isNodeInfoPresent(node TaskId, infos []*DagNodeInfo) bool {
+func isNodeInfoPresent(node TaskId, infos []*TaskInfo) bool {
 	isPresent := false
 	for _, nodeInfo := range infos {
 		if nodeInfo.Id == node {
@@ -367,7 +367,7 @@ func isNodeInfoPresent(node TaskId, infos []*DagNodeInfo) bool {
 }
 
 // extractNodeInfo retrieves all needed information from nodes and sets node groups. It duplicates end nodes.
-func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*DagNodeInfo) []*DagNodeInfo {
+func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*TaskInfo) []*TaskInfo {
 	info := newNodeInfo(node, group)
 	if !isNodeInfoPresent(node.GetId(), infos) {
 		infos = append(infos, info)
