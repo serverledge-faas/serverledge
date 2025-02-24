@@ -57,7 +57,7 @@ func (workflow *Workflow) Find(nodeId TaskId) (Task, bool) {
 	return task, found
 }
 
-// TODO: only the subsequent APIs should be public: NewDag, Print, GetUniqueDagFunctions, Equals
+// TODO: only the subsequent APIs should be public: NewDag, Print, GetUniqueFunctions, Equals
 //  the remaining should be private after the builder APIs work well!!!
 
 // addNode can be used to add a new node to the Workflow. Does not chain anything, but updates Workflow width
@@ -635,8 +635,8 @@ func (workflow *Workflow) Execute(r *CompositionRequest, data *PartialData, prog
 	return pd, progress, shouldContinue, nil
 }
 
-// GetUniqueDagFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
-func (workflow *Workflow) GetUniqueDagFunctions() []string {
+// GetUniqueFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
+func (workflow *Workflow) GetUniqueFunctions() []string {
 	allFunctionsMap := make(map[string]void)
 	for _, node := range workflow.Nodes {
 		switch n := node.(type) {

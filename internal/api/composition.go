@@ -89,7 +89,7 @@ func CreateFunctionComposition(e echo.Context) error {
 	log.Printf("New request: creation of composition %s", comp.Name)
 
 	// Check that functions exist
-	for _, fName := range comp.GetUniqueDagFunctions() {
+	for _, fName := range comp.GetUniqueFunctions() {
 		f, exists := function.GetFunction(fName)
 		if !exists {
 			log.Printf("Dropping request for composition with non-existing function '%s'", fName)
