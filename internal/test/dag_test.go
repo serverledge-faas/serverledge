@@ -13,7 +13,7 @@ import (
 func TestDagMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
-	dag1, _ := fc.CreateEmptyDag()
+	dag1, _ := fc.CreateEmptyWorkflow()
 	dag2, _ := fc.CreateSequenceDag(f, f, f)
 	dag3, _ := fc.CreateChoiceDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f) })
 	dag4, _ := fc.CreateBroadcastDag(func() (*fc.Workflow, error) { return fc.CreateSequenceDag(f, f) }, 4)
@@ -41,7 +41,7 @@ func TestEmptyDag(t *testing.T) {
 	input := 1
 	m := make(map[string]interface{})
 	m["input"] = input
-	workflow, err := fc.CreateEmptyDag()
+	workflow, err := fc.CreateEmptyWorkflow()
 	u.AssertNil(t, err)
 
 	u.AssertNonNil(t, workflow.Start)

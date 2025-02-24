@@ -668,7 +668,7 @@ func (b *Builder) Build() (*Workflow, error) {
 	return &b.workflow, nil
 }
 
-func CreateEmptyDag() (*Workflow, error) {
+func CreateEmptyWorkflow() (*Workflow, error) {
 	return NewBuilder().Build()
 }
 
