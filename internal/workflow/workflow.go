@@ -31,14 +31,13 @@ type Workflow struct {
 	Width int      // width is the max fanOut degree of the Workflow
 }
 
-func NewWorkflowWithName(name string) Workflow {
-	workflow := NewWorkflow()
+func NewWorkflow(name string) Workflow {
+	workflow := newWorkflow()
 	workflow.Name = name
 	return workflow
 }
 
-// TODO: handle Workflow creation with name better
-func NewWorkflow() Workflow {
+func newWorkflow() Workflow {
 	start := NewStartNode()
 	end := NewEndNode()
 	nodes := make(map[TaskId]Task)
@@ -58,9 +57,6 @@ func (workflow *Workflow) Find(nodeId TaskId) (Task, bool) {
 	task, found := workflow.Nodes[nodeId]
 	return task, found
 }
-
-// TODO: only the subsequent APIs should be public: NewDag, Print, GetUniqueFunctions, Equals
-//  the remaining should be private after the builder APIs work well!!!
 
 // addNode can be used to add a new node to the Workflow. Does not chain anything, but updates Workflow width
 func (workflow *Workflow) addNode(node Task) {
@@ -258,12 +254,6 @@ func (workflow *Workflow) executeSimple(progress *Progress, partialData *Partial
 		return pd, progress, false, err
 	}
 
-	// Todo: uncomment when running TestInvokeFC_Concurrent to debug concurrency errors
-	// errDbg := Debug(r, string(simpleNode.Id), output)
-	// if errDbg != nil {
-	// 	return false, errDbg
-	// }
-
 	forNode := simpleNode.GetNext()[0]
 
 	errSend := simpleNode.PrepareOutput(workflow, output)
@@ -272,7 +262,7 @@ func (workflow *Workflow) executeSimple(progress *Progress, partialData *Partial
 	}
 
 	// setting the remaining fields of pd
-	pd.ForNode = forNode
+	pd.ForTask = forNode
 	pd.Data = output
 
 	err = progress.CompleteNode(nodeId)
@@ -301,7 +291,7 @@ func (workflow *Workflow) executeChoice(progress *Progress, partialData *Partial
 	}
 
 	// setting the remaining fields of pd
-	pd.ForNode = choice.GetNext()[0]
+	pd.ForTask = choice.GetNext()[0]
 	pd.Data = output
 
 	errSend := choice.PrepareOutput(workflow, output)
@@ -467,7 +457,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	//pd := NewPartialData(requestId, node.GetNext()[0], "", outputMap)
 	// setting the remaining fields of pd
 	// TODO: node is updated within the previous loop, hence we only get the next node for 1 of the parallel nodes
-	pd.ForNode = node.GetNext()[0]
+	pd.ForTask = node.GetNext()[0]
 	pd.Data = outputMap
 	return pd, progress, nil
 }
@@ -514,7 +504,7 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	}
 
 	// setting the remaining field of pd
-	pd.ForNode = fanIn.GetNext()[0]
+	pd.ForTask = fanIn.GetNext()[0]
 	pd.Data = output
 	err = progress.CompleteNode(nodeId)
 	if err != nil {
@@ -548,12 +538,6 @@ func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData
 		return pd, progress, false, err
 	}
 
-	// Todo: uncomment when running TestInvokeFC_Concurrent to debug concurrency errors
-	// errDbg := Debug(r, string(node.Id), output)
-	// if errDbg != nil {
-	// 	return false, errDbg
-	// }
-
 	errSend := node.PrepareOutput(workflow, output)
 	if errSend != nil {
 		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", node.String(), errSend)
@@ -561,7 +545,7 @@ func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData
 
 	forNode := node.GetNext()[0]
 	// setting the remaining fields of pd
-	pd.ForNode = forNode
+	pd.ForTask = forNode
 	pd.Data = output
 
 	err = progress.CompleteNode(nodeId)
@@ -666,12 +650,12 @@ func getEtcdKey(workflowName string) string {
 	return fmt.Sprintf("/workflow/%s", workflowName)
 }
 
-// GetAllFC returns the workflow names
-func GetAllFC() ([]string, error) {
+// GetAllWorkflows returns the workflow names
+func GetAllWorkflows() ([]string, error) {
 	return function.GetAllWithPrefix("/workflow")
 }
 
-func getFCFromCache(name string) (*Workflow, bool) {
+func getFromCache(name string) (*Workflow, bool) {
 	localCache := cache.GetCacheInstance()
 	cachedObj, found := localCache.Get(name)
 	if !found {
@@ -683,7 +667,7 @@ func getFCFromCache(name string) (*Workflow, bool) {
 	return &fc, true
 }
 
-func getFCFromEtcd(name string) (*Workflow, error) {
+func getFromEtcd(name string) (*Workflow, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
@@ -705,12 +689,12 @@ func getFCFromEtcd(name string) (*Workflow, error) {
 	return &f, nil
 }
 
-// GetFC gets the Workflow from cache or from ETCD
-func GetFC(name string) (*Workflow, bool) {
-	val, found := getFCFromCache(name)
+// Get gets the Workflow from cache or from ETCD
+func Get(name string) (*Workflow, bool) {
+	val, found := getFromCache(name)
 	if !found {
 		// cache miss
-		f, err := getFCFromEtcd(name)
+		f, err := getFromEtcd(name)
 		if err != nil {
 			return nil, false
 		}
@@ -722,9 +706,9 @@ func GetFC(name string) (*Workflow, bool) {
 	return val, true
 }
 
-// SaveToEtcd creates and register the workflow in Serverledge
-// It is like SaveToEtcd for a simple function
-func (workflow *Workflow) SaveToEtcd() error {
+// Save creates and register the workflow in Serverledge
+// It is like Save for a simple function
+func (workflow *Workflow) Save() error {
 	if len(workflow.Name) == 0 {
 		return fmt.Errorf("cannot save an anonymous workflow (no name set)")
 	}
@@ -757,13 +741,9 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 	var err error
 	requestId := ReqId(r.ReqId)
-	input := r.Params
-	// initialize struct progress from workflow
-	progress := InitProgressRecursive(requestId, workflow)
 
-	// initialize partial data with input, directly from the Start.Next node
-	pd := NewPartialData(requestId, workflow.Start.Next, "nil", input)
-	pd.Data = input
+	progress := InitProgressRecursive(requestId, workflow)
+	pd := NewPartialData(requestId, workflow.Start.Next, "nil", r.Params) // TODO: can we use an empty string rather than "nil"?
 
 	shouldContinue := true
 	for shouldContinue {
@@ -819,10 +799,10 @@ func (workflow *Workflow) Delete() error {
 
 // Exists return true if the workflow exists either in etcd or in cache. If it only exists in Etcd, it saves the workflow also in caches
 func (workflow *Workflow) Exists() bool {
-	_, found := getFCFromCache(workflow.Name)
+	_, found := getFromCache(workflow.Name)
 	if !found {
 		// cache miss
-		f, err := getFCFromEtcd(workflow.Name)
+		f, err := getFromEtcd(workflow.Name)
 		if err != nil {
 			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(workflow.Name)) {
 				return false
@@ -1024,82 +1004,6 @@ func (workflow *Workflow) IsEmpty() bool {
 	}
 
 	return false
-}
-
-func WorkflowBuildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
-	builder := NewBuilder()
-	isTerminal := false
-	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
-	for !isTerminal {
-
-		switch nextState.GetType() {
-		case asl.Task:
-
-			taskState := nextState.(*asl.TaskState)
-			b, err := BuildFromTaskState(builder, taskState, nextStateName)
-			if err != nil {
-				return nil, fmt.Errorf("failed building SimpleNode from task state: %v", err)
-			}
-			builder = b
-			nextState, nextStateName, isTerminal = findNextOrTerminate(taskState, sm)
-			break
-		case asl.Parallel:
-			parallelState := nextState.(*asl.ParallelState)
-			b, err := BuildFromParallelState(builder, parallelState, nextStateName)
-			if err != nil {
-				return nil, fmt.Errorf("failed building FanInNode and FanOutNode from ParallelState: %v", err)
-			}
-			builder = b
-			nextState, nextStateName, isTerminal = findNextOrTerminate(parallelState, sm)
-			break
-		case asl.Map:
-			mapState := nextState.(*asl.MapState)
-			b, err := BuildFromMapState(builder, mapState, nextStateName)
-			if err != nil {
-				return nil, fmt.Errorf("failed building MapNode from Map state: %v", err) // TODO: MapNode doesn't exist
-			}
-			builder = b
-			nextState, nextStateName, isTerminal = findNextOrTerminate(mapState, sm)
-			break
-		case asl.Pass:
-			passState := nextState.(*asl.PassState)
-			b, err := BuildFromPassState(builder, passState, nextStateName)
-			if err != nil {
-				return nil, fmt.Errorf("failed building SimplNode with function 'pass' from Pass state: %v", err)
-			}
-			builder = b
-			nextState, nextStateName, isTerminal = findNextOrTerminate(passState, sm)
-			break
-		case asl.Wait:
-			waitState := nextState.(*asl.WaitState)
-			b, err := BuildFromWaitState(builder, waitState, nextStateName)
-			if err != nil {
-				return nil, fmt.Errorf("failed building SimpleNode with function 'wait' from Wait state: %v", err)
-			}
-			builder = b
-			nextState, nextStateName, isTerminal = findNextOrTerminate(waitState, sm)
-			break
-		case asl.Choice:
-			choiceState := nextState.(*asl.ChoiceState)
-			// In this case, the choice state will automatically build the workflow, because it is terminal
-			return BuildFromChoiceState(builder, choiceState, nextStateName, sm)
-		case asl.Succeed:
-			succeed := nextState.(*asl.SucceedState)
-			return BuildFromSucceedState(builder, succeed, nextStateName)
-		case asl.Fail:
-			failState := nextState.(*asl.FailState)
-			return BuildFromFailState(builder, failState, nextStateName)
-		default:
-			return nil, fmt.Errorf("unknown state type %s", nextState.GetType())
-		}
-	}
-	return builder.Build()
-}
-
-func FromStateMachine(sm *asl.StateMachine) (*Workflow, error) {
-	nextStateName := sm.StartAt
-	nextState := sm.States[nextStateName]
-	return WorkflowBuildingLoop(sm, nextState, nextStateName)
 }
 
 // findNextOrTerminate returns the State, its name and if it is terminal or not

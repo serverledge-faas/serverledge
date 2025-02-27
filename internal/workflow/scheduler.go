@@ -6,7 +6,6 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
-// TODO: offload the entire node when is cloud only
 func SubmitWorkflowInvocationRequest(req *Request) error {
 	executionReport, err := req.W.Invoke(req)
 	if err != nil {
@@ -17,7 +16,6 @@ func SubmitWorkflowInvocationRequest(req *Request) error {
 	return nil
 }
 
-// TODO: offload the entire node.
 // TODO: make sure the requestId is the one returned from the serverledge node that will execute
 func SubmitAsyncWorkflowInvocationRequest(req *Request) {
 	executionReport, errInvoke := req.W.Invoke(req)

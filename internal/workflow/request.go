@@ -15,9 +15,9 @@ type Request struct {
 	W               *Workflow
 	Params          map[string]interface{}
 	Arrival         time.Time
-	ExecReport      ExecutionReport                // each function has its execution report, and the workflow has additional metrics
-	RequestQoSMap   map[string]function.RequestQoS // every function should have its RequestQoS
-	CanDoOffloading bool                           // every function inherits this flag
+	ExecReport      ExecutionReport     // each function has its execution report, and the workflow has additional metrics
+	QoS             function.RequestQoS // every function should have its QoS
+	CanDoOffloading bool                // every function inherits this flag
 	Async           bool
 }
 
@@ -30,7 +30,6 @@ func NewRequest(reqId string, workflow *Workflow, params map[string]interface{})
 		ExecReport: ExecutionReport{
 			Reports: hashmap.New[ExecutionReportId, *function.ExecutionReport](), // make(map[ExecutionReportId]*function.ExecutionReport),
 		},
-		RequestQoSMap:   make(map[string]function.RequestQoS),
 		CanDoOffloading: true,
 		Async:           false,
 	}

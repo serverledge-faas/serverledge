@@ -44,7 +44,7 @@ func TestComposeFC(t *testing.T) {
 	}
 
 	// GET1 - initially we do not have any function composition
-	funcs, err := workflow.GetAllFC()
+	funcs, err := workflow.GetAllWorkflows()
 	lenFuncs := len(funcs)
 	u.AssertNil(t, err)
 
@@ -60,18 +60,18 @@ func TestComposeFC(t *testing.T) {
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err2 := wflow.SaveToEtcd()
+	err2 := wflow.Save()
 
 	u.AssertNil(t, err2)
 
 	// The creation is successful: we have one more function composition?
 	// GET2
-	funcs2, err3 := workflow.GetAllFC()
+	funcs2, err3 := workflow.GetAllWorkflows()
 	u.AssertNil(t, err3)
 	u.AssertEqualsMsg(t, lenFuncs+1, len(funcs2), "creation of function failed")
 
 	// the function is exactly the one i created?
-	fun, ok := workflow.GetFC(workflowName)
+	fun, ok := workflow.Get(workflowName)
 	u.AssertTrue(t, ok)
 	u.AssertTrue(t, wflow.Equals(fun))
 
@@ -81,7 +81,7 @@ func TestComposeFC(t *testing.T) {
 
 	// The deletion is successful?
 	// GET3
-	funcs3, err5 := workflow.GetAllFC()
+	funcs3, err5 := workflow.GetAllWorkflows()
 	u.AssertNil(t, err5)
 	u.AssertEqualsMsg(t, len(funcs3), lenFuncs, "deletion of function failed")
 }
@@ -101,7 +101,7 @@ func TestInvokeFC(t *testing.T) {
 	wflow, err := CreateSequenceWorkflow(fArr...)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -152,7 +152,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// this is the function that will be called
@@ -204,7 +204,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 
 	u.AssertNil(t, err)
 
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -250,7 +250,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -292,7 +292,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	concurrencyLevel := 3
@@ -365,7 +365,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -438,7 +438,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	wflow.Name = workflowName
 
 	u.AssertNil(t, err)
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -484,7 +484,7 @@ func TestInvokeWorkflowError(t *testing.T) {
 		EndChoiceAndBuild()
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
@@ -511,7 +511,7 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 	wflow.Name = "fail_succeed"
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	// First run: Success
@@ -561,7 +561,7 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	wflow.Name = "pass_do_nothing"
 	u.AssertNil(t, err)
 
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	params := make(map[string]interface{})
@@ -593,7 +593,7 @@ func TestInvokeWorkflowWait(t *testing.T) {
 	u.AssertNil(t, err)
 
 	wflow.Name = "pass_do_nothing"
-	err1 := wflow.SaveToEtcd()
+	err1 := wflow.Save()
 	u.AssertNil(t, err1)
 
 	params := make(map[string]interface{})

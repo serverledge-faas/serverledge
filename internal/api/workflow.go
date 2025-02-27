@@ -33,7 +33,7 @@ func CreateWorkflowFromASL(e echo.Context) error {
 	}
 
 	// checking if the function already exists. If exists we return an error
-	_, found := workflow.GetFC(creationRequest.Name)
+	_, found := workflow.Get(creationRequest.Name)
 	if found {
 		log.Printf("Dropping request for already existing workflow '%s'", creationRequest.Name)
 		return e.JSON(http.StatusConflict, "workflow already exists")
@@ -53,7 +53,7 @@ func CreateWorkflowFromASL(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, "workflow already exists")
 	}
 
-	err = comp.SaveToEtcd()
+	err = comp.Save()
 	if err != nil {
 		log.Printf("Failed creation: %v", err)
 		return e.JSON(http.StatusServiceUnavailable, "")
@@ -98,7 +98,7 @@ func CreateWorkflow(e echo.Context) error {
 		}
 	}
 
-	err = comp.SaveToEtcd()
+	err = comp.Save()
 	if err != nil {
 		log.Printf("Failed creation: %v", err)
 		return e.JSON(http.StatusServiceUnavailable, "")
@@ -109,7 +109,7 @@ func CreateWorkflow(e echo.Context) error {
 
 // GetWorkflows handles a request to list the function workflows available in the system.
 func GetWorkflows(c echo.Context) error {
-	list, err := workflow.GetAllFC()
+	list, err := workflow.GetAllWorkflows()
 	if err != nil {
 		return c.String(http.StatusServiceUnavailable, "")
 	}
@@ -126,71 +126,68 @@ func DeleteWorkflow(c echo.Context) error {
 		return err
 	}
 
-	workflow, ok := workflow.GetFC(comp.Name) // TODO: we would need a system-wide lock here...
+	wflow, ok := workflow.Get(comp.Name) // TODO: we would need a system-wide lock here...
 	if !ok {
 		log.Printf("Dropping request for non existing function '%s'", comp.Name)
 		return c.JSON(http.StatusNotFound, "the request function workflow to delete does not exist")
 	}
 
-	log.Printf("New request: deleting %s", workflow.Name)
-	err = workflow.Delete()
+	log.Printf("New request: deleting %s", wflow.Name)
+	err = wflow.Delete()
 	if err != nil {
 		log.Printf("Failed deletion: %v", err)
 		return c.JSON(http.StatusServiceUnavailable, "")
 	}
 
-	response := struct{ Deleted string }{workflow.Name}
+	response := struct{ Deleted string }{wflow.Name}
 	return c.JSON(http.StatusOK, response)
 }
 
 // InvokeWorkflow handles a function workflow invocation request.
 func InvokeWorkflow(e echo.Context) error {
-	// gets the command line param value for -workflow (the workflow name)
-	fcName := e.Param("workflow")
-	funComp, ok := workflow.GetFC(fcName)
+	workflowName := e.Param("workflow")
+	wflow, ok := workflow.Get(workflowName)
 	if !ok {
-		log.Printf("Dropping request for unknown FC '%s'", fcName)
-		return e.JSON(http.StatusNotFound, "function workflow '"+fcName+"' does not exist")
+		log.Printf("Dropping request for unknown workflow '%s'", workflowName)
+		return e.JSON(http.StatusNotFound, "function workflow '"+workflowName+"' does not exist")
 	}
 
-	// we use invocation request that is specific to function workflows
-	var fcInvocationRequest client.WorkflowInvocationRequest
-	err := json.NewDecoder(e.Request().Body).Decode(&fcInvocationRequest)
+	var clientReq client.WorkflowInvocationRequest
+	err := json.NewDecoder(e.Request().Body).Decode(&clientReq)
 	if err != nil && err != io.EOF {
 		log.Printf("Could not parse invoke request - error during decoding: %v", err)
 		return e.JSON(http.StatusInternalServerError, "failed to parse workflow invocation request. Check parameters and workflow definition")
 	}
-	// gets a workflow.NewRequest from the pool goroutine-safe cache.
-	fcReq := workflowInvocationRequestPool.Get().(*workflow.Request) // A pointer *function.NewRequest will be created if does not exists, otherwise removed from the pool
-	defer workflowInvocationRequestPool.Put(fcReq)                   // at the end of the function, the function.NewRequest is added to the pool.
-	fcReq.W = funComp
-	fcReq.Params = fcInvocationRequest.Params
-	fcReq.Arrival = time.Now()
 
-	// instead of saving only one RequestQoS, we save a map with an entry for each function in the workflow
-	fcReq.RequestQoSMap = fcInvocationRequest.RequestQoSMap
+	req := workflowInvocationRequestPool.Get().(*workflow.Request)
+	defer workflowInvocationRequestPool.Put(req) // at the end of the function, the function.NewRequest is added to the pool.
+	req.W = wflow
+	req.Params = clientReq.Params
+	req.Arrival = time.Now()
+	req.QoS = clientReq.QoS
+	req.CanDoOffloading = clientReq.CanDoOffloading
+	req.Async = clientReq.Async
 
-	fcReq.CanDoOffloading = fcInvocationRequest.CanDoOffloading
-	fcReq.Async = fcInvocationRequest.Async
-	fcReq.ReqId = fmt.Sprintf("%v-%s%d", funComp.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], fcReq.Arrival.Nanosecond())
-	// init fields if possibly not overwritten later
-	fcReq.ExecReport.Reports = hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport]() // make(map[workflow.ExecutionReportId]*function.ExecutionReport)
-	for nodeId := range funComp.Nodes {
-		task := funComp.Nodes[nodeId]
+	req.ReqId = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
+
+	// TODO: do we really need to initialize all the reports at this point?
+	req.ExecReport.Reports = hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport]() // make(map[workflow.ExecutionReportId]*function.ExecutionReport)
+	for nodeId := range wflow.Nodes {
+		task := wflow.Nodes[nodeId]
 		execReportId := workflow.CreateExecutionReportId(task)
-		fcReq.ExecReport.Reports.Set(execReportId, &function.ExecutionReport{
+		req.ExecReport.Reports.Set(execReportId, &function.ExecutionReport{
 			OffloadLatency: 0,
 			SchedAction:    "",
 		})
 	}
 
-	if fcReq.Async {
-		go workflow.SubmitAsyncWorkflowInvocationRequest(fcReq)
-		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: fcReq.ReqId})
+	if req.Async {
+		go workflow.SubmitAsyncWorkflowInvocationRequest(req)
+		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: req.ReqId})
 	}
 
 	// sync execution
-	err = workflow.SubmitWorkflowInvocationRequest(fcReq)
+	err = workflow.SubmitWorkflowInvocationRequest(req)
 
 	if errors.Is(err, node.OutOfResourcesErr) {
 		return e.String(http.StatusTooManyRequests, "")
@@ -201,21 +198,21 @@ func InvokeWorkflow(e echo.Context) error {
 			Progress string
 		}{
 			Error:    err.Error(),
-			Progress: fcReq.ExecReport.Progress.PrettyString(),
+			Progress: req.ExecReport.Progress.PrettyString(),
 		}
 		return e.JSON(http.StatusInternalServerError, v)
 	} else {
 		reports := make(map[string]*function.ExecutionReport)
-		fcReq.ExecReport.Reports.Range(func(id workflow.ExecutionReportId, report *function.ExecutionReport) bool {
+		req.ExecReport.Reports.Range(func(id workflow.ExecutionReportId, report *function.ExecutionReport) bool {
 			reports[string(id)] = report
 			return true
 		})
 
 		return e.JSON(http.StatusOK, workflow.InvocationResponse{
 			Success:      true,
-			Result:       fcReq.ExecReport.Result,
+			Result:       req.ExecReport.Result,
 			Reports:      reports,
-			ResponseTime: fcReq.ExecReport.ResponseTime,
+			ResponseTime: req.ExecReport.ResponseTime,
 		})
 	}
 }

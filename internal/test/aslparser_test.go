@@ -32,7 +32,7 @@ func TestParsedWorkflowName(t *testing.T) {
 // commonTest creates a function, parses a json AWS State Language file producing a function composition,
 // then checks if the composition is saved onto ETCD. Lastly, it runs the composition and expects the correct result.
 func commonTest(t *testing.T, name string, expectedResult int) {
-	all, err := workflow.GetAllFC()
+	all, err := workflow.GetAllWorkflows()
 	utils.AssertNil(t, err)
 
 	//initializeAllPyFunctionFromNames(t, "inc", "double", "hello", "noop")
@@ -44,14 +44,14 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	}()
 	// saving to etcd is not necessary to run the function composition, but is needed when offloading
 	{
-		err := comp.SaveToEtcd()
+		err := comp.Save()
 		utils.AssertNilMsg(t, err, "unable to save parsed composition")
 
-		all2, err := workflow.GetAllFC()
+		all2, err := workflow.GetAllWorkflows()
 		utils.AssertNil(t, err)
 		utils.AssertEqualsMsg(t, len(all2), len(all)+1, "the number of created functions differs")
 
-		expectedComp, ok := workflow.GetFC(name)
+		expectedComp, ok := workflow.Get(name)
 		utils.AssertTrue(t, ok)
 
 		utils.AssertTrueMsg(t, comp.Equals(expectedComp), "parsed composition differs from expected composition")

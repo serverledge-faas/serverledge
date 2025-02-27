@@ -77,7 +77,7 @@ func TestCreateWorkflow(t *testing.T) {
 	}
 
 	// here we do not use REST API
-	getFC, b := workflow.GetFC(fcName)
+	getFC, b := workflow.Get(fcName)
 	utils.AssertTrue(t, b)
 	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
 	err = wflow.Delete()
@@ -111,7 +111,7 @@ func TestInvokeWorkflow(t *testing.T) {
 	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
-	getFC, b := workflow.GetFC(fcName)
+	getFC, b := workflow.Get(fcName)
 	utils.AssertTrue(t, b)
 	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
 	err = wflow.Delete()
@@ -150,7 +150,7 @@ func TestInvokeWorkflow_DifferentFunctions(t *testing.T) {
 	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
-	getFC, b := workflow.GetFC(fcName)
+	getFC, b := workflow.Get(fcName)
 	utils.AssertTrue(t, b)
 	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
 	err = wflow.Delete()
@@ -181,7 +181,7 @@ func TestDeleteWorkflow(t *testing.T) {
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 
-	err = workflow.SaveToEtcd()
+	err = workflow.Save()
 	utils.AssertNil(t, err)
 
 	// the API under test is the following
@@ -248,7 +248,7 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 	}
 
 	// here we do not use REST API
-	getFC, b := workflow.GetFC(fcName)
+	getFC, b := workflow.Get(fcName)
 	utils.AssertTrue(t, b)
 	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
 	err = wflow.Delete()

@@ -24,8 +24,8 @@ func newPartialDataId(reqId ReqId) PartialDataId {
 // PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
 type PartialData struct {
 	ReqId    ReqId  // request referring to this partial data
-	ForNode  TaskId // task that should receive this partial data
-	FromNode TaskId // useful for fanin
+	ForTask  TaskId // task that should receive this partial data
+	FromTask TaskId // useful for fanIn
 	Data     map[string]interface{}
 }
 
@@ -46,23 +46,23 @@ func (pd PartialData) Equals(pd2 *PartialData) bool {
 		}
 	}
 
-	return pd.ReqId == pd2.ReqId && pd.FromNode == pd2.FromNode && pd.ForNode == pd2.ForNode
+	return pd.ReqId == pd2.ReqId && pd.FromTask == pd2.FromTask && pd.ForTask == pd2.ForTask
 }
 
 func (pd PartialData) String() string {
 	return fmt.Sprintf(`PartialData{
 		ReqId:    %s,
-		ForNode:  %s,
-		FromNode: %s,
+		ForTask:  %s,
+		FromTask: %s,
 		Data:     %v,
-	}`, pd.ReqId, pd.ForNode, pd.FromNode, pd.Data)
+	}`, pd.ReqId, pd.ForTask, pd.FromTask, pd.Data)
 }
 
-func NewPartialData(reqId ReqId, forNode TaskId, fromNode TaskId, data map[string]interface{}) *PartialData {
+func NewPartialData(reqId ReqId, forTask TaskId, fromTask TaskId, data map[string]interface{}) *PartialData {
 	return &PartialData{
 		ReqId:    reqId,
-		ForNode:  forNode,
-		FromNode: fromNode,
+		ForTask:  forTask,
+		FromTask: fromTask,
 		Data:     data,
 	}
 }
@@ -206,11 +206,11 @@ func savePartialDataInCache(pds ...*PartialData) bool {
 			return false
 		}
 
-		slice, _ := partialDataMapTyped.LoadOrStore(pd.ForNode, make([]*PartialData, 0))
+		slice, _ := partialDataMapTyped.LoadOrStore(pd.ForTask, make([]*PartialData, 0))
 		sliceTyped := slice.([]*PartialData)
 
 		sliceTyped = append(sliceTyped, pd)
-		partialDataMapTyped.Store(pd.ForNode, sliceTyped)
+		partialDataMapTyped.Store(pd.ForTask, sliceTyped)
 		pdCache.Store(partialDataIdType, partialDataMapTyped)
 	}
 	return true
@@ -230,7 +230,7 @@ func savePartialDataToEtcd(pd *PartialData) error {
 	pdEtcdMutex.Lock()
 	defer pdEtcdMutex.Unlock()
 	// saves the json object into etcd
-	_, err = cli.Put(ctx, getPartialDataEtcdKey(pd.ReqId, pd.ForNode), string(payload))
+	_, err = cli.Put(ctx, getPartialDataEtcdKey(pd.ReqId, pd.ForTask), string(payload))
 	if err != nil {
 		return fmt.Errorf("failed etcd Put partial data: %v", err)
 	}
@@ -306,11 +306,11 @@ func getAllPartialDataFromEtcd(requestId ReqId) (map[TaskId][]*PartialData, erro
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal partialDataMap json: %v", err)
 		}
-		_, found := partialDataMap[partialData.ForNode]
+		_, found := partialDataMap[partialData.ForTask]
 		if !found {
-			partialDataMap[partialData.ForNode] = make([]*PartialData, 0)
+			partialDataMap[partialData.ForTask] = make([]*PartialData, 0)
 		}
-		partialDataMap[partialData.ForNode] = append(partialDataMap[partialData.ForNode], partialData)
+		partialDataMap[partialData.ForTask] = append(partialDataMap[partialData.ForTask], partialData)
 	}
 
 	return partialDataMap, nil

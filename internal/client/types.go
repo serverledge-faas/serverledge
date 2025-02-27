@@ -23,8 +23,7 @@ type PrewarmingRequest struct {
 // WorkflowInvocationRequest is an external invocation of a workflow (from API or CLI)
 type WorkflowInvocationRequest struct {
 	Params          map[string]interface{}
-	RequestQoSMap   map[string]function.RequestQoS
-	QosMaxRespT     float64
+	QoS             function.RequestQoS
 	CanDoOffloading bool
 	Async           bool
 	// NextNodes       []string // DagNodeId

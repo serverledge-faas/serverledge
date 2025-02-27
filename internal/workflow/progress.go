@@ -42,13 +42,13 @@ type TaskInfo struct {
 	Branch int // copied from task
 }
 
-func newNodeInfo(dNode Task, group int) *TaskInfo {
+func newTaskInfo(task Task, group int) *TaskInfo {
 	return &TaskInfo{
-		Id:     dNode.GetId(),
-		Type:   parseType(dNode),
+		Id:     task.GetId(),
+		Type:   parseType(task),
 		Status: Pending,
 		Group:  group,
-		Branch: dNode.GetBranchId(),
+		Branch: task.GetBranchId(),
 	}
 }
 
@@ -296,7 +296,7 @@ func moveEndNodeAtTheEnd(nodeInfos []*TaskInfo) []*TaskInfo {
 	return nodeInfos
 }
 
-// InitProgressRecursive initialize the node list assigning a group to each node, so that we can know which nodes should run in parallel or is a choice branch
+// InitProgressRecursive initialize the node list assigning a group to each node, so that we can know which nodes should run in parallel or in a choice branch
 func InitProgressRecursive(reqId ReqId, workflow *Workflow) *Progress {
 	nodeInfos := extractNodeInfo(workflow, workflow.Start, 0, make([]*TaskInfo, 0))
 	nodeInfos = moveEndNodeAtTheEnd(nodeInfos)
@@ -367,8 +367,10 @@ func isNodeInfoPresent(node TaskId, infos []*TaskInfo) bool {
 }
 
 // extractNodeInfo retrieves all needed information from nodes and sets node groups. It duplicates end nodes.
+// TODO: cache this information in the Workflow struct for reuse
+// TODO: avoid a recursive implementation, if possible
 func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*TaskInfo) []*TaskInfo {
-	info := newNodeInfo(node, group)
+	info := newTaskInfo(node, group)
 	if !isNodeInfoPresent(node.GetId(), infos) {
 		infos = append(infos, info)
 	} else if n, ok := node.(*FanInNode); ok {
@@ -381,16 +383,7 @@ func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*TaskInfo
 	}
 	group++
 	switch n := node.(type) {
-	case *StartNode:
-		startNode, _ := workflow.Find(n.GetNext()[0])
-		toAdd := extractNodeInfo(workflow, startNode, group, infos)
-		for _, add := range toAdd {
-			if !isNodeInfoPresent(add.Id, infos) {
-				infos = append(infos, add)
-			}
-		}
-		return infos
-	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
+	case *StartNode, *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
 		task, _ := workflow.Find(n.GetNext()[0])
 		toAdd := extractNodeInfo(workflow, task, group, infos)
 		for _, add := range toAdd {

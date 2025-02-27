@@ -17,8 +17,8 @@ func TestPartialDataMarshaling(t *testing.T) {
 	data["list"] = []string{"uno", "due", "tre"}
 	partialData := workflow.PartialData{
 		ReqId:    workflow.ReqId("abc"),
-		ForNode:  "fai13p102",
-		FromNode: "120e8d12d",
+		ForTask:  "fai13p102",
+		FromTask: "120e8d12d",
 		Data:     data,
 	}
 	marshal, errMarshal := json.Marshal(partialData)
@@ -56,14 +56,14 @@ func TestPartialDataCache(t *testing.T) {
 		err := workflow.SavePartialData(partialData, cache.Persist)
 		u.AssertNilMsg(t, err, "failed to save partialData")
 
-		retrievedPartialData, err := workflow.RetrievePartialData(partialData.ReqId, partialData.ForNode, cache.Persist)
+		retrievedPartialData, err := workflow.RetrievePartialData(partialData.ReqId, partialData.ForTask, cache.Persist)
 		u.AssertNilMsg(t, err, "partialData not found")
 		u.AssertTrueMsg(t, partialData.Equals(retrievedPartialData[0]), "progresses don't match")
 
 		_, err = workflow.DeleteAllPartialData(partialData.ReqId, cache.Persist)
 		u.AssertNilMsg(t, err, "failed to delete partialData")
 
-		_, err = workflow.RetrievePartialData(partialData.ReqId, partialData.ForNode, cache.Persist)
+		_, err = workflow.RetrievePartialData(partialData.ReqId, partialData.ForTask, cache.Persist)
 		u.AssertNonNilMsg(t, err, "partialData should have been deleted")
 	}
 
@@ -105,8 +105,8 @@ func TestPartialDataCache(t *testing.T) {
 func initPartialData(reqId workflow.ReqId, to, from workflow.TaskId, data map[string]interface{}) *workflow.PartialData {
 	return &workflow.PartialData{
 		ReqId:    reqId,
-		ForNode:  to,
-		FromNode: from,
+		ForTask:  to,
+		FromTask: from,
 		Data:     data,
 	}
 }

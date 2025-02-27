@@ -239,14 +239,12 @@ func createWorkflowApiTest(fc *workflow.Workflow, host string, port int) error {
 }
 
 func invokeWorkflowApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
-	qosMap := make(map[string]function.RequestQoS)
-	qosMap["grep"] = function.RequestQoS{
-		Class:    0,
-		MaxRespT: 500,
-	}
 	request := client.WorkflowInvocationRequest{
-		Params:          params,
-		RequestQoSMap:   qosMap,
+		Params: params,
+		QoS: function.RequestQoS{
+			Class:    0,
+			MaxRespT: 500,
+		},
 		CanDoOffloading: true,
 		Async:           async,
 	}

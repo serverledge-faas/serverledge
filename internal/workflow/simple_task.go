@@ -63,7 +63,7 @@ func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}
 			SchedAction:    "",
 			OffloadLatency: 0.0,
 		},
-		RequestQoS:      compRequest.RequestQoSMap[s.Func],
+		RequestQoS:      compRequest.QoS,
 		CanDoOffloading: true,
 		Async:           false,
 	}

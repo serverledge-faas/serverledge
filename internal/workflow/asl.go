@@ -14,7 +14,11 @@ func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the ASL file: %v", err)
 	}
-	workflow, err := FromStateMachine(stateMachine)
+
+	nextStateName := stateMachine.StartAt
+	nextState := stateMachine.States[nextStateName]
+	workflow, err := buildingLoop(stateMachine, nextState, nextStateName)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge Workflow: %v", err)
 	}
@@ -24,7 +28,75 @@ func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	return workflow, nil
 }
 
-/* ============== Build from ASL States =================== */
+func buildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
+	builder := NewBuilder()
+	isTerminal := false
+	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
+	for !isTerminal {
+
+		switch nextState.GetType() {
+		case asl.Task:
+
+			taskState := nextState.(*asl.TaskState)
+			b, err := BuildFromTaskState(builder, taskState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimpleNode from task state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(taskState, sm)
+			break
+		case asl.Parallel:
+			parallelState := nextState.(*asl.ParallelState)
+			b, err := BuildFromParallelState(builder, parallelState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building FanInNode and FanOutNode from ParallelState: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(parallelState, sm)
+			break
+		case asl.Map:
+			mapState := nextState.(*asl.MapState)
+			b, err := BuildFromMapState(builder, mapState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building MapNode from Map state: %v", err) // TODO: MapNode doesn't exist
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(mapState, sm)
+			break
+		case asl.Pass:
+			passState := nextState.(*asl.PassState)
+			b, err := BuildFromPassState(builder, passState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimplNode with function 'pass' from Pass state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(passState, sm)
+			break
+		case asl.Wait:
+			waitState := nextState.(*asl.WaitState)
+			b, err := BuildFromWaitState(builder, waitState, nextStateName)
+			if err != nil {
+				return nil, fmt.Errorf("failed building SimpleNode with function 'wait' from Wait state: %v", err)
+			}
+			builder = b
+			nextState, nextStateName, isTerminal = findNextOrTerminate(waitState, sm)
+			break
+		case asl.Choice:
+			choiceState := nextState.(*asl.ChoiceState)
+			// In this case, the choice state will automatically build the workflow, because it is terminal
+			return BuildFromChoiceState(builder, choiceState, nextStateName, sm)
+		case asl.Succeed:
+			succeed := nextState.(*asl.SucceedState)
+			return BuildFromSucceedState(builder, succeed, nextStateName)
+		case asl.Fail:
+			failState := nextState.(*asl.FailState)
+			return BuildFromFailState(builder, failState, nextStateName)
+		default:
+			return nil, fmt.Errorf("unknown state type %s", nextState.GetType())
+		}
+	}
+	return builder.Build()
+}
 
 // BuildFromTaskState adds a SimpleNode to the previous Node. The simple node will have id as specified by the name parameter
 func BuildFromTaskState(builder *Builder, t *asl.TaskState, name string) (*Builder, error) {
@@ -239,7 +311,7 @@ func buildTestExpr(t *asl.TestExpression) (Condition, error) {
 }
 
 func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Workflow, error) {
-	return WorkflowBuildingLoop(sm, sm.States[nextState], nextState)
+	return buildingLoop(sm, sm.States[nextState], nextState)
 }
 
 // BuildFromParallelState adds a FanOutNode and a FanInNode and as many branches as defined in the ParallelState

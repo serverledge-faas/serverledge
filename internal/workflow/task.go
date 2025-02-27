@@ -58,6 +58,9 @@ type ReceivesOutput interface {
 	PrepareOutput(workflow *Workflow, output map[string]interface{}) error
 }
 
+// TODO: GetNext() should be differentiated for the case of single vs multiple successor nodes
+// TODO: check the implementation in ChoiceNode, where it returns a different next task depending on the execution state
+// TODO: check also FanOut
 type HasNext interface {
 	GetNext() []TaskId
 }
