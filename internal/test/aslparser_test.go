@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/fc"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/grussorusso/serverledge/utils"
 	"github.com/lithammer/shortuuid"
 )
@@ -32,7 +32,7 @@ func TestParsedCompositionName(t *testing.T) {
 // commonTest creates a function, parses a json AWS State Language file producing a function composition,
 // then checks if the composition is saved onto ETCD. Lastly, it runs the composition and expects the correct result.
 func commonTest(t *testing.T, name string, expectedResult int) {
-	all, err := fc.GetAllFC()
+	all, err := workflow.GetAllFC()
 	utils.AssertNil(t, err)
 
 	//initializeAllPyFunctionFromNames(t, "inc", "double", "hello", "noop")
@@ -47,11 +47,11 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 		err := comp.SaveToEtcd()
 		utils.AssertNilMsg(t, err, "unable to save parsed composition")
 
-		all2, err := fc.GetAllFC()
+		all2, err := workflow.GetAllFC()
 		utils.AssertNil(t, err)
 		utils.AssertEqualsMsg(t, len(all2), len(all)+1, "the number of created functions differs")
 
-		expectedComp, ok := fc.GetFC(name)
+		expectedComp, ok := workflow.GetFC(name)
 		utils.AssertTrue(t, ok)
 
 		utils.AssertTrueMsg(t, comp.Equals(expectedComp), "parsed composition differs from expected composition")
@@ -60,7 +60,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	// runs the workflow
 	params := make(map[string]interface{})
 	params["input"] = "0"
-	request := fc.NewCompositionRequest(shortuuid.New(), comp, params)
+	request := workflow.NewCompositionRequest(shortuuid.New(), comp, params)
 	_, err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
 }
@@ -117,13 +117,13 @@ func TestParsingChoiceWorkflowWithDefaultFail(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_numeq_succeed_fail.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice", body)
+	comp, err := workflow.FromASL("choice", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	// runs the workflow, making it going to the fail part
 	params := make(map[string]interface{})
 	params[incFn.Signature.GetInputs()[0].Name] = 10
-	request := fc.NewCompositionRequest(shortuuid.New(), comp, params)
+	request := workflow.NewCompositionRequest(shortuuid.New(), comp, params)
 	resultMap, err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
 
@@ -157,7 +157,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_datatestexpr.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice3", body)
+	comp, err := workflow.FromASL("choice3", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	incFn := funcs[0]
@@ -166,7 +166,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (1st choice branch) test: (input == 1)
 	params1 := make(map[string]interface{})
 	params1[incFn.Signature.GetInputs()[0].Name] = 1
-	request1 := fc.NewCompositionRequest(shortuuid.New(), comp, params1)
+	request1 := workflow.NewCompositionRequest(shortuuid.New(), comp, params1)
 	resultMap1, err1 := comp.Invoke(request1)
 	utils.AssertNil(t, err1)
 
@@ -176,7 +176,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (2nd choice branch) test: (input == 2)
 	params2 := make(map[string]interface{})
 	params2[incFn.Signature.GetInputs()[0].Name] = 2
-	request2 := fc.NewCompositionRequest(shortuuid.New(), comp, params2)
+	request2 := workflow.NewCompositionRequest(shortuuid.New(), comp, params2)
 	resultMap, err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
@@ -187,7 +187,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (default choice branch)
 	paramsDefault := make(map[string]interface{})
 	paramsDefault[incFn.Signature.GetInputs()[0].Name] = "Giacomo"
-	requestDefault := fc.NewCompositionRequest(shortuuid.New(), comp, paramsDefault)
+	requestDefault := workflow.NewCompositionRequest(shortuuid.New(), comp, paramsDefault)
 	resultMap, errDef := comp.Invoke(requestDefault)
 	utils.AssertNil(t, errDef)
 
@@ -208,7 +208,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	body, err := os.ReadFile("asl/choice_boolexpr.json")
 	utils.AssertNilMsg(t, err, "unable to read file")
 	// parse the ASL language
-	comp, err := fc.FromASL("choice2", body)
+	comp, err := workflow.FromASL("choice2", body)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 
 	// 1st branch (type != "Private")
@@ -216,7 +216,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params["type"] = "Public"
 	params["value"] = 1
 	//params["input"] = 1
-	request := fc.NewCompositionRequest(shortuuid.New(), comp, params)
+	request := workflow.NewCompositionRequest(shortuuid.New(), comp, params)
 	resultMap, err1 := comp.Invoke(request)
 	utils.AssertNil(t, err1)
 
@@ -229,7 +229,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params2 := make(map[string]interface{})
 	params2["type"] = "Private"
 	params2["value"] = 20
-	request2 := fc.NewCompositionRequest(shortuuid.New(), comp, params2)
+	request2 := workflow.NewCompositionRequest(shortuuid.New(), comp, params2)
 	resultMap2, err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
@@ -241,7 +241,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	// 2nd branch (type == "Private", value is present, value is numeric, value >= 20, value < 30)
 	params3 := make(map[string]interface{})
 	params3["type"] = "Private"
-	request3 := fc.NewCompositionRequest(shortuuid.New(), comp, params3)
+	request3 := workflow.NewCompositionRequest(shortuuid.New(), comp, params3)
 	comp.Invoke(request3)
 	utils.AssertNil(t, err2)
 	// no results to check

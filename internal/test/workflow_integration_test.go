@@ -8,8 +8,8 @@ import (
 	"log"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	u "github.com/grussorusso/serverledge/utils"
 	"github.com/lithammer/shortuuid"
 )
@@ -21,19 +21,19 @@ func TestMarshalingFunctionComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	u.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
-	workflow.Name = workflowName
+	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	marshaledFunc, errMarshal := json.Marshal(workflow)
+	marshaledFunc, errMarshal := json.Marshal(wflow)
 	u.AssertNilMsg(t, errMarshal, "failed to marshal composition")
-	var retrieved fc.Workflow
+	var retrieved workflow.Workflow
 	errUnmarshal := json.Unmarshal(marshaledFunc, &retrieved)
 	u.AssertNilMsg(t, errUnmarshal, "failed composition unmarshal")
 
-	u.AssertTrueMsg(t, retrieved.Equals(workflow),
+	u.AssertTrueMsg(t, retrieved.Equals(wflow),
 		fmt.Sprintf("retrieved composition is not equal to initial composition. Retrieved : %s, Expected %s ",
-			retrieved.String(), workflow.String()))
+			retrieved.String(), wflow.String()))
 }
 
 // TestComposeFC checks the CREATE, GET and DELETE functionality of the Function Composition
@@ -44,7 +44,7 @@ func TestComposeFC(t *testing.T) {
 	}
 
 	// GET1 - initially we do not have any function composition
-	funcs, err := fc.GetAllFC()
+	funcs, err := workflow.GetAllFC()
 	lenFuncs := len(funcs)
 	u.AssertNil(t, err)
 
@@ -56,32 +56,32 @@ func TestComposeFC(t *testing.T) {
 	_, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	workflow, err := fc.CreateSequenceWorkflow(fArr...)
-	workflow.Name = workflowName
+	wflow, err := workflow.CreateSequenceWorkflow(fArr...)
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err2 := workflow.SaveToEtcd()
+	err2 := wflow.SaveToEtcd()
 
 	u.AssertNil(t, err2)
 
 	// The creation is successful: we have one more function composition?
 	// GET2
-	funcs2, err3 := fc.GetAllFC()
+	funcs2, err3 := workflow.GetAllFC()
 	u.AssertNil(t, err3)
 	u.AssertEqualsMsg(t, lenFuncs+1, len(funcs2), "creation of function failed")
 
 	// the function is exactly the one i created?
-	fun, ok := fc.GetFC(workflowName)
+	fun, ok := workflow.GetFC(workflowName)
 	u.AssertTrue(t, ok)
-	u.AssertTrue(t, workflow.Equals(fun))
+	u.AssertTrue(t, wflow.Equals(fun))
 
 	// DELETE
-	err4 := workflow.Delete()
+	err4 := wflow.Delete()
 	u.AssertNil(t, err4)
 
 	// The deletion is successful?
 	// GET3
-	funcs3, err5 := fc.GetAllFC()
+	funcs3, err5 := workflow.GetAllFC()
 	u.AssertNil(t, err5)
 	u.AssertEqualsMsg(t, len(funcs3), lenFuncs, "deletion of function failed")
 }
@@ -98,19 +98,19 @@ func TestInvokeFC(t *testing.T) {
 	length := 5
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
-	workflow, err := fc.CreateSequenceWorkflow(fArr...)
-	workflow.Name = workflowName
+	wflow, err := workflow.CreateSequenceWorkflow(fArr...)
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[f.Signature.GetInputs()[0].Name] = 0
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
 
-	resultMap, err2 := workflow.Invoke(request)
+	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check result
@@ -118,7 +118,7 @@ func TestInvokeFC(t *testing.T) {
 	u.AssertEquals(t, length, output.(int))
 
 	// cleaning up function composition and function
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -139,20 +139,20 @@ func TestInvokeChoiceFC(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddChoiceNode(
-			fc.NewConstCondition(false),
-			fc.NewSmallerCondition(2, 1),
-			fc.NewConstCondition(true),
+			workflow.NewConstCondition(false),
+			workflow.NewSmallerCondition(2, 1),
+			workflow.NewConstCondition(true),
 		).
-		NextBranch(fc.CreateSequenceWorkflow(incJs)).
-		NextBranch(fc.CreateSequenceWorkflow(incPy)).
-		NextBranch(fc.CreateSequenceWorkflow(doublePy)).
+		NextBranch(workflow.CreateSequenceWorkflow(incJs)).
+		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
+		NextBranch(workflow.CreateSequenceWorkflow(doublePy)).
 		EndChoiceAndBuild()
 
-	workflow.Name = workflowName
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// this is the function that will be called
@@ -162,15 +162,15 @@ func TestInvokeChoiceFC(t *testing.T) {
 	params := make(map[string]interface{})
 	params[f.Signature.GetInputs()[0].Name] = input
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
 	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
 	u.AssertEquals(t, input*2, output.(int))
 
 	// cleaning up function composition and function
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -194,24 +194,24 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 		Build())
 	u.AssertNil(t, errF2)
 
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddSimpleNode(fDouble).
 		AddSimpleNode(fInc).
 		AddSimpleNode(fDouble).
 		AddSimpleNode(fInc).
 		Build()
-	workflow.Name = workflowName
+	wflow.Name = workflowName
 
 	u.AssertNil(t, err)
 
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 2
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, err2 := wflow.Invoke(request)
 	if err2 != nil {
 		log.Printf("%v\n", err2)
 		t.FailNow()
@@ -227,7 +227,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertEquals(t, (2*2+1)*2+1, output.(int))
 
 	// cleaning up function composition and function
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -246,18 +246,18 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	workflow, err := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fDouble) }, width)
-	workflow.Name = workflowName
+	wflow, err := workflow.CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fDouble) }, width)
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 1
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check multiple result
@@ -284,15 +284,15 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	length := 5
 	f, _, err := initializeSameFunctionSlice(length, "py")
 	u.AssertNil(t, err)
-	builder := fc.NewBuilder()
+	builder := workflow.NewBuilder()
 	for i := 0; i < length; i++ {
 		builder.AddSimpleNodeWithId(f, fmt.Sprintf("simple %d", i))
 	}
-	workflow, err := builder.Build()
-	workflow.Name = workflowName
+	wflow, err := builder.Build()
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	concurrencyLevel := 3
@@ -313,11 +313,11 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			params := make(map[string]interface{})
 			params[f.Signature.GetInputs()[0].Name] = i
 
-			request := fc.NewCompositionRequest(fmt.Sprintf("goroutine_%d", i), workflow, params)
+			request := workflow.NewCompositionRequest(fmt.Sprintf("goroutine_%d", i), wflow, params)
 			// wait until all goroutines are ready
 			<-start
 			// return error
-			resultMap, err2 := workflow.Invoke(request)
+			resultMap, err2 := wflow.Invoke(request)
 			errChan <- err2
 			// return result
 			output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
@@ -341,7 +341,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	}
 
 	// cleaning up function composition and function
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -361,18 +361,18 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	workflow, err := fc.CreateScatterSingleFunctionWorkflow(fDouble, width)
-	workflow.Name = workflowName
+	wflow, err := workflow.CreateScatterSingleFunctionWorkflow(fDouble, width)
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check multiple result
@@ -397,7 +397,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	}
 
 	// cleaning up function composition and functions
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -426,27 +426,27 @@ func TestInvokeSieveChoice(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddSimpleNode(isPrimePy).
 		AddChoiceNode(
-			fc.NewEqParamCondition(fc.NewParam("IsPrime"), fc.NewValue(true)),
-			fc.NewEqParamCondition(fc.NewParam("IsPrime"), fc.NewValue(false)),
+			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(true)),
+			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(false)),
 		).
-		NextBranch(fc.CreateSequenceWorkflow(sieveJs)).
-		NextBranch(fc.CreateSequenceWorkflow(incPy)).
+		NextBranch(workflow.CreateSequenceWorkflow(sieveJs)).
+		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
-	workflow.Name = workflowName
+	wflow.Name = workflowName
 
 	u.AssertNil(t, err)
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[isPrimePy.Signature.GetInputs()[0].Name] = input
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// checking the result
@@ -460,7 +460,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	u.AssertSliceEqualsMsg[float64](t, []float64{2, 3, 5, 7, 11, 13}, res, "output is wrong")
 
 	// cleaning up function composition and function
-	err3 := workflow.Delete()
+	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }
 
@@ -475,24 +475,24 @@ func TestInvokeCompositionError(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddChoiceNode(
-			fc.NewEqParamCondition(fc.NewParam("NonExistentParam"), fc.NewValue(true)),
-			fc.NewEqCondition(2, 3),
+			workflow.NewEqParamCondition(workflow.NewParam("NonExistentParam"), workflow.NewValue(true)),
+			workflow.NewEqCondition(2, 3),
 		).
-		NextBranch(fc.CreateSequenceWorkflow(incPy)).
+		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
-	workflow.Name = workflowName
+	wflow.Name = workflowName
 	u.AssertNil(t, err)
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[incPy.Signature.GetInputs()[0].Name] = 1
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	_, err2 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	_, err2 := wflow.Invoke(request)
 	u.AssertNonNil(t, err2)
 }
 
@@ -501,17 +501,17 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddChoiceNode(
-			fc.NewEqParamCondition(fc.NewParam("value"), fc.NewValue(1)),
-			fc.NewConstCondition(true),
+			workflow.NewEqParamCondition(workflow.NewParam("value"), workflow.NewValue(1)),
+			workflow.NewConstCondition(true),
 		).
-		NextBranch(fc.NewBuilder().AddSucceedNodeAndBuild("everything ok")).
-		NextBranch(fc.NewBuilder().AddFailNodeAndBuild("FakeError", "This should be an error")).
+		NextBranch(workflow.NewBuilder().AddSucceedNodeAndBuild("everything ok")).
+		NextBranch(workflow.NewBuilder().AddFailNodeAndBuild("FakeError", "This should be an error")).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
-	workflow.Name = "fail_succeed"
-	err1 := workflow.SaveToEtcd()
+	wflow.Name = "fail_succeed"
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	// First run: Success
@@ -520,8 +520,8 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 	params := make(map[string]interface{})
 	params["value"] = 1
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, errInvoke1 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the branch (succeed)")
 
 	result, err := resultMap.GetIntSingleResult()
@@ -532,8 +532,8 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 	params2 := make(map[string]interface{})
 	params2["value"] = 2
 
-	request2 := fc.NewCompositionRequest(shortuuid.New(), workflow, params2)
-	resultMap2, errInvoke2 := workflow.Invoke(request2)
+	request2 := workflow.NewCompositionRequest(shortuuid.New(), wflow, params2)
+	resultMap2, errInvoke2 := wflow.Invoke(request2)
 	u.AssertNilMsg(t, errInvoke2, "error while invoking the branch (fail)")
 
 	valueError, found := resultMap2.Result["FakeError"]
@@ -553,22 +553,22 @@ func TestInvokeCompositionPassDoNothing(t *testing.T) {
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddSimpleNode(incPy).
 		AddPassNode(""). // this should not do nothing
 		AddSimpleNode(incPy).
 		Build()
-	workflow.Name = "pass_do_nothing"
+	wflow.Name = "pass_do_nothing"
 	u.AssertNil(t, err)
 
-	err1 := workflow.SaveToEtcd()
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	params := make(map[string]interface{})
 	params["input"] = 1
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, errInvoke1 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
 	result, err := resultMap.GetIntSingleResult()
@@ -585,22 +585,22 @@ func TestInvokeCompositionWait(t *testing.T) {
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
-	workflow, err := fc.NewBuilder().
+	wflow, err := workflow.NewBuilder().
 		AddSimpleNode(incPy).
 		AddWaitNode(2). // this should not do nothing
 		AddSimpleNode(incPy).
 		Build()
 	u.AssertNil(t, err)
 
-	workflow.Name = "pass_do_nothing"
-	err1 := workflow.SaveToEtcd()
+	wflow.Name = "pass_do_nothing"
+	err1 := wflow.SaveToEtcd()
 	u.AssertNil(t, err1)
 
 	params := make(map[string]interface{})
 	params["input"] = 1
 
-	request := fc.NewCompositionRequest(shortuuid.New(), workflow, params)
-	resultMap, errInvoke1 := workflow.Invoke(request)
+	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
 	result, err := resultMap.GetIntSingleResult()
@@ -608,17 +608,17 @@ func TestInvokeCompositionWait(t *testing.T) {
 	u.AssertEquals(t, 3, result)
 
 	// find wait node
-	var waitNode *fc.WaitNode = nil
+	var waitNode *workflow.WaitNode = nil
 	ok := false
-	for _, nodes := range workflow.Nodes {
-		waitNode, ok = nodes.(*fc.WaitNode)
+	for _, nodes := range wflow.Nodes {
+		waitNode, ok = nodes.(*workflow.WaitNode)
 		if ok {
 			break
 		}
 	}
 	u.AssertTrueMsg(t, ok, "failed to find wait node")
 
-	respTime, ok := resultMap.Reports.Get(fc.CreateExecutionReportId(waitNode))
+	respTime, ok := resultMap.Reports.Get(workflow.CreateExecutionReportId(waitNode))
 	u.AssertTrueMsg(t, ok, "failed to find execution report for wait node")
 	u.AssertTrueMsg(t, respTime.Duration > 2.0, fmt.Sprintf("wait node has waited the wrong amount of time %f, expected at least 2.0 seconds", respTime.Duration))
 }

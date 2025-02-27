@@ -11,8 +11,8 @@ import (
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/cli"
 	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/grussorusso/serverledge/utils"
 )
 
@@ -153,12 +153,12 @@ func initializeAllPyFunctionFromNames(t *testing.T, names ...string) []*function
 }
 
 // parseFileName takes the name of the file, without .json and parses it
-func parseFileName(t *testing.T, aslFileName string) *fc.Workflow {
+func parseFileName(t *testing.T, aslFileName string) *workflow.Workflow {
 	body, err := os.ReadFile(fmt.Sprintf("asl/%s.json", aslFileName))
 	utils.AssertNilMsg(t, err, "unable to read file")
 
 	// for now, we use the same name as the filename to create the composition
-	comp, err := fc.FromASL(aslFileName, body)
+	comp, err := workflow.FromASL(aslFileName, body)
 	fmt.Println(err)
 	utils.AssertNilMsg(t, err, "unable to parse json")
 	return comp
@@ -238,7 +238,7 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(fc *fc.Workflow, host string, port int) error {
+func createCompositionApiTest(fc *workflow.Workflow, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
 	if err != nil {
 		return err
@@ -281,7 +281,7 @@ func getCompositionsApiTest(t *testing.T, host string, port int) []string {
 }
 
 func deleteCompositionApiTest(t *testing.T, fcName string, host string, port int) {
-	request := fc.Workflow{Name: fcName}
+	request := workflow.Workflow{Name: fcName}
 	requestBody, err := json.Marshal(request)
 	utils.AssertNilMsg(t, err, "failed to marshal composition to delete")
 
@@ -299,12 +299,12 @@ func pollCompositionTest(t *testing.T, requestId string, host string, port int) 
 	return utils.GetJsonResponse(resp.Body)
 }
 
-func newCompositionRequestTest() *fc.CompositionRequest {
+func newCompositionRequestTest() *workflow.CompositionRequest {
 
-	return &fc.CompositionRequest{
+	return &workflow.CompositionRequest{
 		ReqId: "test",
-		ExecReport: fc.CompositionExecutionReport{
-			Reports: hashmap.New[fc.ExecutionReportId, *function.ExecutionReport](), // make(map[fc.ExecutionReportId]*function.ExecutionReport),
+		ExecReport: workflow.CompositionExecutionReport{
+			Reports: hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport](), // make(map[workflow.ExecutionReportId]*function.ExecutionReport),
 		},
 	}
 }

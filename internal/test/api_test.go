@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/grussorusso/serverledge/utils"
 )
 
@@ -53,7 +53,7 @@ func TestContainerPool(t *testing.T) {
 	for _, name := range funcs {
 		deleteApiTest(t, name, HOST, PORT)
 	}
-	//utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
+	//utils.AssertTrueMsg(t, workflow.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestCreateComposition tests the compose REST API that creates a new function composition
@@ -67,20 +67,20 @@ func TestCreateComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
-	workflow.Name = fcName
+	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(workflow, HOST, PORT)
+	err = createCompositionApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
 	}
 
 	// here we do not use REST API
-	getFC, b := fc.GetFC(fcName)
+	getFC, b := workflow.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, workflow.Equals(getFC), "composition comparison failed")
-	err = workflow.Delete()
+	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
+	err = wflow.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -96,10 +96,10 @@ func TestInvokeComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
-	workflow.Name = fcName
+	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(workflow, HOST, PORT)
+	err = createCompositionApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -111,10 +111,10 @@ func TestInvokeComposition(t *testing.T) {
 	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
-	getFC, b := fc.GetFC(fcName)
+	getFC, b := workflow.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, workflow.Equals(getFC), "composition comparison failed")
-	err = workflow.Delete()
+	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
+	err = wflow.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -135,10 +135,10 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
-	workflow, err := fc.CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
-	workflow.Name = fcName
+	wflow, err := workflow.CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
+	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(workflow, HOST, PORT)
+	err = createCompositionApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -150,10 +150,10 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
-	getFC, b := fc.GetFC(fcName)
+	getFC, b := workflow.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, workflow.Equals(getFC), "composition comparison failed")
-	err = workflow.Delete()
+	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
+	err = wflow.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 }
@@ -177,7 +177,7 @@ func TestDeleteComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceWorkflow(fn, db, fn)
+	workflow, err := workflow.CreateSequenceWorkflow(fn, db, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 
@@ -191,7 +191,7 @@ func TestDeleteComposition(t *testing.T) {
 	// deleteApiTest(t, fn.Name, HOST, PORT) // the function has already been deleted during composition deletion
 
 	// utils.AssertTrueMsg(t, node.ArePoolsEmptyInThisNode(), "container pools are not empty after the end of test")
-	// utils.AssertTrueMsg(t, fc.IsEmptyPartialDataCache(), "partial data cache is not empty")
+	// utils.AssertTrueMsg(t, workflow.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
 // TestAsyncInvokeComposition tests the REST API that executes a given function composition
@@ -205,10 +205,10 @@ func TestAsyncInvokeComposition(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := fc.CreateSequenceWorkflow(fn, fn, fn)
-	workflow.Name = fcName
+	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(workflow, HOST, PORT)
+	err = createCompositionApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -229,7 +229,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	for {
 		pollResult := pollCompositionTest(t, reqIdStruct.ReqId, HOST, PORT)
 
-		var compExecReport fc.CompositionExecutionReport
+		var compExecReport workflow.CompositionExecutionReport
 		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &compExecReport)
 
 		if errUnmarshalExecResult != nil {
@@ -248,9 +248,9 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	}
 
 	// here we do not use REST API
-	getFC, b := fc.GetFC(fcName)
+	getFC, b := workflow.GetFC(fcName)
 	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, workflow.Equals(getFC), "composition comparison failed")
-	err = workflow.Delete()
+	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
+	err = wflow.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 }

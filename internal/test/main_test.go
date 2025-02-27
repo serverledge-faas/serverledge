@@ -89,7 +89,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 
 }
 
-// current dir is ./serverledge/internal/fc
+// current dir is ./serverledge/internal/workflow
 func TestMain(m *testing.M) {
 	flag.Parse() // Parsing the test flags. Needed to ensure that the -short flag is parsed, so testing.Short() returns a nonNil bool
 

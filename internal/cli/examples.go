@@ -3,13 +3,13 @@ package cli
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
+	"github.com/grussorusso/serverledge/internal/workflow"
 )
 
 // FIXME: unused function
 // TODO: this file can be removed. I'll keep it if we are interested in using the following workflows in tests.
-func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
+func exampleParsing(str string) (*workflow.Workflow, []*function.Function, error) {
 
 	py, err := InitializePyFunction("inc", "handler", function.NewSignature().AddInput("input", function.Int{}).AddOutput("result", function.Int{}).Build())
 	if err != nil {
@@ -18,13 +18,13 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 
 	switch str {
 	case "sequence":
-		workflow, errSequence := fc.CreateSequenceWorkflow(py, py, py)
+		workflow, errSequence := workflow.CreateSequenceWorkflow(py, py, py)
 		return workflow, []*function.Function{py}, errSequence
 	case "choice":
-		workflow, errChoice := fc.CreateChoiceWorkflow(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
+		workflow, errChoice := workflow.CreateChoiceWorkflow(workflow.LambdaSequenceWorkflow(py, py), workflow.NewConstCondition(false), workflow.NewConstCondition(true))
 		return workflow, []*function.Function{py}, errChoice
 	case "parallel":
-		workflow, errParallel := fc.CreateBroadcastWorkflow(fc.LambdaSequenceWorkflow(py, py), 3)
+		workflow, errParallel := workflow.CreateBroadcastWorkflow(workflow.LambdaSequenceWorkflow(py, py), 3)
 		return workflow, []*function.Function{py}, errParallel
 	case "multifn_sequence":
 		funSlice := make([]*function.Function, 0)
@@ -35,7 +35,7 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 			}
 			funSlice = append(funSlice, f)
 		}
-		workflow, errSequence := fc.CreateSequenceWorkflow(funSlice...)
+		workflow, errSequence := workflow.CreateSequenceWorkflow(funSlice...)
 		return workflow, funSlice, errSequence
 	case "complex":
 		fnGrep, err1 := InitializePyFunction("grep", "handler", function.NewSignature().
@@ -63,18 +63,18 @@ func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 		if err3 != nil {
 			return nil, nil, err3
 		}
-		workflow, errComplex := fc.NewBuilder().
+		workflow, errComplex := workflow.NewBuilder().
 			AddChoiceNode(
-				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(true)),
-				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(false)),
-				fc.NewConstCondition(true),
+				workflow.NewEqParamCondition(workflow.NewParam("Task"), workflow.NewValue(true)),
+				workflow.NewEqParamCondition(workflow.NewParam("Task"), workflow.NewValue(false)),
+				workflow.NewConstCondition(true),
 			).
-			NextBranch(fc.CreateSequenceWorkflow(fnWordCount)).
-			NextBranch(fc.CreateSequenceWorkflow(fnSummarize)).
-			NextBranch(fc.NewBuilder().
+			NextBranch(workflow.CreateSequenceWorkflow(fnWordCount)).
+			NextBranch(workflow.CreateSequenceWorkflow(fnSummarize)).
+			NextBranch(workflow.NewBuilder().
 				AddScatterFanOutNode(2).
-				ForEachParallelBranch(fc.LambdaSequenceWorkflow(fnGrep)).
-				AddFanInNode(fc.AddToArrayEntry).
+				ForEachParallelBranch(workflow.LambdaSequenceWorkflow(fnGrep)).
+				AddFanInNode(workflow.AddToArrayEntry).
 				Build()).
 			EndChoiceAndBuild()
 		return workflow, []*function.Function{fnGrep, fnWordCount, fnSummarize}, errComplex

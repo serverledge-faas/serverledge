@@ -14,10 +14,10 @@ import (
 	"github.com/grussorusso/serverledge/internal/client"
 	"github.com/grussorusso/serverledge/internal/config"
 	"github.com/grussorusso/serverledge/internal/container"
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
 	"github.com/grussorusso/serverledge/internal/registration"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/grussorusso/serverledge/utils"
 
 	"github.com/grussorusso/serverledge/internal/scheduling"
@@ -32,7 +32,7 @@ var requestsPool = sync.Pool{
 
 var compositionRequestsPool = sync.Pool{
 	New: func() any {
-		return new(fc.CompositionRequest)
+		return new(workflow.CompositionRequest)
 	},
 }
 

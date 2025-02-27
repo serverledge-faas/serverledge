@@ -4,23 +4,23 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/grussorusso/serverledge/internal/fc"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/grussorusso/serverledge/utils"
 )
 
-var predicate1 = fc.Predicate{Root: fc.Condition{Type: fc.And, Find: []bool{false, false}, Sub: []fc.Condition{{Type: fc.Eq, Op: []interface{}{2, 2}, Find: []bool{false, false}}, {Type: fc.Greater, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
-var predicate2 = fc.Predicate{Root: fc.Condition{Type: fc.Or, Find: []bool{false, false}, Sub: []fc.Condition{{Type: fc.Const, Op: []interface{}{true}, Find: []bool{false}}, {Type: fc.Smaller, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
-var predicate3 = fc.Predicate{Root: fc.Condition{Type: fc.Or, Find: []bool{false, false}, Sub: []fc.Condition{predicate1.Root, {Type: fc.Smaller, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
-var predicate4 = fc.Predicate{Root: fc.Condition{Type: fc.Not, Find: []bool{false}, Sub: []fc.Condition{{Type: fc.IsEmpty, Op: []interface{}{1, 2, 3, 4}, Find: []bool{false}}}}}
+var predicate1 = workflow.Predicate{Root: workflow.Condition{Type: workflow.And, Find: []bool{false, false}, Sub: []workflow.Condition{{Type: workflow.Eq, Op: []interface{}{2, 2}, Find: []bool{false, false}}, {Type: workflow.Greater, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
+var predicate2 = workflow.Predicate{Root: workflow.Condition{Type: workflow.Or, Find: []bool{false, false}, Sub: []workflow.Condition{{Type: workflow.Const, Op: []interface{}{true}, Find: []bool{false}}, {Type: workflow.Smaller, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
+var predicate3 = workflow.Predicate{Root: workflow.Condition{Type: workflow.Or, Find: []bool{false, false}, Sub: []workflow.Condition{predicate1.Root, {Type: workflow.Smaller, Op: []interface{}{4, 2}, Find: []bool{false, false}}}}}
+var predicate4 = workflow.Predicate{Root: workflow.Condition{Type: workflow.Not, Find: []bool{false}, Sub: []workflow.Condition{{Type: workflow.IsEmpty, Op: []interface{}{1, 2, 3, 4}, Find: []bool{false}}}}}
 
 func TestPredicateMarshal(t *testing.T) {
 
-	predicates := []fc.Predicate{predicate1, predicate2, predicate3, predicate4}
+	predicates := []workflow.Predicate{predicate1, predicate2, predicate3, predicate4}
 	for _, predicate := range predicates {
 		val, err := json.Marshal(predicate)
 		utils.AssertNil(t, err)
 
-		var predicateTest fc.Predicate
+		var predicateTest workflow.Predicate
 		errUnmarshal := json.Unmarshal(val, &predicateTest)
 		utils.AssertNil(t, errUnmarshal)
 		utils.AssertTrue(t, predicate.Equals(predicateTest))
@@ -56,31 +56,31 @@ func TestPrintPredicate(t *testing.T) {
 }
 
 func TestBuilder(t *testing.T) {
-	built1 := fc.NewPredicate().And(
-		fc.NewEqCondition(2, 2),
-		fc.NewGreaterCondition(4, 2),
+	built1 := workflow.NewPredicate().And(
+		workflow.NewEqCondition(2, 2),
+		workflow.NewGreaterCondition(4, 2),
 	).Build()
 
 	utils.AssertTrue(t, built1.Equals(predicate1.Root))
 
-	built2 := fc.NewPredicate().Or(
-		fc.NewConstCondition(true),
-		fc.NewSmallerCondition(4, 2),
+	built2 := workflow.NewPredicate().Or(
+		workflow.NewConstCondition(true),
+		workflow.NewSmallerCondition(4, 2),
 	).Build()
 
 	utils.AssertTrue(t, built2.Equals(predicate2.Root))
 
-	built3 := fc.NewPredicate().Or(
-		fc.NewAnd(
-			fc.NewEqCondition(2, 2),
-			fc.NewGreaterCondition(4, 2),
+	built3 := workflow.NewPredicate().Or(
+		workflow.NewAnd(
+			workflow.NewEqCondition(2, 2),
+			workflow.NewGreaterCondition(4, 2),
 		),
-		fc.NewSmallerCondition(4, 2),
+		workflow.NewSmallerCondition(4, 2),
 	).Build()
 	utils.AssertTrue(t, built3.Equals(predicate3.Root))
 
-	built4 := fc.NewPredicate().Not(
-		fc.NewEmptyCondition([]interface{}{1, 2, 3, 4}),
+	built4 := workflow.NewPredicate().Not(
+		workflow.NewEmptyCondition([]interface{}{1, 2, 3, 4}),
 	).Build()
 
 	utils.AssertTrue(t, built4.Equals(predicate4.Root))

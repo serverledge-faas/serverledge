@@ -1,4 +1,4 @@
-package fc
+package workflow
 
 // void is used to avoid consuming memory in the map (set)
 type void struct{}

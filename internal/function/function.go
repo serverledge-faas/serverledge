@@ -156,7 +156,7 @@ func GetAll() ([]string, error) {
 	return GetAllWithPrefix("/function")
 }
 
-// GetAllWithPrefix is used to get all /function or /fc currently registered in etcd
+// GetAllWithPrefix is used to get all /function or /workflow currently registered in etcd
 func GetAllWithPrefix(prefix string) ([]string, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {

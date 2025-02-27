@@ -11,9 +11,9 @@ import (
 
 	"github.com/cornelk/hashmap"
 	"github.com/grussorusso/serverledge/internal/client"
-	"github.com/grussorusso/serverledge/internal/fc"
 	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/node"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -35,7 +35,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 	}
 
 	// checking if the function already exists. If exists we return an error
-	_, found := fc.GetFC(creationRequest.Name)
+	_, found := workflow.GetFC(creationRequest.Name)
 	if found {
 		log.Printf("Dropping request for already existing composition '%s'", creationRequest.Name)
 		return e.JSON(http.StatusConflict, "composition already exists")
@@ -49,7 +49,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, "composition already exists")
 	}
 
-	comp, err := fc.FromASL(creationRequest.Name, decodedSrc[:])
+	comp, err := workflow.FromASL(creationRequest.Name, decodedSrc[:])
 	if err != nil {
 		log.Printf("Could not parse composition from ASL: %v", err)
 		return e.JSON(http.StatusBadRequest, "composition already exists")
@@ -66,7 +66,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 }
 
 func CreateFunctionComposition(e echo.Context) error {
-	var comp fc.Workflow
+	var comp workflow.Workflow
 	// here we expect to receive the function composition struct already parsed from JSON/YAML
 	var body []byte
 	body, errReadBody := io.ReadAll(e.Request().Body)
@@ -111,7 +111,7 @@ func CreateFunctionComposition(e echo.Context) error {
 
 // GetFunctionCompositions handles a request to list the function compositions available in the system.
 func GetFunctionCompositions(c echo.Context) error {
-	list, err := fc.GetAllFC()
+	list, err := workflow.GetAllFC()
 	if err != nil {
 		return c.String(http.StatusServiceUnavailable, "")
 	}
@@ -120,7 +120,7 @@ func GetFunctionCompositions(c echo.Context) error {
 
 // DeleteFunctionComposition handles a function deletion request.
 func DeleteFunctionComposition(c echo.Context) error {
-	var comp fc.Workflow
+	var comp workflow.Workflow
 	// here we only need the name of the function composition (and if all function should be deleted with it)
 	err := json.NewDecoder(c.Request().Body).Decode(&comp)
 	if err != nil && err != io.EOF {
@@ -128,7 +128,7 @@ func DeleteFunctionComposition(c echo.Context) error {
 		return err
 	}
 
-	composition, ok := fc.GetFC(comp.Name) // TODO: we would need a system-wide lock here...
+	composition, ok := workflow.GetFC(comp.Name) // TODO: we would need a system-wide lock here...
 	if !ok {
 		log.Printf("Dropping request for non existing function '%s'", comp.Name)
 		return c.JSON(http.StatusNotFound, "the request function composition to delete does not exist")
@@ -147,9 +147,9 @@ func DeleteFunctionComposition(c echo.Context) error {
 
 // InvokeFunctionComposition handles a function composition invocation request.
 func InvokeFunctionComposition(e echo.Context) error {
-	// gets the command line param value for -fc (the composition name)
-	fcName := e.Param("fc")
-	funComp, ok := fc.GetFC(fcName)
+	// gets the command line param value for -workflow (the composition name)
+	fcName := e.Param("workflow")
+	funComp, ok := workflow.GetFC(fcName)
 	if !ok {
 		log.Printf("Dropping request for unknown FC '%s'", fcName)
 		return e.JSON(http.StatusNotFound, "function composition '"+fcName+"' does not exist")
@@ -162,9 +162,9 @@ func InvokeFunctionComposition(e echo.Context) error {
 		log.Printf("Could not parse invoke request - error during decoding: %v", err)
 		return e.JSON(http.StatusInternalServerError, "failed to parse composition invocation request. Check parameters and composition definition")
 	}
-	// gets a fc.CompositionRequest from the pool goroutine-safe cache.
-	fcReq := compositionRequestsPool.Get().(*fc.CompositionRequest) // A pointer *function.CompositionRequest will be created if does not exists, otherwise removed from the pool
-	defer compositionRequestsPool.Put(fcReq)                        // at the end of the function, the function.CompositionRequest is added to the pool.
+	// gets a workflow.CompositionRequest from the pool goroutine-safe cache.
+	fcReq := compositionRequestsPool.Get().(*workflow.CompositionRequest) // A pointer *function.CompositionRequest will be created if does not exists, otherwise removed from the pool
+	defer compositionRequestsPool.Put(fcReq)                              // at the end of the function, the function.CompositionRequest is added to the pool.
 	fcReq.Fc = funComp
 	fcReq.Params = fcInvocationRequest.Params
 	fcReq.Arrival = time.Now()
@@ -176,10 +176,10 @@ func InvokeFunctionComposition(e echo.Context) error {
 	fcReq.Async = fcInvocationRequest.Async
 	fcReq.ReqId = fmt.Sprintf("%v-%s%d", funComp.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], fcReq.Arrival.Nanosecond())
 	// init fields if possibly not overwritten later
-	fcReq.ExecReport.Reports = hashmap.New[fc.ExecutionReportId, *function.ExecutionReport]() // make(map[fc.ExecutionReportId]*function.ExecutionReport)
+	fcReq.ExecReport.Reports = hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport]() // make(map[workflow.ExecutionReportId]*function.ExecutionReport)
 	for nodeId := range funComp.Nodes {
 		task := funComp.Nodes[nodeId]
-		execReportId := fc.CreateExecutionReportId(task)
+		execReportId := workflow.CreateExecutionReportId(task)
 		fcReq.ExecReport.Reports.Set(execReportId, &function.ExecutionReport{
 			OffloadLatency: 0,
 			SchedAction:    "",
@@ -187,12 +187,12 @@ func InvokeFunctionComposition(e echo.Context) error {
 	}
 
 	if fcReq.Async {
-		go fc.SubmitAsyncCompositionRequest(fcReq)
+		go workflow.SubmitAsyncCompositionRequest(fcReq)
 		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: fcReq.ReqId})
 	}
 
 	// sync execution
-	err = fc.SubmitCompositionRequest(fcReq)
+	err = workflow.SubmitCompositionRequest(fcReq)
 
 	if errors.Is(err, node.OutOfResourcesErr) {
 		return e.String(http.StatusTooManyRequests, "")
@@ -208,12 +208,12 @@ func InvokeFunctionComposition(e echo.Context) error {
 		return e.JSON(http.StatusInternalServerError, v)
 	} else {
 		reports := make(map[string]*function.ExecutionReport)
-		fcReq.ExecReport.Reports.Range(func(id fc.ExecutionReportId, report *function.ExecutionReport) bool {
+		fcReq.ExecReport.Reports.Range(func(id workflow.ExecutionReportId, report *function.ExecutionReport) bool {
 			reports[string(id)] = report
 			return true
 		})
 
-		return e.JSON(http.StatusOK, fc.CompositionResponse{
+		return e.JSON(http.StatusOK, workflow.CompositionResponse{
 			Success:      true,
 			Result:       fcReq.ExecReport.Result,
 			Reports:      reports,

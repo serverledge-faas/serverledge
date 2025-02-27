@@ -1,4 +1,4 @@
-package fc
+package workflow
 
 import (
 	"context"
@@ -663,12 +663,12 @@ func (workflow *Workflow) getEtcdKey() string {
 }
 
 func getEtcdKey(workflowName string) string {
-	return fmt.Sprintf("/fc/%s", workflowName)
+	return fmt.Sprintf("/workflow/%s", workflowName)
 }
 
 // GetAllFC returns the function composition names
 func GetAllFC() ([]string, error) {
-	return function.GetAllWithPrefix("/fc")
+	return function.GetAllWithPrefix("/workflow")
 }
 
 func getFCFromCache(name string) (*Workflow, bool) {

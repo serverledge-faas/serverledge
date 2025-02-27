@@ -167,13 +167,13 @@ func (sm *StateMachine) GetFunctionNames() []string {
 }
 
 // TODO: delete this functions when you're done with choice
-/*func dagBuilding(funcs []*function.Function, currentState State, builder *fc.DagBuilder, condBuilder *fc.ChoiceBranchBuilder, stateMachine *StateMachine) (*fc.Dag, []*function.Function, error) {
+/*func dagBuilding(funcs []*function.Function, currentState State, builder *workflow.DagBuilder, condBuilder *workflow.ChoiceBranchBuilder, stateMachine *StateMachine) (*workflow.Dag, []*function.Function, error) {
 	switch currentState.GetType() {
 	case "Task":
 		return nil, nil, nil
 	case "Choice":
 		// gets the conditions from matches
-		//conds := make([]fc.Condition, 0)
+		//conds := make([]workflow.Condition, 0)
 		//for _, c := range currentState.Choices {
 		//	conds = append(conds, c.Operation)
 		//}

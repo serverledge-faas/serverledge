@@ -1,4 +1,4 @@
-package fc
+package workflow
 
 import (
 	"encoding/json"

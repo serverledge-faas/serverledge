@@ -13,7 +13,7 @@ type scheduledRequest struct {
 }
 
 //type scheduledCompositionRequest struct {
-//	*fc.CompositionRequest
+//	*workflow.CompositionRequest
 //	// decisionChannel chan schedDecision
 //	priority float64
 //}

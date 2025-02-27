@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/grussorusso/serverledge/internal/api"
-	"github.com/grussorusso/serverledge/internal/fc"
+	"github.com/grussorusso/serverledge/internal/workflow"
 	"github.com/labstack/gommon/log"
 
 	"github.com/grussorusso/serverledge/internal/client"
@@ -79,7 +79,7 @@ var compDeleteCmd = &cobra.Command{
 }
 
 var compListCmd = &cobra.Command{
-	Use:   "fc",
+	Use:   "workflow",
 	Short: "Lists registered function compositions",
 	Run:   listFunctionCompositions,
 }
@@ -547,7 +547,7 @@ func deleteComposition(cmd *cobra.Command, args []string) {
 		cmd.Help()
 		os.Exit(1)
 	}
-	request := fc.Workflow{
+	request := workflow.Workflow{
 		Name: compName, // TODO: passing the name as a string is enough
 	}
 	requestBody, err := json.Marshal(request)
