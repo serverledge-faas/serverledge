@@ -14,14 +14,14 @@ func TestWorkflowMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
 	workflow1, _ := workflow.CreateEmptyWorkflow()
-	workflow2, _ := workflow.CreateSequenceWorkflow(f, f, f)
-	workflow3, _ := workflow.CreateChoiceWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f, f) })
-	workflow4, _ := workflow.CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f, f) }, 4)
-	workflow5, _ := workflow.CreateScatterSingleFunctionWorkflow(f, 5)
-	workflow6, _ := workflow.CreateBroadcastMultiFunctionWorkflow(
-		func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f) },
-		func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f, f) },
-		func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f, f, f) },
+	workflow2, _ := CreateSequenceWorkflow(f, f, f)
+	workflow3, _ := CreateChoiceWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f, f) })
+	workflow4, _ := CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f, f) }, 4)
+	workflow5, _ := CreateScatterSingleFunctionWorkflow(f, 5)
+	workflow6, _ := CreateBroadcastMultiFunctionWorkflow(
+		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f) },
+		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f, f) },
+		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f, f, f) },
 	)
 	workflows := []*workflow.Workflow{workflow1, workflow2, workflow3, workflow4, workflow5, workflow6}
 	for i, wflow := range workflows {
@@ -64,7 +64,7 @@ func TestSimpleWorkflow(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	wflow, err := workflow.CreateSequenceWorkflow(fArr...)
+	wflow, err := CreateSequenceWorkflow(fArr...)
 	u.AssertNil(t, err)
 
 	u.AssertNonNil(t, wflow.Start)
@@ -113,7 +113,7 @@ func TestChoiceWorkflow(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(1, "js")
 	u.AssertNil(t, err)
 
-	wflow, err := workflow.CreateChoiceWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fArr...) }, arr...)
+	wflow, err := CreateChoiceWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fArr...) }, arr...)
 	u.AssertNil(t, err)
 
 	u.AssertNonNil(t, wflow.Start)
@@ -163,9 +163,9 @@ func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 			workflow.NewSmallerCondition(2, 1),
 			workflow.NewConstCondition(true),
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(fArr...)).
-		NextBranch(workflow.CreateSequenceWorkflow(fArr...)).
-		NextBranch(workflow.CreateSequenceWorkflow(fArr...)).
+		NextBranch(CreateSequenceWorkflow(fArr...)).
+		NextBranch(CreateSequenceWorkflow(fArr...)).
+		NextBranch(CreateSequenceWorkflow(fArr...)).
 		EndChoiceAndBuild()
 
 	choiceWorkflow, foundStartNext := wflow.Find(wflow.Start.Next)
@@ -219,7 +219,7 @@ func TestBroadcastWorkflow(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	wflow, errWorkflow := workflow.CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fArr...) }, width)
+	wflow, errWorkflow := CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fArr...) }, width)
 	u.AssertNil(t, errWorkflow)
 
 	u.AssertNonNil(t, wflow.Start)
@@ -264,7 +264,7 @@ func TestScatterWorkflow(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	wflow, errWorkflow := workflow.CreateScatterSingleFunctionWorkflow(f, width)
+	wflow, errWorkflow := CreateScatterSingleFunctionWorkflow(f, width)
 	u.AssertNil(t, errWorkflow)
 
 	u.AssertNonNil(t, wflow.Start)
@@ -319,9 +319,9 @@ func TestCreateBroadcastMultiFunctionWorkflow(t *testing.T) {
 	length2 := 3
 	_, fArrJs, err2 := initializeSameFunctionSlice(length2, "js")
 	u.AssertNil(t, err2)
-	wflow, errWorkflow := workflow.CreateBroadcastMultiFunctionWorkflow(
-		func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fArrPy...) },
-		func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fArrJs...) },
+	wflow, errWorkflow := CreateBroadcastMultiFunctionWorkflow(
+		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fArrPy...) },
+		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fArrJs...) },
 	)
 	u.AssertNil(t, errWorkflow)
 	startNext, startNextFound := wflow.Find(wflow.Start.Next)
@@ -400,10 +400,10 @@ func TestWorkflowBuilder(t *testing.T) {
 	wflow, err := workflow.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(workflow.NewEqCondition(1, 4), workflow.NewDiffCondition(1, 4)).
-		NextBranch(workflow.CreateSequenceWorkflow(f)).
+		NextBranch(CreateSequenceWorkflow(f)).
 		NextBranch(workflow.NewBuilder().
 			AddScatterFanOutNode(width).
-			ForEachParallelBranch(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f) }).
+			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f) }).
 			AddFanInNode(workflow.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()
@@ -477,10 +477,10 @@ func TestVisit(t *testing.T) {
 	complexWorkflow, err := workflow.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(workflow.NewEqCondition(1, 4), workflow.NewDiffCondition(1, 4)).
-		NextBranch(workflow.CreateSequenceWorkflow(f)).
+		NextBranch(CreateSequenceWorkflow(f)).
 		NextBranch(workflow.NewBuilder().
 			AddScatterFanOutNode(3).
-			ForEachParallelBranch(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(f) }).
+			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f) }).
 			AddFanInNode(workflow.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()

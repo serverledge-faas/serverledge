@@ -21,7 +21,7 @@ func TestMarshalingFunctionWorkflow(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	u.AssertNilMsg(t, err, "failed to initialize function")
-	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
@@ -56,7 +56,7 @@ func TestComposeFC(t *testing.T) {
 	_, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	wflow, err := workflow.CreateSequenceWorkflow(fArr...)
+	wflow, err := CreateSequenceWorkflow(fArr...)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
@@ -98,7 +98,7 @@ func TestInvokeFC(t *testing.T) {
 	length := 5
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
-	wflow, err := workflow.CreateSequenceWorkflow(fArr...)
+	wflow, err := CreateSequenceWorkflow(fArr...)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 	err1 := wflow.SaveToEtcd()
@@ -145,9 +145,9 @@ func TestInvokeChoiceFC(t *testing.T) {
 			workflow.NewSmallerCondition(2, 1),
 			workflow.NewConstCondition(true),
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(incJs)).
-		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
-		NextBranch(workflow.CreateSequenceWorkflow(doublePy)).
+		NextBranch(CreateSequenceWorkflow(incJs)).
+		NextBranch(CreateSequenceWorkflow(incPy)).
+		NextBranch(CreateSequenceWorkflow(doublePy)).
 		EndChoiceAndBuild()
 
 	wflow.Name = workflowName
@@ -246,7 +246,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	wflow, err := workflow.CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(fDouble) }, width)
+	wflow, err := CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fDouble) }, width)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
@@ -361,7 +361,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	u.AssertNil(t, errF1)
 
 	width := 3
-	wflow, err := workflow.CreateScatterSingleFunctionWorkflow(fDouble, width)
+	wflow, err := CreateScatterSingleFunctionWorkflow(fDouble, width)
 	wflow.Name = workflowName
 	u.AssertNil(t, err)
 
@@ -432,8 +432,8 @@ func TestInvokeSieveChoice(t *testing.T) {
 			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(true)),
 			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(false)),
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(sieveJs)).
-		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
+		NextBranch(CreateSequenceWorkflow(sieveJs)).
+		NextBranch(CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
 	wflow.Name = workflowName
 
@@ -480,7 +480,7 @@ func TestInvokeWorkflowError(t *testing.T) {
 			workflow.NewEqParamCondition(workflow.NewParam("NonExistentParam"), workflow.NewValue(true)),
 			workflow.NewEqCondition(2, 3),
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(incPy)).
+		NextBranch(CreateSequenceWorkflow(incPy)).
 		EndChoiceAndBuild()
 	wflow.Name = workflowName
 	u.AssertNil(t, err)

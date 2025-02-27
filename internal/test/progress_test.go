@@ -13,7 +13,7 @@ import (
 func simpleProgress(t *testing.T) (*workflow.Progress, *workflow.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
-	wflow, err := workflow.CreateSequenceWorkflow(py, py)
+	wflow, err := CreateSequenceWorkflow(py, py)
 	u.AssertNil(t, err)
 	return workflow.InitProgressRecursive("simple", wflow), wflow
 }
@@ -29,8 +29,8 @@ func choiceProgress(t *testing.T, condition workflow.Condition) (*workflow.Progr
 			notCondition,
 			condition,
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(py)).
-		NextBranch(workflow.CreateSequenceWorkflow(py, py)).
+		NextBranch(CreateSequenceWorkflow(py)).
+		NextBranch(CreateSequenceWorkflow(py, py)).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
@@ -43,9 +43,9 @@ func parallelProgress(t *testing.T) (*workflow.Progress, *workflow.Workflow) {
 
 	wflow, err := workflow.NewBuilder().
 		AddBroadcastFanOutNode(3).
-		NextFanOutBranch(workflow.CreateSequenceWorkflow(py)).
-		NextFanOutBranch(workflow.CreateSequenceWorkflow(py, py)).
-		NextFanOutBranch(workflow.CreateSequenceWorkflow(py, py, py)).
+		NextFanOutBranch(CreateSequenceWorkflow(py)).
+		NextFanOutBranch(CreateSequenceWorkflow(py, py)).
+		NextFanOutBranch(CreateSequenceWorkflow(py, py, py)).
 		AddFanInNode(workflow.AddNewMapEntry).
 		Build()
 	u.AssertNil(t, err)
@@ -65,10 +65,10 @@ func complexProgress(t *testing.T, condition workflow.Condition) (*workflow.Prog
 			notCondition,
 			condition,
 		).
-		NextBranch(workflow.CreateSequenceWorkflow(py)).
+		NextBranch(CreateSequenceWorkflow(py)).
 		NextBranch(workflow.NewBuilder().
 			AddBroadcastFanOutNode(3).
-			ForEachParallelBranch(func() (*workflow.Workflow, error) { return workflow.CreateSequenceWorkflow(py, py) }).
+			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(py, py) }).
 			AddFanInNode(workflow.AddNewMapEntry).
 			Build()).
 		EndChoiceAndBuild()

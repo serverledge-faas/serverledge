@@ -291,3 +291,59 @@ func newWorkflowRequestTest() *workflow.Request {
 func IsWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }
+
+// CreateSequenceWorkflow if successful, returns a workflow pointer with a sequence of Simple Nodes
+// TODO: do we need this utility function?
+func CreateSequenceWorkflow(funcs ...*function.Function) (*workflow.Workflow, error) {
+	builder := workflow.NewBuilder()
+	for _, f := range funcs {
+		builder = builder.AddSimpleNode(f)
+	}
+	return builder.Build()
+}
+
+// CreateChoiceWorkflow if successful, returns a workflow with one Choice Node with each branch consisting of the same sub-workflow
+// TODO: why is a 'dagger' needed?
+func CreateChoiceWorkflow(dagger func() (*workflow.Workflow, error), condArr ...workflow.Condition) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddChoiceNode(condArr...).
+		ForEachBranch(dagger).
+		EndChoiceAndBuild()
+}
+
+// CreateScatterSingleFunctionWorkflow if successful, returns a workflow with one fan out, N simple node with the same function
+// and then a fan in node that merges all the result in an array.
+// TODO: This appears to be used only in tests. Move away from the workflow package
+func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree int) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddScatterFanOutNode(fanOutDegree).
+		ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fun) }).
+		AddFanInNode(workflow.AddToArrayEntry).
+		Build()
+}
+
+// CreateBroadcastWorkflow if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
+// The number of branches is defined by the number of given functions
+// TODO: This appears to be used only in tests. Move away from the workflow package
+func CreateBroadcastWorkflow(dagger func() (*workflow.Workflow, error), fanOutDegree int) (*workflow.Workflow, error) {
+	return workflow.NewBuilder().
+		AddBroadcastFanOutNode(fanOutDegree).
+		ForEachParallelBranch(dagger).
+		AddFanInNode(workflow.AddNewMapEntry).
+		Build()
+}
+
+// CreateBroadcastMultiFunctionWorkflow if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
+// The number of branch is defined as the number of dagger functions.
+// TODO: why is a 'dagger' needed?
+// TODO: This appears to be used only in tests. Move away from the workflow package
+func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*workflow.Workflow, error)) (*workflow.Workflow, error) {
+	builder := workflow.NewBuilder().
+		AddBroadcastFanOutNode(len(dagger))
+	for _, dagFn := range dagger {
+		builder = builder.NextFanOutBranch(dagFn())
+	}
+	return builder.
+		AddFanInNode(workflow.AddNewMapEntry).
+		Build()
+}

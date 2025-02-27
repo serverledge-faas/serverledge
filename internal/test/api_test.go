@@ -67,7 +67,7 @@ func TestCreateWorkflow(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createWorkflowApiTest(wflow, HOST, PORT)
@@ -96,7 +96,7 @@ func TestInvokeWorkflow(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createWorkflowApiTest(wflow, HOST, PORT)
@@ -135,7 +135,7 @@ func TestInvokeWorkflow_DifferentFunctions(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
-	wflow, err := workflow.CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
+	wflow, err := CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createWorkflowApiTest(wflow, HOST, PORT)
@@ -177,7 +177,7 @@ func TestDeleteWorkflow(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	workflow, err := workflow.CreateSequenceWorkflow(fn, db, fn)
+	workflow, err := CreateSequenceWorkflow(fn, db, fn)
 	workflow.Name = fcName
 	utils.AssertNil(t, err)
 
@@ -205,7 +205,7 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 		AddOutput("result", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
-	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
+	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
 	err = createWorkflowApiTest(wflow, HOST, PORT)
