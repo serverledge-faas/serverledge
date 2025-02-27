@@ -12,7 +12,7 @@ type ReqId string
 // CompositionRequest represents a single function composition internal invocation, with params and metrics data
 type CompositionRequest struct {
 	ReqId           string
-	Fc              *Dag
+	Fc              *Workflow
 	Params          map[string]interface{}
 	Arrival         time.Time
 	ExecReport      CompositionExecutionReport     // each function has its execution report, and the composition has additional metrics
@@ -21,7 +21,7 @@ type CompositionRequest struct {
 	Async           bool
 }
 
-func NewCompositionRequest(reqId string, composition *Dag, params map[string]interface{}) *CompositionRequest {
+func NewCompositionRequest(reqId string, composition *Workflow, params map[string]interface{}) *CompositionRequest {
 	return &CompositionRequest{
 		ReqId:   reqId,
 		Fc:      composition,

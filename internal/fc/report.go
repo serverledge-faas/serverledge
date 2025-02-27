@@ -9,8 +9,8 @@ import (
 
 type ExecutionReportId string
 
-func CreateExecutionReportId(dagNode DagNode) ExecutionReportId {
-	return ExecutionReportId(printType(dagNode.GetNodeType()) + "_" + string(dagNode.GetId()))
+func CreateExecutionReportId(task Task) ExecutionReportId {
+	return ExecutionReportId(printType(task.GetNodeType()) + "_" + string(task.GetId()))
 }
 
 type CompositionExecutionReport struct {

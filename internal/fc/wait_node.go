@@ -10,11 +10,11 @@ import (
 )
 
 type WaitNode struct {
-	Id        DagNodeId
-	NodeType  DagNodeType
+	Id        TaskId
+	NodeType  TaskType
 	Seconds   int
 	Timestamp *time.Time
-	OutputTo  DagNodeId
+	OutputTo  TaskId
 	BranchId  int
 }
 
@@ -23,7 +23,7 @@ func NewWaitNode(durationSeconds int) *WaitNode {
 		durationSeconds = 0
 	}
 	waitNode := WaitNode{
-		Id:       DagNodeId("wait_" + shortuuid.New()),
+		Id:       TaskId("wait_" + shortuuid.New()),
 		NodeType: Wait,
 		Seconds:  durationSeconds,
 	}
@@ -35,7 +35,7 @@ func NewWaitNodeFromTimestamp(timestamp time.Time) *WaitNode {
 		timestamp = time.Now()
 	}
 	waitNode := WaitNode{
-		Id:        DagNodeId("wait_" + shortuuid.New()),
+		Id:        TaskId("wait_" + shortuuid.New()),
 		NodeType:  Wait,
 		Timestamp: &timestamp,
 	}
@@ -91,23 +91,23 @@ func (w *WaitNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (w *WaitNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*StartNode)
+func (w *WaitNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*StartNode)
 	if ok {
 		return fmt.Errorf("the WaitNode cannot be chained to a startNode")
 	}
-	w.OutputTo = dagNode
+	w.OutputTo = taskId
 	return nil
 }
 
-func (w *WaitNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (w *WaitNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if len(w.GetNext()) == 0 {
 		return fmt.Errorf("failed to map output: there are no next node after PassNode")
 	}
 	// Get the next node.
 	nextNodeId := w.GetNext()[0]
 
-	nextNode, ok := dag.Find(nextNodeId)
+	nextNode, ok := workflow.Find(nextNodeId)
 	if !ok {
 		return fmt.Errorf("failed to find next node")
 	}
@@ -156,8 +156,8 @@ func (w *WaitNode) MapOutput(nextNode *SimpleNode, output map[string]interface{}
 	return nil
 }
 
-func (w *WaitNode) GetNext() []DagNodeId {
-	return []DagNodeId{w.OutputTo}
+func (w *WaitNode) GetNext() []TaskId {
+	return []TaskId{w.OutputTo}
 }
 
 func (w *WaitNode) Width() int {
@@ -180,10 +180,10 @@ func (w *WaitNode) GetBranchId() int {
 	return w.BranchId
 }
 
-func (w *WaitNode) GetId() DagNodeId {
+func (w *WaitNode) GetId() TaskId {
 	return w.Id
 }
 
-func (w *WaitNode) GetNodeType() DagNodeType {
+func (w *WaitNode) GetNodeType() TaskType {
 	return w.NodeType
 }

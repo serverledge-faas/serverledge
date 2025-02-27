@@ -23,9 +23,9 @@ func newPartialDataId(reqId ReqId) PartialDataId {
 
 // PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
 type PartialData struct {
-	ReqId    ReqId     // request referring to this partial data
-	ForNode  DagNodeId // dagNode that should receive this partial data
-	FromNode DagNodeId // useful for fanin
+	ReqId    ReqId  // request referring to this partial data
+	ForNode  TaskId // task that should receive this partial data
+	FromNode TaskId // useful for fanin
 	Data     map[string]interface{}
 }
 
@@ -58,7 +58,7 @@ func (pd PartialData) String() string {
 	}`, pd.ReqId, pd.ForNode, pd.FromNode, pd.Data)
 }
 
-func NewPartialData(reqId ReqId, forNode DagNodeId, fromNode DagNodeId, data map[string]interface{}) *PartialData {
+func NewPartialData(reqId ReqId, forNode TaskId, fromNode TaskId, data map[string]interface{}) *PartialData {
 	return &PartialData{
 		ReqId:    reqId,
 		ForNode:  forNode,
@@ -67,7 +67,7 @@ func NewPartialData(reqId ReqId, forNode DagNodeId, fromNode DagNodeId, data map
 	}
 }
 
-func getPartialDataEtcdKey(reqId ReqId, nodeId DagNodeId) string {
+func getPartialDataEtcdKey(reqId ReqId, nodeId TaskId) string {
 	return fmt.Sprintf("/partialData/%s/%s", reqId, nodeId)
 }
 
@@ -85,7 +85,7 @@ func SavePartialData(pd *PartialData, saveAlsoOnEtcd bool) error {
 	return nil
 }
 
-func RetrievePartialData(reqId ReqId, nodeId DagNodeId, alsoFromEtcd bool) ([]*PartialData, error) {
+func RetrievePartialData(reqId ReqId, nodeId TaskId, alsoFromEtcd bool) ([]*PartialData, error) {
 	// Get from cache if exists, otherwise from ETCD
 	partialDatas, err := getPartialDataFromCache(newPartialDataId(reqId), nodeId)
 	if err != nil && alsoFromEtcd {
@@ -108,7 +108,7 @@ func RetrievePartialData(reqId ReqId, nodeId DagNodeId, alsoFromEtcd bool) ([]*P
 	return partialDatas, err
 }
 
-func RetrieveSinglePartialData(reqId ReqId, nodeId DagNodeId, alsoFromEtcd bool) (*PartialData, error) {
+func RetrieveSinglePartialData(reqId ReqId, nodeId TaskId, alsoFromEtcd bool) (*PartialData, error) {
 	pds, err := RetrievePartialData(reqId, nodeId, alsoFromEtcd)
 	if err != nil {
 		return nil, fmt.Errorf("partial data not found: %v", err)
@@ -123,16 +123,16 @@ func RetrieveAllPartialData(reqId ReqId, alsoFromEtcd bool) (*sync.Map, error) {
 	partialDataMap := &sync.Map{}
 	partialDataFromCache := getAllPartialDataFromCache(newPartialDataId(reqId))
 	// pdCacheMutex.Lock()
-	partialDataFromCache.Range(func(dagNodeId, slice any) bool {
-		partialDataMap.Store(dagNodeId, slice)
+	partialDataFromCache.Range(func(taskId, slice any) bool {
+		partialDataMap.Store(taskId, slice)
 		return true
 	})
 	// pdCacheMutex.Unlock()
 	if alsoFromEtcd {
 		partialDataFromEtcd, err := getAllPartialDataFromEtcd(reqId)
 		if err == nil {
-			for dagNodeId, slice := range partialDataFromEtcd {
-				partialDataMap.Store(dagNodeId, slice)
+			for taskId, slice := range partialDataFromEtcd {
+				partialDataMap.Store(taskId, slice)
 			}
 		} else {
 			return nil, err
@@ -145,15 +145,15 @@ func RetrieveAllPartialData(reqId ReqId, alsoFromEtcd bool) (*sync.Map, error) {
 func NumberOfPartialDataFor(reqId ReqId, alsoFromEtcd bool) int {
 	partialDataMap := &sync.Map{}
 	partialDataFromCache := getAllPartialDataFromCache(newPartialDataId(reqId))
-	partialDataFromCache.Range(func(dagNodeId, slice any) bool {
-		partialDataMap.Store(dagNodeId, slice)
+	partialDataFromCache.Range(func(taskId, slice any) bool {
+		partialDataMap.Store(taskId, slice)
 		return true
 	})
 	if alsoFromEtcd {
 		partialDataFromEtcd, err := getAllPartialDataFromEtcd(reqId)
 		if err == nil {
-			for dagNodeId, data := range partialDataFromEtcd {
-				partialDataMap.Store(dagNodeId, data)
+			for taskId, data := range partialDataFromEtcd {
+				partialDataMap.Store(taskId, data)
 			}
 		}
 	}
@@ -191,7 +191,7 @@ func DeleteAllPartialData(reqId ReqId, alsoFromEtcd bool) (int64, error) {
 	return 1, nil
 }
 
-// savePartialDataInCache appends in cache a partial data related to a specific request and dagNode in a Dag
+// savePartialDataInCache appends in cache a partial data related to a specific request and task in a Workflow
 func savePartialDataInCache(pds ...*PartialData) bool {
 	var partialDataIdType PartialDataId
 	pdCacheMutex.Lock()
@@ -237,7 +237,7 @@ func savePartialDataToEtcd(pd *PartialData) error {
 	return nil
 }
 
-func getPartialDataFromCache(pdId PartialDataId, nodeId DagNodeId) ([]*PartialData, error) {
+func getPartialDataFromCache(pdId PartialDataId, nodeId TaskId) ([]*PartialData, error) {
 	pdCacheMutex.Lock()
 	defer pdCacheMutex.Unlock()
 	subMap, ok := pdCache.Load(pdId)
@@ -248,14 +248,14 @@ func getPartialDataFromCache(pdId PartialDataId, nodeId DagNodeId) ([]*PartialDa
 	// getting the slice
 	slice, sliceFound := subMapTyped.Load(nodeId)
 	if !sliceFound {
-		return nil, fmt.Errorf("cannot find slice of partial data for request id %s and dag node %s\n", pdId, nodeId)
+		return nil, fmt.Errorf("cannot find slice of partial data for request id %s and workflow node %s\n", pdId, nodeId)
 	}
 	sliceTyped := slice.([]*PartialData)
 	// end debug
 	return sliceTyped, nil
 }
 
-func getPartialDataFromEtcd(requestId ReqId, nodeId DagNodeId) ([]*PartialData, error) {
+func getPartialDataFromEtcd(requestId ReqId, nodeId TaskId) ([]*PartialData, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
@@ -283,7 +283,7 @@ func getPartialDataFromEtcd(requestId ReqId, nodeId DagNodeId) ([]*PartialData, 
 	return partialDatas, nil
 }
 
-func getAllPartialDataFromEtcd(requestId ReqId) (map[DagNodeId][]*PartialData, error) {
+func getAllPartialDataFromEtcd(requestId ReqId) (map[TaskId][]*PartialData, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
@@ -299,7 +299,7 @@ func getAllPartialDataFromEtcd(requestId ReqId) (map[DagNodeId][]*PartialData, e
 	}
 	pdEtcdMutex.Unlock()
 
-	partialDataMap := make(map[DagNodeId][]*PartialData)
+	partialDataMap := make(map[TaskId][]*PartialData)
 	for _, kv := range partialDataResponse.Kvs {
 		var partialData *PartialData
 		err = json.Unmarshal(kv.Value, &partialData)
@@ -316,7 +316,7 @@ func getAllPartialDataFromEtcd(requestId ReqId) (map[DagNodeId][]*PartialData, e
 	return partialDataMap, nil
 }
 
-// getAllPartialDataFromCache returns a *sync.Map[DagNodeId, []*PartialData]
+// getAllPartialDataFromCache returns a *sync.Map[TaskId, []*PartialData]
 func getAllPartialDataFromCache(requestId PartialDataId) *sync.Map {
 	pdCacheMutex.Lock()
 	defer pdCacheMutex.Unlock()
@@ -325,14 +325,14 @@ func getAllPartialDataFromCache(requestId PartialDataId) *sync.Map {
 	return partialDataMapTyped
 }
 
-func GetCacheContents() map[PartialDataId]map[DagNodeId][]*PartialData {
-	res := make(map[PartialDataId]map[DagNodeId][]*PartialData)
+func GetCacheContents() map[PartialDataId]map[TaskId][]*PartialData {
+	res := make(map[PartialDataId]map[TaskId][]*PartialData)
 	pdCache.Range(func(key, value any) bool {
 		typedKey := key.(PartialDataId)
-		res[typedKey] = make(map[DagNodeId][]*PartialData)
+		res[typedKey] = make(map[TaskId][]*PartialData)
 		subMap := value.(*sync.Map)
 		subMap.Range(func(key, value any) bool {
-			res[typedKey][key.(DagNodeId)] = value.([]*PartialData)
+			res[typedKey][key.(TaskId)] = value.([]*PartialData)
 			return true
 		})
 		return true

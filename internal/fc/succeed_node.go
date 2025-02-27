@@ -10,21 +10,21 @@ import (
 )
 
 type SucceedNode struct {
-	Id         DagNodeId
-	NodeType   DagNodeType
+	Id         TaskId
+	NodeType   TaskType
 	InputPath  string
 	OutputPath string
 
 	/* (Serverledge specific) */
 	Message string
 	// OutputTo for a SucceedNode is used to send the output to the EndNode
-	OutputTo DagNodeId
+	OutputTo TaskId
 	BranchId int
 }
 
 func NewSucceedNode(message string) *SucceedNode {
 	succeedNode := SucceedNode{
-		Id:       DagNodeId("succeed_" + shortuuid.New()),
+		Id:       TaskId("succeed_" + shortuuid.New()),
 		NodeType: Succeed,
 		Message:  message,
 	}
@@ -70,25 +70,25 @@ func (s *SucceedNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (s *SucceedNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*EndNode)
+func (s *SucceedNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*EndNode)
 	if !ok {
 		return fmt.Errorf("the SucceedNode can only be chained to an end node")
 	}
-	s.OutputTo = dagNode
+	s.OutputTo = taskId
 	return nil
 }
 
 // PrepareOutput can be used in a SucceedNode to modify the composition output representation
-func (s *SucceedNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (s *SucceedNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if s.OutputPath != "" {
 		return fmt.Errorf("OutputPath not currently implemented") // TODO: implement it
 	}
 	return nil
 }
 
-func (s *SucceedNode) GetNext() []DagNodeId {
-	return []DagNodeId{s.OutputTo}
+func (s *SucceedNode) GetNext() []TaskId {
+	return []TaskId{s.OutputTo}
 }
 
 func (s *SucceedNode) Width() int {
@@ -111,10 +111,10 @@ func (s *SucceedNode) GetBranchId() int {
 	return s.BranchId
 }
 
-func (s *SucceedNode) GetId() DagNodeId {
+func (s *SucceedNode) GetId() TaskId {
 	return s.Id
 }
 
-func (s *SucceedNode) GetNodeType() DagNodeType {
+func (s *SucceedNode) GetNodeType() TaskType {
 	return s.NodeType
 }

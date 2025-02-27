@@ -10,49 +10,49 @@ import (
 	u "github.com/grussorusso/serverledge/utils"
 )
 
-func TestDagMarshaling(t *testing.T) {
+func TestWorkflowMarshaling(t *testing.T) {
 	f, _ := initializeExamplePyFunction()
 
-	dag1, _ := fc.CreateEmptyDag()
-	dag2, _ := fc.CreateSequenceDag(f, f, f)
-	dag3, _ := fc.CreateChoiceDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f) })
-	dag4, _ := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f) }, 4)
-	dag5, _ := fc.CreateScatterSingleFunctionDag(f, 5)
-	dag6, _ := fc.CreateBroadcastMultiFunctionDag(
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f) },
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f) },
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(f, f, f) },
+	workflow1, _ := fc.CreateEmptyWorkflow()
+	workflow2, _ := fc.CreateSequenceWorkflow(f, f, f)
+	workflow3, _ := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) })
+	workflow4, _ := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) }, 4)
+	workflow5, _ := fc.CreateScatterSingleFunctionWorkflow(f, 5)
+	workflow6, _ := fc.CreateBroadcastMultiFunctionWorkflow(
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f, f, f) },
 	)
-	dags := []*fc.Dag{dag1, dag2, dag3, dag4, dag5, dag6}
-	for i, dag := range dags {
-		marshal, errMarshal := json.Marshal(dag)
+	workflows := []*fc.Workflow{workflow1, workflow2, workflow3, workflow4, workflow5, workflow6}
+	for i, workflow := range workflows {
+		marshal, errMarshal := json.Marshal(workflow)
 		u.AssertNilMsg(t, errMarshal, "error during marshaling "+string(rune(i)))
-		var retrieved fc.Dag
+		var retrieved fc.Workflow
 		errUnmarshal := json.Unmarshal(marshal, &retrieved)
 		u.AssertNilMsg(t, errUnmarshal, "failed composition unmarshal "+string(rune(i)))
-		u.AssertTrueMsg(t, retrieved.Equals(dag), fmt.Sprintf("retrieved dag is not equal to initial dag. Retrieved:\n%s,\nExpected:\n%s ", retrieved.String(), dag.String()))
+		u.AssertTrueMsg(t, retrieved.Equals(workflow), fmt.Sprintf("retrieved workflow is not equal to initial workflow. Retrieved:\n%s,\nExpected:\n%s ", retrieved.String(), workflow.String()))
 	}
 }
 
-// test for dag connections
-func TestEmptyDag(t *testing.T) {
+// test for workflow connections
+func TestEmptyWorkflow(t *testing.T) {
 	// fc.BranchNumber = 0
 
 	input := 1
 	m := make(map[string]interface{})
 	m["input"] = input
-	dag, err := fc.CreateEmptyDag()
+	workflow, err := fc.CreateEmptyWorkflow()
 	u.AssertNil(t, err)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, dag.Width, 1)
-	u.AssertNonNil(t, dag.Nodes)
-	u.AssertEquals(t, dag.Start.Next, dag.End.GetId())
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, workflow.Width, 1)
+	u.AssertNonNil(t, workflow.Nodes)
+	u.AssertEquals(t, workflow.Start.Next, workflow.End.GetId())
 }
 
-// TestSimpleDag creates a simple Dag with one StartNode, two SimpleNode and one EndNode, executes it and gets the result.
-func TestSimpleDag(t *testing.T) {
+// TestSimpleWorkflow creates a simple Workflow with one StartNode, two SimpleNode and one EndNode, executes it and gets the result.
+func TestSimpleWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	input := 1
@@ -63,42 +63,42 @@ func TestSimpleDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	dag, err := fc.CreateSequenceDag(fArr...)
+	workflow, err := fc.CreateSequenceWorkflow(fArr...)
 	u.AssertNil(t, err)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, dag.Width, 1)
-	u.AssertNonNil(t, dag.Nodes)
-	u.AssertEquals(t, len(dag.Nodes)-2, length)
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, workflow.Width, 1)
+	u.AssertNonNil(t, workflow.Nodes)
+	u.AssertEquals(t, len(workflow.Nodes)-2, length)
 
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
-	_, found := dag.Find(dag.Start.Next)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
+	_, found := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, found)
 	end := false
-	var prevNode fc.DagNode = dag.Start
-	var currentNode fc.DagNode
+	var prevNode fc.Task = workflow.Start
+	var currentNode fc.Task
 	for !end {
 		switch prevNode.(type) {
 		case *fc.StartNode:
 			nextNodeId := prevNode.GetNext()[0]
-			currentNode, _ = dag.Find(nextNodeId)
+			currentNode, _ = workflow.Find(nextNodeId)
 			u.AssertEquals(t, prevNode.(*fc.StartNode).Next, currentNode.GetId())
 		case *fc.EndNode:
 			end = true
 		default: // currentNode = simple node
 			nextNodeId := prevNode.GetNext()[0]
-			currentNode, _ = dag.Find(nextNodeId)
+			currentNode, _ = workflow.Find(nextNodeId)
 			u.AssertEquals(t, prevNode.(*fc.SimpleNode).OutputTo, currentNode.GetId())
 			u.AssertEquals(t, prevNode.(*fc.SimpleNode).BranchId, 0)
 			u.AssertTrue(t, prevNode.(*fc.SimpleNode).Func == f.Name)
 		}
 		prevNode = currentNode
 	}
-	u.AssertEquals(t, prevNode.(*fc.EndNode), dag.End)
+	u.AssertEquals(t, prevNode.(*fc.EndNode), workflow.End)
 }
 
-func TestChoiceDag(t *testing.T) {
+func TestChoiceWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -112,27 +112,27 @@ func TestChoiceDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(1, "js")
 	u.AssertNil(t, err)
 
-	dag, err := fc.CreateChoiceDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArr...) }, arr...)
+	workflow, err := fc.CreateChoiceWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, arr...)
 	u.AssertNil(t, err)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, dag.Width, width)
-	u.AssertNonNil(t, dag.Nodes)
-	// u.AssertEquals(t, width+1, len(dag.Nodes))
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, workflow.Width, width)
+	u.AssertNonNil(t, workflow.Nodes)
+	// u.AssertEquals(t, width+1, len(workflow.Nodes))
 
-	//dagNodes := fc.NewNodeSetFrom(dag.Nodes)
-	choiceDag, found := dag.Find(dag.Start.Next)
-	choice := choiceDag.(*fc.ChoiceNode)
+	//tasks := fc.NewNodeSetFrom(workflow.Nodes)
+	choiceWorkflow, found := workflow.Find(workflow.Start.Next)
+	choice := choiceWorkflow.(*fc.ChoiceNode)
 	u.AssertTrue(t, found)
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch n.(type) {
 		case *fc.ChoiceNode:
 			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
 			for _, s := range choice.Alternatives {
-				simple, foundS := dag.Find(s)
+				simple, foundS := workflow.Find(s)
 				u.AssertTrue(t, foundS)
-				u.AssertEquals(t, simple.(*fc.SimpleNode).OutputTo, dag.End.GetId())
+				u.AssertEquals(t, simple.(*fc.SimpleNode).OutputTo, workflow.End.GetId())
 			}
 			u.AssertEqualsMsg(t, 0, n.GetBranchId(), "wrong branchId for choice node")
 		case *fc.SimpleNode:
@@ -147,7 +147,7 @@ func TestChoiceDag(t *testing.T) {
 	}
 }
 
-func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
+func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -156,41 +156,41 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "py")
 	u.AssertNil(t, err)
 
-	dag, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddChoiceNode(
 			fc.NewConstCondition(false),
 			fc.NewSmallerCondition(2, 1),
 			fc.NewConstCondition(true),
 		).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
-		NextBranch(fc.CreateSequenceDag(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
+		NextBranch(fc.CreateSequenceWorkflow(fArr...)).
 		EndChoiceAndBuild()
 
-	choiceDag, foundStartNext := dag.Find(dag.Start.Next)
-	choice := choiceDag.(*fc.ChoiceNode)
+	choiceWorkflow, foundStartNext := workflow.Find(workflow.Start.Next)
+	choice := choiceWorkflow.(*fc.ChoiceNode)
 	width := len(choice.Alternatives)
 
 	u.AssertNil(t, err)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, dag.Width, width)
-	u.AssertNonNil(t, dag.Nodes)
-	// u.AssertEquals(t, width+1, len(dag.Nodes))
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, workflow.Width, width)
+	u.AssertNonNil(t, workflow.Nodes)
+	// u.AssertEquals(t, width+1, len(workflow.Nodes))
 
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	u.AssertTrue(t, foundStartNext)
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch node := n.(type) {
 		case *fc.ChoiceNode:
 			u.AssertEquals(t, node.GetBranchId(), 0)
 			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
 			for _, s := range choice.Alternatives {
-				simple, foundS := dag.Find(s)
+				simple, foundS := workflow.Find(s)
 				u.AssertTrue(t, foundS)
 				if length == 1 {
-					u.AssertEquals(t, simple.(*fc.SimpleNode).OutputTo, dag.End.GetId())
+					u.AssertEquals(t, simple.(*fc.SimpleNode).OutputTo, workflow.End.GetId())
 				}
 			}
 		case *fc.SimpleNode:
@@ -206,9 +206,9 @@ func TestChoiceDag_BuiltWithNextBranch(t *testing.T) {
 	}
 }
 
-// TestBroadcastDag verifies that a broadcast dag is created correctly with fan out, simple nodes and fan in.
-// All dag branches have the same sequence of simple nodes.
-func TestBroadcastDag(t *testing.T) {
+// TestBroadcastWorkflow verifies that a broadcast workflow is created correctly with fan out, simple nodes and fan in.
+// All workflow branches have the same sequence of simple nodes.
+func TestBroadcastWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	m := make(map[string]interface{})
@@ -218,27 +218,27 @@ func TestBroadcastDag(t *testing.T) {
 	f, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
 
-	dag, errDag := fc.CreateBroadcastDag(func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArr...) }, width)
-	u.AssertNil(t, errDag)
+	workflow, errWorkflow := fc.CreateBroadcastWorkflow(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArr...) }, width)
+	u.AssertNil(t, errWorkflow)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, width, dag.Width)
-	u.AssertNonNil(t, dag.Nodes)
-	u.AssertEquals(t, length*width+4, len(dag.Nodes)) // 1 (fanOut) + 1 (fanIn) + width * length (simpleNodes) + 1 start + 1 end
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, width, workflow.Width)
+	u.AssertNonNil(t, workflow.Nodes)
+	u.AssertEquals(t, length*width+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width * length (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
-	_, foundStartNext := dag.Find(dag.Start.Next)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
+	_, foundStartNext := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, foundStartNext)
 
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch n.(type) {
 		case *fc.FanOutNode:
 			fanOut := n.(*fc.FanOutNode)
 			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
 			for i, s := range fanOut.OutputTo {
-				simple, found := dag.Find(s)
+				simple, found := workflow.Find(s)
 				u.AssertTrue(t, found)
 				u.AssertEquals(t, simple.GetBranchId(), i+1)
 			}
@@ -246,7 +246,7 @@ func TestBroadcastDag(t *testing.T) {
 		case *fc.FanInNode:
 			fanIn := n.(*fc.FanInNode)
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, dag.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, workflow.End.GetId(), fanIn.OutputTo)
 			u.AssertEquals(t, n.GetBranchId(), 4)
 		case *fc.SimpleNode:
 			u.AssertTrue(t, n.(*fc.SimpleNode).Func == f.Name)
@@ -257,35 +257,35 @@ func TestBroadcastDag(t *testing.T) {
 	}
 }
 
-func TestScatterDag(t *testing.T) {
+func TestScatterWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	dag, errDag := fc.CreateScatterSingleFunctionDag(f, width)
-	u.AssertNil(t, errDag)
+	workflow, errWorkflow := fc.CreateScatterSingleFunctionWorkflow(f, width)
+	u.AssertNil(t, errWorkflow)
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, dag.Width, width) // width is fixed at dag definition-time
-	u.AssertNonNil(t, dag.Nodes)
-	u.AssertEquals(t, width+4, len(dag.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, workflow.Width, width) // width is fixed at workflow definition-time
+	u.AssertNonNil(t, workflow.Nodes)
+	u.AssertEquals(t, width+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
-	startNext, startNextFound := dag.Find(dag.Start.Next)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
+	startNext, startNextFound := workflow.Find(workflow.Start.Next)
 	u.AssertTrue(t, startNextFound)
 	_, ok := startNext.(*fc.FanOutNode)
 	u.AssertTrue(t, ok)
 	simpleNodeChainedToFanIn := 0
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch node := n.(type) {
 		case *fc.FanOutNode:
 			fanOut := node
 			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
 			for j, s := range fanOut.OutputTo {
-				simple, foundSimple := dag.Find(s)
+				simple, foundSimple := workflow.Find(s)
 				u.AssertTrue(t, foundSimple)
 				u.AssertEquals(t, simple.GetBranchId(), j+1)
 			}
@@ -293,11 +293,11 @@ func TestScatterDag(t *testing.T) {
 		case *fc.FanInNode:
 			fanIn := node
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, dag.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, workflow.End.GetId(), fanIn.OutputTo)
 			u.AssertEquals(t, fanIn.GetBranchId(), fanIn.FanInDegree+1)
 		case *fc.SimpleNode:
 			u.AssertTrue(t, n.(*fc.SimpleNode).Func == f.Name)
-			outputTo, _ := dag.Find(node.OutputTo)
+			outputTo, _ := workflow.Find(node.OutputTo)
 			_, chainedToFanIn := outputTo.(*fc.FanInNode)
 			u.AssertTrue(t, chainedToFanIn)
 			u.AssertTrue(t, n.GetBranchId() > 0 && n.GetBranchId() < 4)
@@ -309,7 +309,7 @@ func TestScatterDag(t *testing.T) {
 	u.AssertEquals(t, width, simpleNodeChainedToFanIn)
 }
 
-func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
+func TestCreateBroadcastMultiFunctionWorkflow(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	length1 := 2
@@ -318,34 +318,34 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	length2 := 3
 	_, fArrJs, err2 := initializeSameFunctionSlice(length2, "js")
 	u.AssertNil(t, err2)
-	dag, errDag := fc.CreateBroadcastMultiFunctionDag(
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArrPy...) },
-		func() (*fc.Dag, error) { return fc.CreateSequenceDag(fArrJs...) },
+	workflow, errWorkflow := fc.CreateBroadcastMultiFunctionWorkflow(
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrPy...) },
+		func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(fArrJs...) },
 	)
-	u.AssertNil(t, errDag)
-	startNext, startNextFound := dag.Find(dag.Start.Next)
+	u.AssertNil(t, errWorkflow)
+	startNext, startNextFound := workflow.Find(workflow.Start.Next)
 	fanOutDegree := startNext.(*fc.FanOutNode).FanOutDegree
 
-	u.AssertNonNil(t, dag.Start)
-	u.AssertNonNil(t, dag.End)
-	u.AssertEquals(t, 2, dag.Width)
-	u.AssertNonNil(t, dag.Nodes)
-	u.AssertEquals(t, length1+length2+4, len(dag.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
+	u.AssertNonNil(t, workflow.Start)
+	u.AssertNonNil(t, workflow.End)
+	u.AssertEquals(t, 2, workflow.Width)
+	u.AssertNonNil(t, workflow.Nodes)
+	u.AssertEquals(t, length1+length2+4, len(workflow.Nodes)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
 
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	u.AssertTrue(t, startNextFound)
 	_, ok := startNext.(*fc.FanOutNode)
 	u.AssertTrue(t, ok)
 
 	simpleNodeChainedToFanIn := 0
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch node := n.(type) {
 		case *fc.FanOutNode:
 			fanOut := node
 			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
 			// test that there are simple nodes chained to fan out
 			for _, s := range fanOut.OutputTo {
-				simple, foundSimple := dag.Find(s)
+				simple, foundSimple := workflow.Find(s)
 				u.AssertTrue(t, foundSimple)
 				for i, branch := range fanOut.OutputTo {
 					// the branch of the simple nodes should be 1,2 or 3 because branch of choice is 0
@@ -357,15 +357,15 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 			u.AssertEqualsMsg(t, 0, fanOut.GetBranchId(), "wrong branchId for fanOut")
 		case *fc.FanInNode:
 			fanIn := node
-			u.AssertEquals(t, dag.Width, fanIn.FanInDegree)
-			u.AssertEquals(t, dag.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, workflow.Width, fanIn.FanInDegree)
+			u.AssertEquals(t, workflow.End.GetId(), fanIn.OutputTo)
 			u.AssertEquals(t, fanIn.GetBranchId(), fanIn.FanInDegree+1)
 		default:
 			continue
 		case *fc.SimpleNode:
 			u.AssertTrue(t, node.Func == f.Name)
 			u.AssertTrue(t, node.GetBranchId() > 0 && node.GetBranchId() < fanOutDegree+1)
-			outputTo, _ := dag.Find(node.OutputTo)
+			outputTo, _ := workflow.Find(node.OutputTo)
 			if _, ok := outputTo.(*fc.FanInNode); ok {
 				simpleNodeChainedToFanIn++
 			}
@@ -375,7 +375,7 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 	u.AssertEquals(t, 2, simpleNodeChainedToFanIn)
 }
 
-// TestDagBuilder tests a complex Dag with every type of node in it
+// TestWorkflowBuilder tests a complex Workflow with every type of node in it
 //
 //		    [Start ]
 //	           |
@@ -390,27 +390,27 @@ func TestCreateBroadcastMultiFunctionDag(t *testing.T) {
 //	       |     [FanIn ] // AddToArrayEntry
 //	       |        |
 //	       |---->[ End  ]
-func TestDagBuilder(t *testing.T) {
+func TestWorkflowBuilder(t *testing.T) {
 	//fc.BranchNumber = 0
 
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	width := 3
-	dag, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
-		NextBranch(fc.CreateSequenceDag(f)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.CreateSequenceWorkflow(f)).
+		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(width).
-			ForEachParallelBranch(func() (*fc.Dag, error) { return fc.CreateSequenceDag(f) }).
+			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()
 
 	u.AssertNil(t, err)
-	// dagNodes := fc.NewNodeSetFrom(dag.Nodes)
+	// tasks := fc.NewNodeSetFrom(workflow.Nodes)
 	simpleNodeChainedToFanIn := 0
-	for _, n := range dag.Nodes {
+	for _, n := range workflow.Nodes {
 		switch node := n.(type) {
 		case *fc.FanOutNode:
 			fanOut := node
@@ -418,17 +418,17 @@ func TestDagBuilder(t *testing.T) {
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
 			u.AssertEqualsMsg(t, 2, fanOut.GetBranchId(), "fan out has wrong branchId")
 			for _, s := range fanOut.OutputTo {
-				_, found := dag.Find(s)
+				_, found := workflow.Find(s)
 				u.AssertTrue(t, found)
 			}
 		case *fc.FanInNode:
 			fanIn := node
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, dag.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, workflow.End.GetId(), fanIn.OutputTo)
 			u.AssertEqualsMsg(t, 6, fanIn.GetBranchId(), "wrong branchId for fan in")
 		case *fc.SimpleNode:
 			u.AssertTrue(t, node.Func == f.Name)
-			nextNode, _ := dag.Find(node.GetNext()[0])
+			nextNode, _ := workflow.Find(node.GetNext()[0])
 			if _, ok := nextNode.(*fc.FanInNode); ok {
 				simpleNodeChainedToFanIn++
 				u.AssertTrueMsg(t, node.GetBranchId() > 2 && node.GetBranchId() < 6, "wrong branch for simple node connected to fanIn input") // the parallel branches of fan out node
@@ -444,21 +444,21 @@ func TestDagBuilder(t *testing.T) {
 			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
 
 			// specific for this test
-			alt0, foundAlt0 := dag.Find(choice.Alternatives[0])
-			alt1, foundAlt1 := dag.Find(choice.Alternatives[1])
+			alt0, foundAlt0 := workflow.Find(choice.Alternatives[0])
+			alt1, foundAlt1 := workflow.Find(choice.Alternatives[1])
 			firstAlternative := alt0.(*fc.SimpleNode)
 			secondAlternative := alt1.(*fc.FanOutNode)
 
 			u.AssertTrue(t, foundAlt0)
 			u.AssertTrue(t, foundAlt1)
-			u.AssertEquals(t, firstAlternative.OutputTo, dag.End.GetId())
+			u.AssertEquals(t, firstAlternative.OutputTo, workflow.End.GetId())
 			u.AssertEquals(t, choice.GetBranchId(), 0)
 			// checking fan out - simples - fan in
 			for i := range secondAlternative.OutputTo {
-				secondAltOutput, _ := dag.Find(secondAlternative.OutputTo[i])
+				secondAltOutput, _ := workflow.Find(secondAlternative.OutputTo[i])
 				simple, ok := secondAltOutput.(*fc.SimpleNode)
 				u.AssertTrue(t, ok)
-				simpleNext, _ := dag.Find(simple.OutputTo)
+				simpleNext, _ := workflow.Find(simple.OutputTo)
 				_, okFanIn := simpleNext.(*fc.FanInNode)
 				u.AssertTrue(t, okFanIn)
 			}
@@ -473,33 +473,33 @@ func TestDagBuilder(t *testing.T) {
 func TestVisit(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
-	complexDag, err := fc.NewDagBuilder().
+	complexWorkflow, err := fc.NewBuilder().
 		AddSimpleNode(f).
 		AddChoiceNode(fc.NewEqCondition(1, 4), fc.NewDiffCondition(1, 4)).
-		NextBranch(fc.CreateSequenceDag(f)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.CreateSequenceWorkflow(f)).
+		NextBranch(fc.NewBuilder().
 			AddScatterFanOutNode(3).
-			ForEachParallelBranch(func() (*fc.Dag, error) { return fc.CreateSequenceDag(f) }).
+			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(f) }).
 			AddFanInNode(fc.AddToArrayEntry).
 			Build()).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	startNext, _ := complexDag.Find(complexDag.Start.Next)
+	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.Next)
 
 	choice := startNext.GetNext()[0]
 
-	nodeList := make([]fc.DagNode, 0)
-	visitedNodes := fc.VisitDag(complexDag, complexDag.Start.Id, nodeList, false)
-	u.AssertEquals(t, len(complexDag.Nodes), len(visitedNodes))
+	nodeList := make([]fc.Task, 0)
+	visitedNodes := fc.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, false)
+	u.AssertEquals(t, len(complexWorkflow.Nodes), len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, complexDag.Start.Id, nodeList, true)
-	u.AssertEquals(t, len(complexDag.Nodes)-1, len(visitedNodes))
+	visitedNodes = fc.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, true)
+	u.AssertEquals(t, len(complexWorkflow.Nodes)-1, len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, choice, nodeList, false)
+	visitedNodes = fc.Visit(complexWorkflow, choice, nodeList, false)
 	u.AssertEquals(t, 8, len(visitedNodes))
 
-	visitedNodes = fc.VisitDag(complexDag, choice, nodeList, true)
+	visitedNodes = fc.Visit(complexWorkflow, choice, nodeList, true)
 	u.AssertEquals(t, 7, len(visitedNodes))
 
 }

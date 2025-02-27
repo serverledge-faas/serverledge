@@ -20,20 +20,20 @@ var compositionRequestsPool = sync.Pool{
 	},
 }
 
-// SimpleNode is a DagNode that receives one input and sends one result
+// SimpleNode is a Task that receives one input and sends one result
 type SimpleNode struct {
-	Id       DagNodeId
-	NodeType DagNodeType
+	Id       TaskId
+	NodeType TaskType
 	BranchId int
 	// input      map[string]interface{}
-	OutputTo   DagNodeId
+	OutputTo   TaskId
 	Func       string
 	inputMutex sync.Mutex // this is not marshaled
 }
 
 func NewSimpleNode(f string) *SimpleNode {
 	return &SimpleNode{
-		Id:         DagNodeId(shortuuid.New()),
+		Id:         TaskId(shortuuid.New()),
 		NodeType:   Simple,
 		Func:       f,
 		inputMutex: sync.Mutex{},
@@ -51,7 +51,7 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		fmt.Printf("executing simple node %s for request %s with input %v\n", s.Id, compRequest.ReqId, s.input)
 		s.inputMutex.Unlock()
 	*/
-	// creates the function if not exists. Maybe someone deleted by accident the function before starting the dag.
+	// creates the function if not exists. Maybe someone deleted by accident the function before starting the workflow.
 	if !funct.Exists() {
 		errNotSaved := funct.SaveToEtcd()
 		return nil, fmt.Errorf("the function %s cannot be saved while trying to exec the function composition %v", s.Func, errNotSaved)
@@ -152,9 +152,9 @@ func (s *SimpleNode) Equals(cmp types.Comparable) bool {
 	}
 }
 
-// AddOutput connects the output of the SimpleNode to another DagNode
-func (s *SimpleNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	s.OutputTo = dagNode
+// AddOutput connects the output of the SimpleNode to another Task
+func (s *SimpleNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	s.OutputTo = taskId
 	return nil
 }
 
@@ -180,7 +180,7 @@ func (s *SimpleNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput is used to send the output to the following function and if needed can be used to modify the SimpleNode output representation, like OutputPath
-func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func) // we are getting the function from cache if not already downloaded
 	if !exists {
 		return fmt.Errorf("funtion %s doesn't exists", s.Func)
@@ -196,9 +196,9 @@ func (s *SimpleNode) PrepareOutput(dag *Dag, output map[string]interface{}) erro
 	// get signature of next nodes, if present and maps the output there
 	for _, n := range s.GetNext() {
 		// we have only one output node
-		dagNode, _ := dag.Find(n)
+		task, _ := workflow.Find(n)
 
-		switch nodeType := dagNode.(type) {
+		switch nodeType := task.(type) {
 
 		case *SimpleNode:
 			return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks
@@ -248,9 +248,9 @@ func (s *SimpleNode) MapOutput(output map[string]interface{}) error {
 	return nil
 }
 
-func (s *SimpleNode) GetNext() []DagNodeId {
+func (s *SimpleNode) GetNext() []TaskId {
 	// we only have one output
-	return []DagNodeId{s.OutputTo}
+	return []TaskId{s.OutputTo}
 }
 
 func (s *SimpleNode) Width() int {
@@ -271,10 +271,10 @@ func (s *SimpleNode) GetBranchId() int {
 	return s.BranchId
 }
 
-func (s *SimpleNode) GetId() DagNodeId {
+func (s *SimpleNode) GetId() TaskId {
 	return s.Id
 }
 
-func (s *SimpleNode) GetNodeType() DagNodeType {
+func (s *SimpleNode) GetNodeType() TaskType {
 	return s.NodeType
 }

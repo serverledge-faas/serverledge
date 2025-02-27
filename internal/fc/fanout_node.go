@@ -16,16 +16,16 @@ import (
 )
 
 // TODO: when a branch has a fail node, all other branches should terminate immediately and the FanOut, FanIn and all nodes in the branches should be considered failed
-// FanOutNode is a DagNode that receives one input and sends multiple result, produced in parallel
+// FanOutNode is a Task that receives one input and sends multiple result, produced in parallel
 type FanOutNode struct {
-	Id       DagNodeId
-	NodeType DagNodeType
+	Id       TaskId
+	NodeType TaskType
 	BranchId int
 	// input           map[string]interface{}
-	OutputTo        []DagNodeId
+	OutputTo        []TaskId
 	FanOutDegree    int
 	Type            FanOutType
-	AssociatedFanIn DagNodeId
+	AssociatedFanIn TaskId
 }
 type FanOutType int
 
@@ -38,18 +38,18 @@ type ScatterMode int
 
 func NewFanOutNode(fanOutDegree int, fanOutType FanOutType) *FanOutNode {
 	return &FanOutNode{
-		Id:           DagNodeId(shortuuid.New()),
+		Id:           TaskId(shortuuid.New()),
 		NodeType:     FanOut,
-		OutputTo:     make([]DagNodeId, 0),
+		OutputTo:     make([]TaskId, 0),
 		FanOutDegree: fanOutDegree,
 		Type:         fanOutType,
 	}
 }
 
-func (f *FanOutNode) getBranchNumbers(dag *Dag) []int {
+func (f *FanOutNode) getBranchNumbers(workflow *Workflow) []int {
 	branchNumbers := make([]int, f.FanOutDegree)
 	for i, o := range f.OutputTo {
-		nod, _ := dag.Find(o)
+		nod, _ := workflow.Find(o)
 		branchNumbers[i] = nod.GetBranchId()
 	}
 	return branchNumbers
@@ -135,11 +135,11 @@ func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (f *FanOutNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (f *FanOutNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 	if len(f.OutputTo) == f.FanOutDegree {
 		return errors.New("cannot add more output. Create a FanOutNode with a higher fanout degree")
 	}
-	f.OutputTo = append(f.OutputTo, dagNode)
+	f.OutputTo = append(f.OutputTo, taskId)
 	return nil
 }
 
@@ -149,9 +149,9 @@ func (f *FanOutNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput sends output to the next node in each parallel branch
-func (f *FanOutNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (f *FanOutNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	for i, nodeId := range f.GetNext() {
-		outputNode, ok := dag.Find(nodeId)
+		outputNode, ok := workflow.Find(nodeId)
 		if !ok {
 			return fmt.Errorf("FanoutNode.PrepareOutput: cannot find node")
 		}
@@ -194,21 +194,21 @@ func (f *FanOutNode) PrepareOutput(dag *Dag, output map[string]interface{}) erro
 	return nil
 }
 
-func (f *FanOutNode) GetNext() []DagNodeId {
+func (f *FanOutNode) GetNext() []TaskId {
 	// we have multiple outputs
 	if f.FanOutDegree <= 1 {
 		log.Printf("You should have used a SimpleNode or EndNode for fanOutDegree less than 2\n")
-		return []DagNodeId{}
+		return []TaskId{}
 	}
 
 	if f.OutputTo == nil {
 		log.Printf("You forgot to initialize OutputTo for FanOutNode\n")
-		return []DagNodeId{}
+		return []TaskId{}
 	}
 
 	if f.FanOutDegree != len(f.OutputTo) {
 		log.Printf("The fanOutDegree and number of outputs does not match\n")
-		return []DagNodeId{}
+		return []TaskId{}
 	}
 
 	return f.OutputTo
@@ -248,9 +248,9 @@ func (f *FanOutNode) GetBranchId() int {
 	return f.BranchId
 }
 
-func (f *FanOutNode) GetId() DagNodeId {
+func (f *FanOutNode) GetId() TaskId {
 	return f.Id
 }
-func (f *FanOutNode) GetNodeType() DagNodeType {
+func (f *FanOutNode) GetNodeType() TaskType {
 	return f.NodeType
 }

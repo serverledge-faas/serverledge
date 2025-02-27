@@ -66,7 +66,7 @@ func CreateFunctionCompositionFromASL(e echo.Context) error {
 }
 
 func CreateFunctionComposition(e echo.Context) error {
-	var comp fc.Dag
+	var comp fc.Workflow
 	// here we expect to receive the function composition struct already parsed from JSON/YAML
 	var body []byte
 	body, errReadBody := io.ReadAll(e.Request().Body)
@@ -89,7 +89,7 @@ func CreateFunctionComposition(e echo.Context) error {
 	log.Printf("New request: creation of composition %s", comp.Name)
 
 	// Check that functions exist
-	for _, fName := range comp.GetUniqueDagFunctions() {
+	for _, fName := range comp.GetUniqueFunctions() {
 		f, exists := function.GetFunction(fName)
 		if !exists {
 			log.Printf("Dropping request for composition with non-existing function '%s'", fName)
@@ -120,7 +120,7 @@ func GetFunctionCompositions(c echo.Context) error {
 
 // DeleteFunctionComposition handles a function deletion request.
 func DeleteFunctionComposition(c echo.Context) error {
-	var comp fc.Dag
+	var comp fc.Workflow
 	// here we only need the name of the function composition (and if all function should be deleted with it)
 	err := json.NewDecoder(c.Request().Body).Decode(&comp)
 	if err != nil && err != io.EOF {
@@ -178,8 +178,8 @@ func InvokeFunctionComposition(e echo.Context) error {
 	// init fields if possibly not overwritten later
 	fcReq.ExecReport.Reports = hashmap.New[fc.ExecutionReportId, *function.ExecutionReport]() // make(map[fc.ExecutionReportId]*function.ExecutionReport)
 	for nodeId := range funComp.Nodes {
-		dagNode := funComp.Nodes[nodeId]
-		execReportId := fc.CreateExecutionReportId(dagNode)
+		task := funComp.Nodes[nodeId]
+		execReportId := fc.CreateExecutionReportId(task)
 		fcReq.ExecReport.Reports.Set(execReportId, &function.ExecutionReport{
 			OffloadLatency: 0,
 			SchedAction:    "",

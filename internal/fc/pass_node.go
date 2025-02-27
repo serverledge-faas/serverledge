@@ -10,17 +10,17 @@ import (
 )
 
 type PassNode struct {
-	Id         DagNodeId
-	NodeType   DagNodeType
+	Id         TaskId
+	NodeType   TaskType
 	Result     string
 	ResultPath string
-	OutputTo   DagNodeId
+	OutputTo   TaskId
 	BranchId   int
 }
 
 func NewPassNode(result string) *PassNode {
 	passNode := PassNode{
-		Id:       DagNodeId("pass_" + shortuuid.New()),
+		Id:       TaskId("pass_" + shortuuid.New()),
 		NodeType: Pass,
 		Result:   result,
 	}
@@ -65,17 +65,17 @@ func (p *PassNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-// AddOutput for a PassNode connects it to another DagNode, except StartNode
-func (p *PassNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
-	_, ok := dag.Nodes[dagNode].(*StartNode)
+// AddOutput for a PassNode connects it to another Task, except StartNode
+func (p *PassNode) AddOutput(workflow *Workflow, taskId TaskId) error {
+	_, ok := workflow.Nodes[taskId].(*StartNode)
 	if ok {
 		return fmt.Errorf("the PassNode cannot be chained to a startNode")
 	}
-	p.OutputTo = dagNode
+	p.OutputTo = taskId
 	return nil
 }
 
-func (p *PassNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (p *PassNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if p.ResultPath != "" {
 		return fmt.Errorf("ResultPath not currently implemented") // TODO: implement it
 	}
@@ -86,7 +86,7 @@ func (p *PassNode) PrepareOutput(dag *Dag, output map[string]interface{}) error 
 	// Get the next node.
 	nextNodeId := p.GetNext()[0]
 
-	nextNode, ok := dag.Find(nextNodeId)
+	nextNode, ok := workflow.Find(nextNodeId)
 	if !ok {
 		return fmt.Errorf("failed to find next node")
 	}
@@ -135,8 +135,8 @@ func (p *PassNode) MapOutput(nextNode *SimpleNode, output map[string]interface{}
 	return nil
 }
 
-func (p *PassNode) GetNext() []DagNodeId {
-	return []DagNodeId{p.OutputTo}
+func (p *PassNode) GetNext() []TaskId {
+	return []TaskId{p.OutputTo}
 }
 
 func (p *PassNode) Width() int {
@@ -159,10 +159,10 @@ func (p *PassNode) GetBranchId() int {
 	return p.BranchId
 }
 
-func (p *PassNode) GetId() DagNodeId {
+func (p *PassNode) GetId() TaskId {
 	return p.Id
 }
 
-func (p *PassNode) GetNodeType() DagNodeType {
+func (p *PassNode) GetNodeType() TaskType {
 	return p.NodeType
 }

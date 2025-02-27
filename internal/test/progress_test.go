@@ -10,71 +10,71 @@ import (
 	"time"
 )
 
-func simpleProgress(t *testing.T) (*fc.Progress, *fc.Dag) {
+func simpleProgress(t *testing.T) (*fc.Progress, *fc.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
-	dag, err := fc.CreateSequenceDag(py, py)
+	workflow, err := fc.CreateSequenceWorkflow(py, py)
 	u.AssertNil(t, err)
-	return fc.InitProgressRecursive("simple", dag), dag
+	return fc.InitProgressRecursive("simple", workflow), workflow
 }
 
-func choiceProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Dag) {
+func choiceProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 
 	notCondition := fc.NewPredicate().Not(condition).Build()
 
-	dag, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddChoiceNode(
 			notCondition,
 			condition,
 		).
-		NextBranch(fc.CreateSequenceDag(py)).
-		NextBranch(fc.CreateSequenceDag(py, py)).
+		NextBranch(fc.CreateSequenceWorkflow(py)).
+		NextBranch(fc.CreateSequenceWorkflow(py, py)).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	return fc.InitProgressRecursive("abc", dag), dag
+	return fc.InitProgressRecursive("abc", workflow), workflow
 }
 
-func parallelProgress(t *testing.T) (*fc.Progress, *fc.Dag) {
+func parallelProgress(t *testing.T) (*fc.Progress, *fc.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 
-	dag, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddBroadcastFanOutNode(3).
-		NextFanOutBranch(fc.CreateSequenceDag(py)).
-		NextFanOutBranch(fc.CreateSequenceDag(py, py)).
-		NextFanOutBranch(fc.CreateSequenceDag(py, py, py)).
+		NextFanOutBranch(fc.CreateSequenceWorkflow(py)).
+		NextFanOutBranch(fc.CreateSequenceWorkflow(py, py)).
+		NextFanOutBranch(fc.CreateSequenceWorkflow(py, py, py)).
 		AddFanInNode(fc.AddNewMapEntry).
 		Build()
 	u.AssertNil(t, err)
 
-	return fc.InitProgressRecursive("abc", dag), dag
+	return fc.InitProgressRecursive("abc", workflow), workflow
 }
 
-func complexProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Dag) {
+func complexProgress(t *testing.T, condition fc.Condition) (*fc.Progress, *fc.Workflow) {
 	py, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 
 	notCondition := fc.NewPredicate().Not(condition).Build()
 
-	dag, err := fc.NewDagBuilder().
+	workflow, err := fc.NewBuilder().
 		AddSimpleNode(py).
 		AddChoiceNode(
 			notCondition,
 			condition,
 		).
-		NextBranch(fc.CreateSequenceDag(py)).
-		NextBranch(fc.NewDagBuilder().
+		NextBranch(fc.CreateSequenceWorkflow(py)).
+		NextBranch(fc.NewBuilder().
 			AddBroadcastFanOutNode(3).
-			ForEachParallelBranch(func() (*fc.Dag, error) { return fc.CreateSequenceDag(py, py) }).
+			ForEachParallelBranch(func() (*fc.Workflow, error) { return fc.CreateSequenceWorkflow(py, py) }).
 			AddFanInNode(fc.AddNewMapEntry).
 			Build()).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	return fc.InitProgressRecursive("abc", dag), dag
+	return fc.InitProgressRecursive("abc", workflow), workflow
 }
 
 func TestProgressMarshaling(t *testing.T) {
@@ -110,16 +110,16 @@ func TestProgressCache(t *testing.T) {
 		fc.NewGreaterCondition(1, 3),
 	).Build()
 
-	progress1, dag1 := simpleProgress(t)
-	progress2, dag2 := choiceProgress(t, condition)
-	progress3, dag3 := parallelProgress(t)
-	progress4, dag4 := complexProgress(t, condition)
+	progress1, workflow1 := simpleProgress(t)
+	progress2, workflow2 := choiceProgress(t, condition)
+	progress3, workflow3 := parallelProgress(t)
+	progress4, workflow4 := complexProgress(t, condition)
 	progresses := []*fc.Progress{progress1, progress2, progress3, progress4}
-	dags := []*fc.Dag{dag1, dag2, dag3, dag4}
+	workflows := []*fc.Workflow{workflow1, workflow2, workflow3, workflow4}
 
-	for i := 0; i < len(dags); i++ {
+	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
-		dag := dags[i]
+		workflow := workflows[i]
 		err := fc.SaveProgress(progress, cache.Persist)
 		u.AssertNilMsg(t, err, "failed to save progress")
 
@@ -127,9 +127,9 @@ func TestProgressCache(t *testing.T) {
 		u.AssertTrueMsg(t, found, "progress not found")
 		u.AssertTrueMsg(t, progress.Equals(retrievedProgress), "progresses don't match")
 
-		err = progress.CompleteNode(dag.Start.Id)
+		err = progress.CompleteNode(workflow.Start.Id)
 		u.AssertNilMsg(t, err, "failed to update progress")
-		err = progress.CompleteNode(dag.Start.Next)
+		err = progress.CompleteNode(workflow.Start.Next)
 		u.AssertNilMsg(t, err, "failed to update progress")
 
 		err = fc.SaveProgress(progress, cache.Persist)
@@ -149,23 +149,23 @@ func TestProgressCache(t *testing.T) {
 	}
 }
 
-// TestProgressSequence tests a sequence dag with 2 simple node
+// TestProgressSequence tests a sequence workflow with 2 simple node
 func TestProgressSequence(t *testing.T) {
-	progress, dag := simpleProgress(t)
+	progress, workflow := simpleProgress(t)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Simple Node 1
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Simple Node 2
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// End node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
@@ -175,21 +175,21 @@ func TestProgressChoice1(t *testing.T) {
 		fc.NewEqCondition(1, 3),
 		fc.NewGreaterCondition(1, 3),
 	).Build()
-	progress, dag := choiceProgress(t, condition)
+	progress, workflow := choiceProgress(t, condition)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Choice node
-	choice := checkAndCompleteNext(t, progress, dag).(*fc.ChoiceNode)
+	choice := checkAndCompleteNext(t, progress, workflow).(*fc.ChoiceNode)
 
 	// Simple node (left) // suppose the left condition is true
-	checkAndCompleteChoice(t, progress, choice, dag)
+	checkAndCompleteChoice(t, progress, choice, workflow)
 
 	// End
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
@@ -199,44 +199,44 @@ func TestProgressChoice2(t *testing.T) {
 		fc.NewEqCondition(1, 1),
 		fc.NewGreaterCondition(5, 3),
 	).Build()
-	progress, dag := choiceProgress(t, condition)
+	progress, workflow := choiceProgress(t, condition)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Choice node
-	choice := checkAndCompleteNext(t, progress, dag).(*fc.ChoiceNode)
+	choice := checkAndCompleteNext(t, progress, workflow).(*fc.ChoiceNode)
 
 	// Simple Node left is skipped, right is executed
-	checkAndCompleteChoice(t, progress, choice, dag)
+	checkAndCompleteChoice(t, progress, choice, workflow)
 
 	// Simple Node right 2
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// End node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
 func TestParallelProgress(t *testing.T) {
-	progress, dag := parallelProgress(t)
+	progress, workflow := parallelProgress(t)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// FanOut node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// 3 Simple Nodes in parallel
-	checkAndCompleteMultiple(t, progress, dag)
+	checkAndCompleteMultiple(t, progress, workflow)
 	// simpleNode1 := fanOut.GetNext()[0]
 	// simpleNode2 := fanOut.GetNext()[1]
 	// simpleNode3 := fanOut.GetNext()[2]
 
 	// 2 Simple Nodes in parallel // here should get two nodes
-	checkAndCompleteMultiple(t, progress, dag)
+	checkAndCompleteMultiple(t, progress, workflow)
 	// nextNode = progress.NextNodes()
 	// simpleNodeCentral2 := simpleNode2.GetNext()[0]
 	// u.AssertEquals(t, nextNode[0], simpleNodeCentral2.GetId())
@@ -250,7 +250,7 @@ func TestParallelProgress(t *testing.T) {
 	// u.AssertNil(t, err)
 
 	// 1 Simple node (parallel) right, bottom
-	checkAndCompleteMultiple(t, progress, dag)
+	checkAndCompleteMultiple(t, progress, workflow)
 	// nextNode = progress.NextNodes()
 	// simpleNodeBottom3 := simpleNodeCentral3.GetNext()[0]
 	// u.AssertEquals(t, nextNode[0], simpleNodeBottom3.GetId())
@@ -259,12 +259,12 @@ func TestParallelProgress(t *testing.T) {
 	// u.AssertNil(t, err)
 
 	// Fan in
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// End node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
@@ -273,24 +273,24 @@ func TestComplexProgress(t *testing.T) {
 		fc.NewEqCondition(1, 3),
 		fc.NewGreaterCondition(1, 3),
 	).Build()
-	progress, dag := complexProgress(t, condition)
+	progress, workflow := complexProgress(t, condition)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// SimpleNode
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Choice
-	choice := checkAndCompleteNext(t, progress, dag).(*fc.ChoiceNode)
+	choice := checkAndCompleteNext(t, progress, workflow).(*fc.ChoiceNode)
 
 	// Simple Node, FanOut
-	checkAndCompleteChoice(t, progress, choice, dag)
+	checkAndCompleteChoice(t, progress, choice, workflow)
 
 	// End node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
@@ -299,41 +299,41 @@ func TestComplexProgress2(t *testing.T) {
 		fc.NewEqCondition(1, 1),
 		fc.NewGreaterCondition(4, 3),
 	).Build()
-	progress, dag := complexProgress(t, condition)
+	progress, workflow := complexProgress(t, condition)
 
 	// Start node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Simple Node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// Choice
-	choice := checkAndCompleteNext(t, progress, dag).(*fc.ChoiceNode)
+	choice := checkAndCompleteNext(t, progress, workflow).(*fc.ChoiceNode)
 
 	// Simple Node, FanOut // suppose the fanout node at the right and all its children are skipped
-	checkAndCompleteChoice(t, progress, choice, dag)
+	checkAndCompleteChoice(t, progress, choice, workflow)
 
 	// 3 Simple Nodes in parallel
-	checkAndCompleteMultiple(t, progress, dag)
+	checkAndCompleteMultiple(t, progress, workflow)
 
 	// 3 other Simple Nodes
-	checkAndCompleteMultiple(t, progress, dag)
+	checkAndCompleteMultiple(t, progress, workflow)
 
 	// Fan in
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
 	// End node
-	checkAndCompleteNext(t, progress, dag)
+	checkAndCompleteNext(t, progress, workflow)
 
-	// End of dag
+	// End of workflow
 	finishProgress(t, progress)
 }
 
-func checkAndCompleteNext(t *testing.T, progress *fc.Progress, dag *fc.Dag) fc.DagNode {
+func checkAndCompleteNext(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) fc.Task {
 	nextNode, err := progress.NextNodes()
 	u.AssertNil(t, err)
 	nodeId := nextNode[0]
-	node, ok := dag.Find(nodeId)
+	node, ok := workflow.Find(nodeId)
 	u.AssertTrue(t, ok)
 	u.AssertEquals(t, nodeId, node.GetId())
 	u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nodeId))
@@ -342,7 +342,7 @@ func checkAndCompleteNext(t *testing.T, progress *fc.Progress, dag *fc.Dag) fc.D
 	return node
 }
 
-func checkAndCompleteChoice(t *testing.T, progress *fc.Progress, choice *fc.ChoiceNode, dag *fc.Dag) {
+func checkAndCompleteChoice(t *testing.T, progress *fc.Progress, choice *fc.ChoiceNode, workflow *fc.Workflow) {
 	nextNode, err := progress.NextNodes() // Simple1, Simple2
 	u.AssertNil(t, err)
 	simpleNodeLeft := choice.Alternatives[0]
@@ -355,17 +355,17 @@ func checkAndCompleteChoice(t *testing.T, progress *fc.Progress, choice *fc.Choi
 	_, _ = choice.Exec(newCompositionRequestTest(), make(map[string]interface{}))
 	err = progress.CompleteNode(nextNode[choice.FirstMatch])
 	u.AssertNil(t, err)
-	nodeToSkip := choice.GetNodesToSkip(dag)
+	nodeToSkip := choice.GetNodesToSkip(workflow)
 	err = progress.SkipAll(nodeToSkip)
 	u.AssertNil(t, err)
 }
 
-func checkAndCompleteMultiple(t *testing.T, progress *fc.Progress, dag *fc.Dag) []fc.DagNode {
+func checkAndCompleteMultiple(t *testing.T, progress *fc.Progress, workflow *fc.Workflow) []fc.Task {
 	nextNode, err := progress.NextNodes()
-	completedNodes := make([]fc.DagNode, 0)
+	completedNodes := make([]fc.Task, 0)
 	u.AssertNil(t, err)
 	for _, nodeId := range nextNode {
-		node, ok := dag.Find(nodeId)
+		node, ok := workflow.Find(nodeId)
 		u.AssertTrue(t, ok)
 		u.AssertEquals(t, nodeId, node.GetId())
 		u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nodeId))

@@ -5,29 +5,29 @@ type void struct{}
 
 var null void
 
-// NodeSet is a utility struct that defines a simple ordered Set of DagNodes
+// NodeSet is a utility struct that defines a simple ordered Set of TaskInfos
 type NodeSet struct {
-	elements map[DagNode]void
-	ordered  []DagNode
+	elements map[Task]void
+	ordered  []Task
 }
 
 func NewNodeSet() NodeSet {
-	return NodeSet{elements: make(map[DagNode]void)}
+	return NodeSet{elements: make(map[Task]void)}
 }
 
-func NewNodeSetFrom(slice []DagNode) NodeSet {
+func NewNodeSetFrom(slice []Task) NodeSet {
 	ns := NewNodeSet()
 	ns.AddAll(slice)
 	return ns
 }
 
-func (set *NodeSet) Contains(node DagNode) bool {
+func (set *NodeSet) Contains(node Task) bool {
 	_, exists := set.elements[node]
 	return exists
 }
 
 // AddIfNotExists adds the node to the set if exists. Returns true if node is added, false if already exists
-func (set *NodeSet) AddIfNotExists(node DagNode) bool {
+func (set *NodeSet) AddIfNotExists(node Task) bool {
 	_, ok := set.elements[node]
 	// If the key does not exist, then add to the set
 	if !ok {
@@ -39,7 +39,7 @@ func (set *NodeSet) AddIfNotExists(node DagNode) bool {
 }
 
 // not tested, not used
-func (set *NodeSet) removeIfExists(node DagNode) bool {
+func (set *NodeSet) removeIfExists(node Task) bool {
 	if set.Contains(node) {
 		delete(set.elements, node)
 		return true
@@ -48,11 +48,11 @@ func (set *NodeSet) removeIfExists(node DagNode) bool {
 }
 
 // GetNodes returns an ordered list with all Nodes in the set
-func (set *NodeSet) GetNodes() []DagNode {
+func (set *NodeSet) GetNodes() []Task {
 	return set.ordered
 }
 
-func (set *NodeSet) AddAll(nodes []DagNode) int {
+func (set *NodeSet) AddAll(nodes []Task) int {
 	nAdded := 0
 	for _, node := range nodes {
 		added := set.AddIfNotExists(node)

@@ -6,11 +6,11 @@ import (
 	"github.com/grussorusso/serverledge/internal/types"
 )
 
-type DagNodeId string
+type TaskId string
 
-// DagNode is an interface for a single node in the Dag
+// Task is an interface for a single node in the Workflow
 // all implementors must be pointers to a struct
-type DagNode interface {
+type Task interface {
 	types.Comparable
 	Display
 	Executable
@@ -23,10 +23,10 @@ type DagNode interface {
 	HasNodeType
 }
 
-// HasBranch is a counter that represent the branch of a node in the dag.
-// For a sequence dag, the branch is always 0.
-// For a dag with a single choice node, the choice node has branch 0, the N alternatives have branch 1,2,...,N
-// For a parallel dag with one fanOut and fanIn, the fanOut has branch 0, fanOut branches have branch 1,2,...,N and FanIn has branch N+1
+// HasBranch is a counter that represent the branch of a node in the workflow.
+// For a sequence workflow, the branch is always 0.
+// For a workflow with a single choice node, the choice node has branch 0, the N alternatives have branch 1,2,...,N
+// For a parallel workflow with one fanOut and fanIn, the fanOut has branch 0, fanOut branches have branch 1,2,...,N and FanIn has branch N+1
 type HasBranch interface {
 	setBranchId(number int)
 	GetBranchId() int
@@ -34,18 +34,18 @@ type HasBranch interface {
 
 type Display interface {
 	fmt.Stringer
-	GetId() DagNodeId
+	GetId() TaskId
 	Name() string
 }
 
 type Executable interface {
-	// Exec defines how the DagNode is executed. If successful, returns the output of the execution
+	// Exec defines how the Task is executed. If successful, returns the output of the execution
 	Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error)
 }
 
 type HasOutput interface {
-	// AddOutput  adds a result node, if compatible. For some DagNodes can be called multiple times
-	AddOutput(dag *Dag, dagNode DagNodeId) error
+	// AddOutput  adds a result task, if compatible. For some task can be called multiple times
+	AddOutput(workflow *Workflow, taskId TaskId) error
 }
 
 type ChecksInput interface {
@@ -55,21 +55,17 @@ type ChecksInput interface {
 
 type ReceivesOutput interface {
 	// PrepareOutput maps the outputMap of the current node to the inputMap of the next nodes
-	PrepareOutput(dag *Dag, output map[string]interface{}) error
+	PrepareOutput(workflow *Workflow, output map[string]interface{}) error
 }
 
 type HasNext interface {
-	GetNext() []DagNodeId
+	GetNext() []TaskId
 }
 
 type HasNodeType interface {
-	GetNodeType() DagNodeType
+	GetNodeType() TaskType
 }
 
-type Buildable interface {
-	BuildDag(builder *DagBuilder) (*DagBuilder, error)
-}
-
-func Equals[D DagNode](d1 D, d2 D) bool {
+func Equals[D Task](d1 D, d2 D) bool {
 	return d1.Equals(d2)
 }

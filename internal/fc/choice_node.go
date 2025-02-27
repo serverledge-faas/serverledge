@@ -16,27 +16,27 @@ import (
 
 // ChoiceNode receives one input and produces one result to one of two alternative nodes, based on condition
 type ChoiceNode struct {
-	Id           DagNodeId
-	NodeType     DagNodeType
+	Id           TaskId
+	NodeType     TaskType
 	BranchId     int
 	input        map[string]interface{}
-	Alternatives []DagNodeId
+	Alternatives []TaskId
 	Conditions   []Condition
 	FirstMatch   int
 }
 
 func NewChoiceNode(conds []Condition) *ChoiceNode {
 	return &ChoiceNode{
-		Id:       DagNodeId(shortuuid.New()),
+		Id:       TaskId(shortuuid.New()),
 		NodeType: Choice,
 		//input         make(map[string]interface{}, )
 		Conditions:   conds,
-		Alternatives: make([]DagNodeId, len(conds)),
+		Alternatives: make([]TaskId, len(conds)),
 		FirstMatch:   -1,
 	}
 }
 
-// The condition function must be created from the Dag specification in State Function Language or AFCL
+// The condition function must be created from the Workflow specification in State Function Language or AFCL
 
 func (c *ChoiceNode) Equals(cmp types.Comparable) bool {
 	switch cmp.(type) {
@@ -102,12 +102,12 @@ func (c *ChoiceNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	return output, err
 }
 
-func (c *ChoiceNode) AddOutput(dag *Dag, dagNode DagNodeId) error {
+func (c *ChoiceNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
 	}
-	c.Alternatives = append(c.Alternatives, dagNode)
+	c.Alternatives = append(c.Alternatives, taskId)
 	if len(c.Alternatives) > len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
 	}
@@ -118,14 +118,14 @@ func (c *ChoiceNode) CheckInput(input map[string]interface{}) error {
 	return nil
 }
 
-func (c *ChoiceNode) PrepareOutput(dag *Dag, output map[string]interface{}) error {
+func (c *ChoiceNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	// we should map the output to the input of the node that first matches the condition and not to every alternative
 	for _, n := range c.GetNext() {
-		dagNode, ok := dag.Find(n)
+		task, ok := workflow.Find(n)
 		if !ok {
 			return fmt.Errorf("node not found while preparing output")
 		}
-		switch nod := dagNode.(type) {
+		switch nod := task.(type) {
 		case *SimpleNode:
 			return nod.MapOutput(output)
 		}
@@ -166,31 +166,31 @@ func (s *ChoiceNode) MapOutput(output map[string]interface{}, sign function.Sign
 }
 
 // GetChoiceBranch returns all node ids of a branch under a choice node; branch number starts from 0
-func (c *ChoiceNode) GetChoiceBranch(dag *Dag, branch int) []DagNode {
-	branchNodes := make([]DagNode, 0)
+func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []Task {
+	branchNodes := make([]Task, 0)
 	if len(c.Alternatives) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
 		return branchNodes
 	}
 	node := c.Alternatives[branch]
-	return VisitDag(dag, node, branchNodes, true)
+	return Visit(workflow, node, branchNodes, true)
 }
 
 // GetNodesToSkip skips all node that are in a branch that will not be executed.
 // If a skipped branch contains one or more node that is used by the current branch, the node,
 // should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
-func (c *ChoiceNode) GetNodesToSkip(dag *Dag) []DagNode {
-	nodesToSkip := make([]DagNode, 0)
+func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []Task {
+	nodesToSkip := make([]Task, 0)
 	if c.FirstMatch == -1 || c.FirstMatch >= len(c.Alternatives) {
 		return nodesToSkip
 	}
 
-	nodesToNotSkip := c.GetChoiceBranch(dag, c.FirstMatch)
+	nodesToNotSkip := c.GetChoiceBranch(workflow, c.FirstMatch)
 	for i := 0; i < len(c.Alternatives); i++ {
 		if i == c.FirstMatch {
 			continue
 		}
-		branchNodes := c.GetChoiceBranch(dag, i)
+		branchNodes := c.GetChoiceBranch(workflow, i)
 		for _, node := range branchNodes {
 			shouldBeSkipped := true
 			for _, nodeToNotSkip := range nodesToNotSkip {
@@ -207,7 +207,7 @@ func (c *ChoiceNode) GetNodesToSkip(dag *Dag) []DagNode {
 	return nodesToSkip
 }
 
-func (c *ChoiceNode) GetNext() []DagNodeId {
+func (c *ChoiceNode) GetNext() []TaskId {
 	// you should have called exec before calling GetNext
 	if c.FirstMatch >= len(c.Alternatives) {
 		panic("there aren't sufficient alternatives!")
@@ -217,7 +217,7 @@ func (c *ChoiceNode) GetNext() []DagNodeId {
 		panic("first match cannot be less then 0. You should call Exec() before GetNext()")
 	}
 
-	return []DagNodeId{c.Alternatives[c.FirstMatch]}
+	return []TaskId{c.Alternatives[c.FirstMatch]}
 }
 
 func (c *ChoiceNode) Width() int {
@@ -261,10 +261,10 @@ func (c *ChoiceNode) String() string {
 	return fmt.Sprintf("[ChoiceNode(%d): %s] ", len(c.Alternatives), conditions)
 }
 
-func (c *ChoiceNode) GetId() DagNodeId {
+func (c *ChoiceNode) GetId() TaskId {
 	return c.Id
 }
 
-func (c *ChoiceNode) GetNodeType() DagNodeType {
+func (c *ChoiceNode) GetNodeType() TaskType {
 	return c.NodeType
 }

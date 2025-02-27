@@ -7,27 +7,27 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
-// FromASL parses a AWS State Language specification file and returns a Function Composition with the corresponding Serverledge Dag
+// FromASL parses a AWS State Language specification file and returns a Function Composition with the corresponding Serverledge Workflow
 // The name of the composition should not be the file name by default, to avoid problems when adding the same composition multiple times.
-func FromASL(name string, aslSrc []byte) (*Dag, error) {
+func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	stateMachine, err := asl.ParseFrom(name, aslSrc)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse the ASL file: %v", err)
 	}
-	dag, err := FromStateMachine(stateMachine)
+	workflow, err := FromStateMachine(stateMachine)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge DAG: %v", err)
+		return nil, fmt.Errorf("failed to convert ASL State Machine to Serverledge Workflow: %v", err)
 	}
 
-	dag.Name = name
+	workflow.Name = name
 
-	return dag, nil
+	return workflow, nil
 }
 
 /* ============== Build from ASL States =================== */
 
 // BuildFromTaskState adds a SimpleNode to the previous Node. The simple node will have id as specified by the name parameter
-func BuildFromTaskState(builder *DagBuilder, t *asl.TaskState, name string) (*DagBuilder, error) {
+func BuildFromTaskState(builder *Builder, t *asl.TaskState, name string) (*Builder, error) {
 	f, found := function.GetFunction(t.Resource) // Could have been used t.GetResources()[0], but it is better to avoid the array dereference
 	if !found {
 		return nil, fmt.Errorf("non existing function in composition: %s", t.Resource)
@@ -37,7 +37,7 @@ func BuildFromTaskState(builder *DagBuilder, t *asl.TaskState, name string) (*Da
 }
 
 // BuildFromChoiceState adds a ChoiceNode as defined in the ChoiceState, connects it to the previous Node, and TERMINATES the DAG
-func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, entireSM *asl.StateMachine) (*Dag, error) {
+func BuildFromChoiceState(builder *Builder, c *asl.ChoiceState, name string, entireSM *asl.StateMachine) (*Workflow, error) {
 	conds, err := BuildConditionFromRule(c.Choices)
 	if err != nil {
 		return nil, err
@@ -56,11 +56,11 @@ func BuildFromChoiceState(builder *DagBuilder, c *asl.ChoiceState, name string, 
 
 			nextState = c.Default
 		}
-		dag, errBranch := GetBranchForChoiceFromStates(entireSM, nextState, i)
+		workflow, errBranch := GetBranchForChoiceFromStates(entireSM, nextState, i)
 		if errBranch != nil {
 			return nil, errBranch
 		}
-		branchBuilder = branchBuilder.NextBranch(dag, errBranch)
+		branchBuilder = branchBuilder.NextBranch(workflow, errBranch)
 		i++
 	}
 	return branchBuilder.EndChoiceAndBuild()
@@ -238,18 +238,18 @@ func buildTestExpr(t *asl.TestExpression) (Condition, error) {
 	return condition, nil
 }
 
-func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Dag, error) {
-	return DagBuildingLoop(sm, sm.States[nextState], nextState)
+func GetBranchForChoiceFromStates(sm *asl.StateMachine, nextState string, branchIndex int) (*Workflow, error) {
+	return WorkflowBuildingLoop(sm, sm.States[nextState], nextState)
 }
 
 // BuildFromParallelState adds a FanOutNode and a FanInNode and as many branches as defined in the ParallelState
-func BuildFromParallelState(builder *DagBuilder, c *asl.ParallelState, name string) (*DagBuilder, error) {
+func BuildFromParallelState(builder *Builder, c *asl.ParallelState, name string) (*Builder, error) {
 	// TODO: implement me
 	return builder, nil
 }
 
 // BuildFromMapState is not compatible with Serverledge at the moment
-func BuildFromMapState(builder *DagBuilder, c *asl.MapState, name string) (*DagBuilder, error) {
+func BuildFromMapState(builder *Builder, c *asl.MapState, name string) (*Builder, error) {
 	// TODO: implement me
 	// TODO: implement MapNode
 	panic("not compatible with serverledge currently")
@@ -257,20 +257,20 @@ func BuildFromMapState(builder *DagBuilder, c *asl.MapState, name string) (*DagB
 }
 
 // BuildFromPassState adds a SimpleNode with an identity function
-func BuildFromPassState(builder *DagBuilder, p *asl.PassState, name string) (*DagBuilder, error) {
+func BuildFromPassState(builder *Builder, p *asl.PassState, name string) (*Builder, error) {
 	// TODO: implement me
 	return builder, nil
 }
 
 // BuildFromWaitState adds a Simple node with a sleep function for the specified time as described in the WaitState
-func BuildFromWaitState(builder *DagBuilder, w *asl.WaitState, name string) (*DagBuilder, error) {
+func BuildFromWaitState(builder *Builder, w *asl.WaitState, name string) (*Builder, error) {
 	// TODO: implement me
 	return builder, nil
 }
 
 // BuildFromSucceedState adds a SucceedNode and an EndNode. When executing, the EndNode Result map will have the key 'Message' and if the message as value.
 // If the message is "", it will have a generic success message.
-func BuildFromSucceedState(builder *DagBuilder, s *asl.SucceedState, name string) (*Dag, error) {
+func BuildFromSucceedState(builder *Builder, s *asl.SucceedState, name string) (*Workflow, error) {
 	// 'Message' will be the key in the EndNode Result field
 	// 'Execution completed successfully' will be the value in the EndNode Result field
 	return builder.AddSucceedNodeAndBuild("Execution completed successfully")
@@ -278,7 +278,7 @@ func BuildFromSucceedState(builder *DagBuilder, s *asl.SucceedState, name string
 
 // BuildFromFailState adds a FailNode and an EndNode. When executing, the EndNode Result map will have the FailNode Error as key and the FailNode Cause as value.
 // if error and cause are not specified, a GenericError key and a generic message will be set in the EndNode Result field.
-func BuildFromFailState(builder *DagBuilder, s *asl.FailState, name string) (*Dag, error) {
+func BuildFromFailState(builder *Builder, s *asl.FailState, name string) (*Workflow, error) {
 	// Error or ErrorPath will be the key in the EndNode Result field
 	// Cause oe CausePath will be the string value in the EndNode Result field.
 	return builder.AddFailNodeAndBuild(s.GetError(), s.GetCause())

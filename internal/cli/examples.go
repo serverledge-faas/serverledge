@@ -8,7 +8,8 @@ import (
 )
 
 // FIXME: unused function
-func exampleParsing(str string) (*fc.Dag, []*function.Function, error) {
+// TODO: this file can be removed. I'll keep it if we are interested in using the following workflows in tests.
+func exampleParsing(str string) (*fc.Workflow, []*function.Function, error) {
 
 	py, err := InitializePyFunction("inc", "handler", function.NewSignature().AddInput("input", function.Int{}).AddOutput("result", function.Int{}).Build())
 	if err != nil {
@@ -17,14 +18,14 @@ func exampleParsing(str string) (*fc.Dag, []*function.Function, error) {
 
 	switch str {
 	case "sequence":
-		dag, errSequence := fc.CreateSequenceDag(py, py, py)
-		return dag, []*function.Function{py}, errSequence
+		workflow, errSequence := fc.CreateSequenceWorkflow(py, py, py)
+		return workflow, []*function.Function{py}, errSequence
 	case "choice":
-		dag, errChoice := fc.CreateChoiceDag(fc.LambdaSequenceDag(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
-		return dag, []*function.Function{py}, errChoice
+		workflow, errChoice := fc.CreateChoiceWorkflow(fc.LambdaSequenceWorkflow(py, py), fc.NewConstCondition(false), fc.NewConstCondition(true))
+		return workflow, []*function.Function{py}, errChoice
 	case "parallel":
-		dag, errParallel := fc.CreateBroadcastDag(fc.LambdaSequenceDag(py, py), 3)
-		return dag, []*function.Function{py}, errParallel
+		workflow, errParallel := fc.CreateBroadcastWorkflow(fc.LambdaSequenceWorkflow(py, py), 3)
+		return workflow, []*function.Function{py}, errParallel
 	case "multifn_sequence":
 		funSlice := make([]*function.Function, 0)
 		for i := 0; i < 10; i++ {
@@ -34,8 +35,8 @@ func exampleParsing(str string) (*fc.Dag, []*function.Function, error) {
 			}
 			funSlice = append(funSlice, f)
 		}
-		dag, errSequence := fc.CreateSequenceDag(funSlice...)
-		return dag, funSlice, errSequence
+		workflow, errSequence := fc.CreateSequenceWorkflow(funSlice...)
+		return workflow, funSlice, errSequence
 	case "complex":
 		fnGrep, err1 := InitializePyFunction("grep", "handler", function.NewSignature().
 			AddInput("InputText", function.Text{}).
@@ -62,23 +63,23 @@ func exampleParsing(str string) (*fc.Dag, []*function.Function, error) {
 		if err3 != nil {
 			return nil, nil, err3
 		}
-		dag, errComplex := fc.NewDagBuilder().
+		workflow, errComplex := fc.NewBuilder().
 			AddChoiceNode(
 				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(true)),
 				fc.NewEqParamCondition(fc.NewParam("Task"), fc.NewValue(false)),
 				fc.NewConstCondition(true),
 			).
-			NextBranch(fc.CreateSequenceDag(fnWordCount)).
-			NextBranch(fc.CreateSequenceDag(fnSummarize)).
-			NextBranch(fc.NewDagBuilder().
+			NextBranch(fc.CreateSequenceWorkflow(fnWordCount)).
+			NextBranch(fc.CreateSequenceWorkflow(fnSummarize)).
+			NextBranch(fc.NewBuilder().
 				AddScatterFanOutNode(2).
-				ForEachParallelBranch(fc.LambdaSequenceDag(fnGrep)).
+				ForEachParallelBranch(fc.LambdaSequenceWorkflow(fnGrep)).
 				AddFanInNode(fc.AddToArrayEntry).
 				Build()).
 			EndChoiceAndBuild()
-		return dag, []*function.Function{fnGrep, fnWordCount, fnSummarize}, errComplex
+		return workflow, []*function.Function{fnGrep, fnWordCount, fnSummarize}, errComplex
 	default:
-		return nil, nil, fmt.Errorf("failed to parse dag - use a default dag like 'sequence', 'choice', 'parallel' or 'complex'")
+		return nil, nil, fmt.Errorf("failed to parse workflow - use a default workflow like 'sequence', 'choice', 'parallel' or 'complex'")
 	}
 }
 
