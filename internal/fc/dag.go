@@ -36,6 +36,8 @@ func NewDAGWithName(name string) Dag {
 	return dag
 }
 
+// TODO: rename to Workflow
+// TODO: handle DAG creation with name better
 func NewDAG() Dag {
 	start := NewStartNode()
 	end := NewEndNode()
@@ -797,32 +799,32 @@ func (dag *Dag) Invoke(r *CompositionRequest) (CompositionExecutionReport, error
 }
 
 // Delete removes the FunctionComposition from cache and from etcd, so it cannot be invoked anymore
-func (fc *Dag) Delete() error {
+func (dag *Dag) Delete() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
 	}
 	ctx := context.TODO()
 
-	dresp, err := cli.Delete(ctx, fc.getEtcdKey())
+	dresp, err := cli.Delete(ctx, dag.getEtcdKey())
 	if err != nil || dresp.Deleted != 1 {
 		return fmt.Errorf("failed Delete: %v", err)
 	}
 
 	// Remove the function from the local cache
-	cache.GetCacheInstance().Delete(fc.Name)
+	cache.GetCacheInstance().Delete(dag.Name)
 
 	return nil
 }
 
 // Exists return true if the function composition exists either in etcd or in cache. If it only exists in Etcd, it saves the composition also in caches
-func (fc *Dag) Exists() bool {
-	_, found := getFCFromCache(fc.Name)
+func (dag *Dag) Exists() bool {
+	_, found := getFCFromCache(dag.Name)
 	if !found {
 		// cache miss
-		f, err := getFCFromEtcd(fc.Name)
+		f, err := getFCFromEtcd(dag.Name)
 		if err != nil {
-			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(fc.Name)) {
+			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(dag.Name)) {
 				return false
 			} else {
 				log.Error(err.Error())
