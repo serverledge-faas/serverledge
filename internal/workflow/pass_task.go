@@ -27,7 +27,7 @@ func NewPassNode(result string) *PassNode {
 	return &passNode
 }
 
-func (p *PassNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (p *PassNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	t0 := time.Now()
 	var err error = nil
 	if len(params) != 1 {

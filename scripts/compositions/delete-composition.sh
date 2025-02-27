@@ -2,4 +2,4 @@
 
 THIS_DIR=$(dirname "$0")
 
-"$THIS_DIR"/../../bin/serverledge-cli uncompose -c sequence
+"$THIS_DIR"/../../bin/serverledge-cli delete-workflow -c sequence

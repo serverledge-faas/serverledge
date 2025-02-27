@@ -12,20 +12,10 @@ type scheduledRequest struct {
 	priority        float64
 }
 
-//type scheduledCompositionRequest struct {
-//	*workflow.CompositionRequest
-//	// decisionChannel chan schedDecision
-//	priority float64
-//}
-
 type completion struct {
 	*scheduledRequest
 	contID container.ContainerID
 }
-
-//type compositionCompletion struct {
-//	*scheduledCompositionRequest
-//}
 
 // schedDecision wraps a action made by the scheduler.
 // Possible decisions are 1) drop, 2) execute locally or 3) execute on a remote

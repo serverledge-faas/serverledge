@@ -440,7 +440,7 @@ func (p *Progress) Print() {
 }
 
 func (p *Progress) PrettyString() string {
-	str := fmt.Sprintf("\nProgress for composition request %s - G = node group, B = node branch\n", p.ReqId)
+	str := fmt.Sprintf("\nProgress for workflow request %s - G = node group, B = node branch\n", p.ReqId)
 	str += fmt.Sprintln("G. |B| Type   (        NodeID        ) - Status")
 	str += fmt.Sprintln("-------------------------------------------------")
 	for _, info := range p.TaskInfos {

@@ -19,11 +19,7 @@ import (
 
 var requests chan *scheduledRequest
 
-// var compositionRequests chan *scheduledCompositionRequest // watch out for circular import!!!
 var completions chan *completion
-
-var remoteServerUrl string
-var executionLogEnabled bool
 
 var offloadingClient *http.Client
 
@@ -31,7 +27,7 @@ func Run(p Policy) {
 	requests = make(chan *scheduledRequest, 500)
 	completions = make(chan *completion, 500)
 
-	// initialize Resources resources
+	// initialize resources
 	availableCores := runtime.NumCPU()
 	node.Resources.AvailableMemMB = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
 	node.Resources.AvailableCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
@@ -53,8 +49,6 @@ func Run(p Policy) {
 
 	// initialize scheduling policy
 	p.Init()
-
-	remoteServerUrl = config.GetString(config.CLOUD_URL, "")
 
 	log.Println("Scheduler started.")
 
@@ -104,7 +98,7 @@ func SubmitRequest(r *function.Request) error {
 			return err
 		}
 	} else {
-		err = Execute(schedDecision.contID, &schedRequest, r.IsInComposition) // executing request
+		err = Execute(schedDecision.contID, &schedRequest) // executing request
 		if err != nil {
 			return err
 		}
@@ -136,7 +130,7 @@ func SubmitAsyncRequest(r *function.Request) {
 			PublishAsyncResponse(r.ReqId, function.Response{Success: false})
 		}
 	} else {
-		err = Execute(schedDecision.contID, &schedRequest, r.IsInComposition) // executing async request
+		err = Execute(schedDecision.contID, &schedRequest) // executing async request
 		if err != nil {
 			PublishAsyncResponse(r.ReqId, function.Response{Success: false})
 		}

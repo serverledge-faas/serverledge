@@ -7,8 +7,8 @@ import (
 	"github.com/grussorusso/serverledge/internal/function"
 )
 
-// FromASL parses a AWS State Language specification file and returns a Function Composition with the corresponding Serverledge Workflow
-// The name of the composition should not be the file name by default, to avoid problems when adding the same composition multiple times.
+// FromASL parses a AWS State Language specification file and returns a Workflow with the corresponding Serverledge Workflow
+// The name of the workflow should not be the file name by default, to avoid problems when adding the same workflow multiple times.
 func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 	stateMachine, err := asl.ParseFrom(name, aslSrc)
 	if err != nil {
@@ -30,7 +30,7 @@ func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 func BuildFromTaskState(builder *Builder, t *asl.TaskState, name string) (*Builder, error) {
 	f, found := function.GetFunction(t.Resource) // Could have been used t.GetResources()[0], but it is better to avoid the array dereference
 	if !found {
-		return nil, fmt.Errorf("non existing function in composition: %s", t.Resource)
+		return nil, fmt.Errorf("non existing function in workflow: %s", t.Resource)
 	}
 	builder = builder.AddSimpleNodeWithId(f, name)
 	return builder, nil

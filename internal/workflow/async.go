@@ -9,7 +9,7 @@ import (
 	"log"
 )
 
-func PublishAsyncCompositionResponse(reqId string, response CompositionResponse) {
+func PublishAsyncInvocationResponse(reqId string, response InvocationResponse) {
 	etcdClient, err := utils.GetEtcdClient()
 	if err != nil {
 		log.Fatal("Client not available")
@@ -24,7 +24,7 @@ func PublishAsyncCompositionResponse(reqId string, response CompositionResponse)
 		return
 	}
 
-	key := fmt.Sprintf("async/%s", reqId) // async is for function and function compositions, so we can reuse poll!!!
+	key := fmt.Sprintf("async/%s", reqId) // async is for function and workflows, so we can reuse poll!!!
 	payload, err := json.Marshal(response)
 	if err != nil {
 		log.Printf("Could not marshal response: %v", err)

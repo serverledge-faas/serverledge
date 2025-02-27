@@ -73,7 +73,7 @@ func (f *FanOutNode) Equals(cmp types.Comparable) bool {
 // Exec splits the output for the next parallel dags
 // Scatter mode can only be used if the value held in the map is of type slice. Subdivides each map entry to a different node
 // Broadcast mode can always be used. Copies the entire map to each of the subsequent nodes
-func (f *FanOutNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (f *FanOutNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	var output map[string]interface{} = nil
 	var err error = nil
 	t0 := time.Now()

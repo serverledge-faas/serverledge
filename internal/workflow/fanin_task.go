@@ -59,7 +59,7 @@ func (f *FanInNode) Equals(cmp types.Comparable) bool {
 }
 
 // Exec already have all inputs when executing, so it simply merges them with the chosen policy
-func (f *FanInNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (f *FanInNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	t0 := time.Now()
 
 	fanInOutput := make(map[string]interface{})

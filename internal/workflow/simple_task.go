@@ -14,12 +14,6 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-var compositionRequestsPool = sync.Pool{
-	New: func() any {
-		return new(function.Request)
-	},
-}
-
 // SimpleNode is a Task that receives one input and sends one result
 type SimpleNode struct {
 	Id       TaskId
@@ -40,7 +34,7 @@ func NewSimpleNode(f string) *SimpleNode {
 	}
 }
 
-func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	funct, ok := function.GetFunction(s.Func)
 	if !ok {
 		return nil, fmt.Errorf("SimpleNode.function is null: you must initialize SimpleNode's function to execute it")
@@ -54,7 +48,7 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 	// creates the function if not exists. Maybe someone deleted by accident the function before starting the workflow.
 	if !funct.Exists() {
 		errNotSaved := funct.SaveToEtcd()
-		return nil, fmt.Errorf("the function %s cannot be saved while trying to exec the function composition %v", s.Func, errNotSaved)
+		return nil, fmt.Errorf("the function %s cannot be saved while trying to exec the function workflow %v", s.Func, errNotSaved)
 	}
 	// the rest of the code is similar to a single function execution
 	now := time.Now()
@@ -72,7 +66,6 @@ func (s *SimpleNode) Exec(compRequest *CompositionRequest, params ...map[string]
 		RequestQoS:      compRequest.RequestQoSMap[s.Func],
 		CanDoOffloading: true,
 		Async:           false,
-		IsInComposition: true,
 	}
 	s.inputMutex.Unlock()
 

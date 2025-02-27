@@ -352,7 +352,7 @@ func checkAndCompleteChoice(t *testing.T, progress *workflow.Progress, choice *w
 	u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nextNode[0]))
 	u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nextNode[1]))
 
-	_, _ = choice.Exec(newCompositionRequestTest(), make(map[string]interface{}))
+	_, _ = choice.Exec(newWorkflowRequestTest(), make(map[string]interface{}))
 	err = progress.CompleteNode(nextNode[choice.FirstMatch])
 	u.AssertNil(t, err)
 	nodeToSkip := choice.GetNodesToSkip(workflow)

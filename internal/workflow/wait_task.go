@@ -42,7 +42,7 @@ func NewWaitNodeFromTimestamp(timestamp time.Time) *WaitNode {
 	return &waitNode
 }
 
-func (w *WaitNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (w *WaitNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	t0 := time.Now()
 	var err error = nil
 	if len(params) != 1 {

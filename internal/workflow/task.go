@@ -40,7 +40,7 @@ type Display interface {
 
 type Executable interface {
 	// Exec defines how the Task is executed. If successful, returns the output of the execution
-	Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error)
+	Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error)
 }
 
 type HasOutput interface {

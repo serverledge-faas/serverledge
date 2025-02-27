@@ -2,4 +2,4 @@
 
 THIS_DIR=$(dirname "$0")
 
-"$THIS_DIR"/../../bin/serverledge-cli compose -f sequence -j sequence
+"$THIS_DIR"/../../bin/serverledge-cli workflow-create -f sequence -j sequence

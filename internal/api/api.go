@@ -30,9 +30,9 @@ var requestsPool = sync.Pool{
 	},
 }
 
-var compositionRequestsPool = sync.Pool{
+var workflowInvocationRequestPool = sync.Pool{
 	New: func() any {
-		return new(workflow.CompositionRequest)
+		return new(workflow.Request)
 	},
 }
 
@@ -74,7 +74,6 @@ func InvokeFunction(c echo.Context) error {
 	// init fields if possibly not overwritten later
 	r.ExecReport.SchedAction = ""
 	r.ExecReport.OffloadLatency = 0.0
-	r.IsInComposition = false
 
 	if r.Async {
 		go scheduling.SubmitAsyncRequest(r)

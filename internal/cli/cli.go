@@ -67,33 +67,27 @@ var statusCmd = &cobra.Command{
 // ========== FUNCTION COMPOSITION ===========
 
 var compCreateCmd = &cobra.Command{
-	Use:   "compose",
-	Short: "Registers a new function composition",
-	Run:   createComposition,
+	Use:   "create-workflow",
+	Short: "Registers a new workflow",
+	Run:   createWorkflow,
 }
 
 var compDeleteCmd = &cobra.Command{
-	Use:   "uncompose",
-	Short: "Deletes a function composition and optionally the associated functions",
-	Run:   deleteComposition,
+	Use:   "delete-workflow",
+	Short: "Deletes a workflow and optionally the associated functions",
+	Run:   deleteWorkflow,
 }
 
 var compListCmd = &cobra.Command{
-	Use:   "workflow",
-	Short: "Lists registered function compositions",
-	Run:   listFunctionCompositions,
+	Use:   "list-workflows",
+	Short: "Lists registered workflows",
+	Run:   listWorkflows,
 }
 
 var compInvokeCmd = &cobra.Command{
-	Use:   "play",
-	Short: "Invokes a function composition",
-	Run:   invokeFunctionComposition,
-}
-
-var compPollCmd = &cobra.Command{
-	Use:   "peek",
-	Short: "Polls the result of an asynchronous function composition invocation",
-	Run:   pollFunctionComposition,
+	Use:   "invoke-workflow",
+	Short: "Invokes a workflow",
+	Run:   invokeWorkflow,
 }
 
 var compName, funcName, runtime, handler, customImage, src, qosClass, jsonSrc string
@@ -144,29 +138,25 @@ func Init() {
 	rootCmd.AddCommand(pollCmd)
 	pollCmd.Flags().StringVarP(&requestId, "request", "", "", "ID of the async request")
 
-	// Function composition
+	// Workflow
 
 	rootCmd.AddCommand(compInvokeCmd)
-	compInvokeCmd.Flags().StringVarP(&compName, "function-composition", "f", "", "name of the function composition")
+	compInvokeCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
 	compInvokeCmd.Flags().Float64VarP(&qosMaxRespT, "resptime", "r", -1.0, "Max. response time (optional)")
 	compInvokeCmd.Flags().StringVarP(&qosClass, "class", "c", "", "QoS class (optional)")
-	compInvokeCmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Composition parameter: <name>:<value>")
-	compInvokeCmd.Flags().StringVarP(&paramsFile, "params_file", "j", "", "File containing parameters (JSON) for composition")
-	compInvokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous composition invocation")
+	compInvokeCmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Workflow parameter: <name>:<value>")
+	compInvokeCmd.Flags().StringVarP(&paramsFile, "params_file", "j", "", "File containing parameters (JSON) for workflow")
+	compInvokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous workflow invocation")
 
 	rootCmd.AddCommand(compCreateCmd)
-	compCreateCmd.Flags().StringVarP(&compName, "function-composition", "f", "", "name of the function")
-	compCreateCmd.Flags().StringVarP(&jsonSrc, "src", "s", "", "source Amazon States Language file  that defines the function composition")
+	compCreateCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the function")
+	compCreateCmd.Flags().StringVarP(&jsonSrc, "src", "s", "", "source Amazon States Language file  that defines the workflow")
 	compCreateCmd.Flags().BoolVarP(&rmFnOnDeletion, "deletion", "d", false, "flag to delete also functions associated with the FC")
 
 	rootCmd.AddCommand(compDeleteCmd)
-	compDeleteCmd.Flags().StringVarP(&compName, "function-composition", "f", "", "name of the function composition")
+	compDeleteCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
 
 	rootCmd.AddCommand(compListCmd)
-
-	// TODO: maybe useless
-	rootCmd.AddCommand(compPollCmd)
-	compPollCmd.Flags().StringVarP(&requestId, "request", "", "", "ID of the async request")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -445,11 +435,9 @@ func poll(cmd *cobra.Command, args []string) {
 	fmt.Println()
 }
 
-// ============== FUNTION COMPOSITION ===============
-
-func invokeFunctionComposition(cmd *cobra.Command, args []string) {
+func invokeWorkflow(cmd *cobra.Command, args []string) {
 	if len(compName) < 1 {
-		fmt.Printf("Invalid composition name.\n")
+		fmt.Printf("Invalid workflow name.\n")
 		cmd.Help()
 		os.Exit(1)
 	}
@@ -498,7 +486,7 @@ func invokeFunctionComposition(cmd *cobra.Command, args []string) {
 	}
 
 	// Send invocation request
-	url := fmt.Sprintf("http://%s:%d/play/%s", ServerConfig.Host, ServerConfig.Port, compName)
+	url := fmt.Sprintf("http://%s:%d/workflow/invoke/%s", ServerConfig.Host, ServerConfig.Port, compName)
 	resp, err := utils.PostJson(url, invocationBody)
 	if err != nil {
 		fmt.Println(err)
@@ -510,7 +498,7 @@ func invokeFunctionComposition(cmd *cobra.Command, args []string) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createComposition(cmd *cobra.Command, args []string) {
+func createWorkflow(cmd *cobra.Command, args []string) {
 	if compName == "" || jsonSrc == "" {
 		cmd.Help()
 		os.Exit(1)
@@ -522,7 +510,7 @@ func createComposition(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	encoded := base64.StdEncoding.EncodeToString(src)
-	request := client.CompositionCreationFromASLRequest{
+	request := client.WorkflowCreationRequest{
 		Name:   compName,
 		ASLSrc: encoded}
 
@@ -532,7 +520,7 @@ func createComposition(cmd *cobra.Command, args []string) {
 		os.Exit(3)
 	}
 
-	url := fmt.Sprintf("http://%s:%d/composeASL", ServerConfig.Host, ServerConfig.Port)
+	url := fmt.Sprintf("http://%s:%d/workflow/createASL", ServerConfig.Host, ServerConfig.Port)
 	resp, err := utils.PostJson(url, requestBody)
 	if err != nil {
 		// TODO: check returned error code
@@ -542,7 +530,7 @@ func createComposition(cmd *cobra.Command, args []string) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func deleteComposition(cmd *cobra.Command, args []string) {
+func deleteWorkflow(cmd *cobra.Command, args []string) {
 	if compName == "" {
 		cmd.Help()
 		os.Exit(1)
@@ -555,7 +543,7 @@ func deleteComposition(cmd *cobra.Command, args []string) {
 		fmt.Printf("Error: %v", err)
 		os.Exit(2)
 	}
-	url := fmt.Sprintf("http://%s:%d/uncompose", ServerConfig.Host, ServerConfig.Port)
+	url := fmt.Sprintf("http://%s:%d/workflow/delete", ServerConfig.Host, ServerConfig.Port)
 	resp, err := utils.PostJson(url, requestBody)
 	if err != nil {
 		fmt.Printf("Deletion request failed: %v\n", err)
@@ -564,27 +552,11 @@ func deleteComposition(cmd *cobra.Command, args []string) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func listFunctionCompositions(cmd *cobra.Command, args []string) {
-	url := fmt.Sprintf("http://%s:%d/fc", ServerConfig.Host, ServerConfig.Port)
+func listWorkflows(cmd *cobra.Command, args []string) {
+	url := fmt.Sprintf("http://%s:%d/workflow/list", ServerConfig.Host, ServerConfig.Port)
 	resp, err := http.Get(url)
 	if err != nil {
 		fmt.Printf("List request failed: %v\n", err)
-		os.Exit(2)
-	}
-	utils.PrintJsonResponse(resp.Body)
-}
-
-// TODO: maybe remove, we already have pollFunction
-func pollFunctionComposition(cmd *cobra.Command, args []string) {
-	if len(requestId) < 1 {
-		cmd.Help()
-		os.Exit(1)
-	}
-
-	url := fmt.Sprintf("http://%s:%d/poll/%s", ServerConfig.Host, ServerConfig.Port, requestId)
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Printf("Polling request failed: %v\n", err)
 		os.Exit(2)
 	}
 	utils.PrintJsonResponse(resp.Body)

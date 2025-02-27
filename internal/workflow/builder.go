@@ -682,12 +682,6 @@ func CreateSequenceWorkflow(funcs ...*function.Function) (*Workflow, error) {
 	return builder.Build()
 }
 
-// LambdaSequenceWorkflow
-// TODO: why is this function needed?
-func LambdaSequenceWorkflow(funcs ...*function.Function) func() (*Workflow, error) {
-	return func() (*Workflow, error) { return CreateSequenceWorkflow(funcs...) }
-}
-
 // CreateChoiceWorkflow if successful, returns a workflow with one Choice Node with each branch consisting of the same sub-workflow
 // TODO: why is a 'dagger' needed?
 func CreateChoiceWorkflow(dagger func() (*Workflow, error), condArr ...Condition) (*Workflow, error) {

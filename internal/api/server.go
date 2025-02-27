@@ -29,12 +29,12 @@ func StartAPIServer(e *echo.Echo) {
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)
 	e.GET("/status", GetServerStatus)
-	// Function composition routes
-	e.POST("/play/:workflow", InvokeFunctionComposition)
-	e.POST("/compose", CreateFunctionComposition)
-	e.POST("/composeASL", CreateFunctionCompositionFromASL)
-	e.POST("/uncompose", DeleteFunctionComposition)
-	e.GET("/workflow", GetFunctionCompositions)
+	// Workflow routes
+	e.POST("/workflow/invoke/:workflow", InvokeWorkflow)
+	e.POST("/workflow/create", CreateWorkflowFromASL)
+	e.POST("/workflow/import", CreateWorkflow)
+	e.POST("/workflow/delete", DeleteWorkflow)
+	e.GET("/workflow/list", GetWorkflows)
 
 	// Start server
 	portNumber := config.GetInt(config.API_PORT, 1323)

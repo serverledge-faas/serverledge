@@ -11,25 +11,23 @@ import (
 const HANDLER_DIR = "/app"
 
 // Execute serves a request on the specified container.
-func Execute(contID container.ContainerID, r *scheduledRequest, fromComposition bool) error {
+func Execute(contID container.ContainerID, r *scheduledRequest) error {
 	//log.Printf("[%s] Executing on container: %v", r, contID)
 
 	var req executor.InvocationRequest
 	if r.Fun.Runtime == container.CUSTOM_RUNTIME {
 		req = executor.InvocationRequest{
-			Params:          r.Params,
-			IsInComposition: fromComposition, // TODO: is needed?
-			ReturnOutput:    r.ReturnOutput,
+			Params:       r.Params,
+			ReturnOutput: r.ReturnOutput,
 		}
 	} else {
 		cmd := container.RuntimeToInfo[r.Fun.Runtime].InvocationCmd
 		req = executor.InvocationRequest{
-			Command:         cmd,
-			Params:          r.Params,
-			Handler:         r.Fun.Handler,
-			HandlerDir:      HANDLER_DIR,
-			IsInComposition: fromComposition, // TODO: is needed?
-			ReturnOutput:    r.ReturnOutput,
+			Command:      cmd,
+			Params:       r.Params,
+			Handler:      r.Fun.Handler,
+			HandlerDir:   HANDLER_DIR,
+			ReturnOutput: r.ReturnOutput,
 		}
 	}
 

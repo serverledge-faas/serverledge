@@ -9,25 +9,25 @@ import (
 
 type ReqId string
 
-// CompositionRequest represents a single function composition internal invocation, with params and metrics data
-type CompositionRequest struct {
+// Request represents a workflow invocation, with params and metrics data
+type Request struct {
 	ReqId           string
-	Fc              *Workflow
+	W               *Workflow
 	Params          map[string]interface{}
 	Arrival         time.Time
-	ExecReport      CompositionExecutionReport     // each function has its execution report, and the composition has additional metrics
+	ExecReport      ExecutionReport                // each function has its execution report, and the workflow has additional metrics
 	RequestQoSMap   map[string]function.RequestQoS // every function should have its RequestQoS
 	CanDoOffloading bool                           // every function inherits this flag
 	Async           bool
 }
 
-func NewCompositionRequest(reqId string, composition *Workflow, params map[string]interface{}) *CompositionRequest {
-	return &CompositionRequest{
+func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
+	return &Request{
 		ReqId:   reqId,
-		Fc:      composition,
+		W:       workflow,
 		Params:  params,
 		Arrival: time.Now(),
-		ExecReport: CompositionExecutionReport{
+		ExecReport: ExecutionReport{
 			Reports: hashmap.New[ExecutionReportId, *function.ExecutionReport](), // make(map[ExecutionReportId]*function.ExecutionReport),
 		},
 		RequestQoSMap:   make(map[string]function.RequestQoS),
@@ -36,13 +36,13 @@ func NewCompositionRequest(reqId string, composition *Workflow, params map[strin
 	}
 }
 
-type CompositionResponse struct {
+type InvocationResponse struct {
 	Success      bool
 	Result       map[string]interface{}
 	Reports      map[string]*function.ExecutionReport
-	ResponseTime float64 // time waited by the user to get the output of the entire composition (in seconds)
+	ResponseTime float64 // time waited by the user to get the output of the entire workflow (in seconds)
 }
 
-type CompositionAsyncResponse struct {
+type AsyncInvocationResponse struct {
 	ReqId string
 }

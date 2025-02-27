@@ -41,7 +41,7 @@ func (e *EndNode) Equals(cmp types.Comparable) bool {
 	return e.Id == e2.Id && e.NodeType == e2.NodeType
 }
 
-func (e *EndNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[string]interface{}, error) {
+func (e *EndNode) Exec(*Request, ...map[string]interface{}) (map[string]interface{}, error) {
 	return e.Result, nil
 }
 

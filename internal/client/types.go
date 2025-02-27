@@ -20,8 +20,8 @@ type PrewarmingRequest struct {
 	ForceImagePull bool
 }
 
-// CompositionInvocationRequest is an external invocation of a function composition (from API or CLI)
-type CompositionInvocationRequest struct {
+// WorkflowInvocationRequest is an external invocation of a workflow (from API or CLI)
+type WorkflowInvocationRequest struct {
 	Params          map[string]interface{}
 	RequestQoSMap   map[string]function.RequestQoS
 	QosMaxRespT     float64
@@ -36,7 +36,7 @@ type CompositionInvocationRequest struct {
 	//   furthermore, we should be careful not to run multiple fanIn at the same time!
 }
 
-type CompositionCreationFromASLRequest struct {
-	Name   string // Name of the new composition
+type WorkflowCreationRequest struct {
+	Name   string // Name of the new workflow
 	ASLSrc string // Specification source in Amazon State Language (encoded in Base64)
 }

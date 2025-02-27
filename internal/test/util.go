@@ -185,16 +185,6 @@ func initializeSameFunctionSlice(length int, jsOrPy string) (*function.Function,
 	return f, fArr, nil
 }
 
-func createApiTest(t *testing.T, fn *function.Function, host string, port int) {
-	marshaledFunc, err := json.Marshal(fn)
-	utils.AssertNil(t, err)
-	url := fmt.Sprintf("http://%s:%d/create", host, port)
-	postJson, err := utils.PostJson(url, marshaledFunc)
-	utils.AssertNil(t, err)
-
-	utils.PrintJsonResponse(postJson.Body)
-}
-
 func createApiIfNotExistsTest(t *testing.T, fn *function.Function, host string, port int) {
 	marshaledFunc, err := json.Marshal(fn)
 	utils.AssertNil(t, err)
@@ -238,23 +228,23 @@ func deleteApiTest(t *testing.T, fn string, host string, port int) {
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func createCompositionApiTest(fc *workflow.Workflow, host string, port int) error {
+func createWorkflowApiTest(fc *workflow.Workflow, host string, port int) error {
 	marshaledFunc, err := json.Marshal(fc)
 	if err != nil {
 		return err
 	}
-	url := fmt.Sprintf("http://%s:%d/compose", host, port)
+	url := fmt.Sprintf("http://%s:%d/workflow/import", host, port)
 	_, err = utils.PostJsonIgnore409(url, marshaledFunc)
 	return err
 }
 
-func invokeCompositionApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
+func invokeWorkflowApiTest(t *testing.T, params map[string]interface{}, fc string, host string, port int, async bool) string {
 	qosMap := make(map[string]function.RequestQoS)
 	qosMap["grep"] = function.RequestQoS{
 		Class:    0,
 		MaxRespT: 500,
 	}
-	request := client.CompositionInvocationRequest{
+	request := client.WorkflowInvocationRequest{
 		Params:          params,
 		RequestQoSMap:   qosMap,
 		CanDoOffloading: true,
@@ -263,47 +253,36 @@ func invokeCompositionApiTest(t *testing.T, params map[string]interface{}, fc st
 	invocationBody, err1 := json.Marshal(request)
 	utils.AssertNilMsg(t, err1, "error while marshaling invocation request for composition")
 
-	url := fmt.Sprintf("http://%s:%d/play/%s", host, port, fc)
+	url := fmt.Sprintf("http://%s:%d/workflow/invoke/%s", host, port, fc)
 	resp, err2 := utils.PostJson(url, invocationBody)
 	utils.AssertNilMsg(t, err2, "error while posting json request for invoking a composition")
 	return utils.GetJsonResponse(resp.Body)
 }
 
-func getCompositionsApiTest(t *testing.T, host string, port int) []string {
-	url := fmt.Sprintf("http://%s:%d/fc", host, port)
-	resp, err := http.Get(url)
-	utils.AssertNil(t, err)
-	var fcNames []string
-	functionListJson := utils.GetJsonResponse(resp.Body)
-	err = json.Unmarshal([]byte(functionListJson), &fcNames)
-	utils.AssertNilMsg(t, err, "failed to get compositions")
-	return fcNames
-}
-
-func deleteCompositionApiTest(t *testing.T, fcName string, host string, port int) {
+func deleteWorkflowApiTest(t *testing.T, fcName string, host string, port int) {
 	request := workflow.Workflow{Name: fcName}
 	requestBody, err := json.Marshal(request)
 	utils.AssertNilMsg(t, err, "failed to marshal composition to delete")
 
-	url := fmt.Sprintf("http://%s:%d/uncompose", host, port)
+	url := fmt.Sprintf("http://%s:%d/workflow/delete", host, port)
 	resp, err := utils.PostJson(url, requestBody)
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 
 	utils.PrintJsonResponse(resp.Body)
 }
 
-func pollCompositionTest(t *testing.T, requestId string, host string, port int) string {
+func pollWorkflowTest(t *testing.T, requestId string, host string, port int) string {
 	url := fmt.Sprintf("http://%s:%d/poll/%s", host, port, requestId)
 	resp, err := http.Get(url)
 	utils.AssertNilMsg(t, err, "failed to poll invocation result")
 	return utils.GetJsonResponse(resp.Body)
 }
 
-func newCompositionRequestTest() *workflow.CompositionRequest {
+func newWorkflowRequestTest() *workflow.Request {
 
-	return &workflow.CompositionRequest{
+	return &workflow.Request{
 		ReqId: "test",
-		ExecReport: workflow.CompositionExecutionReport{
+		ExecReport: workflow.ExecutionReport{
 			Reports: hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport](), // make(map[workflow.ExecutionReportId]*function.ExecutionReport),
 		},
 	}

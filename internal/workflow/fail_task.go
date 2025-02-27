@@ -40,7 +40,7 @@ func NewFailNode(error, cause string) *FailNode {
 	return &fail
 }
 
-func (f *FailNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (f *FailNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	t0 := time.Now()
 	output := make(map[string]interface{})
 	var err error = nil

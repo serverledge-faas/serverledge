@@ -7,35 +7,35 @@ import (
 )
 
 // TODO: offload the entire node when is cloud only
-func SubmitCompositionRequest(fcReq *CompositionRequest) error {
-	executionReport, err := fcReq.Fc.Invoke(fcReq)
+func SubmitWorkflowInvocationRequest(req *Request) error {
+	executionReport, err := req.W.Invoke(req)
 	if err != nil {
 		return err
 	}
-	fcReq.ExecReport = executionReport
-	fcReq.ExecReport.ResponseTime = time.Now().Sub(fcReq.Arrival).Seconds()
+	req.ExecReport = executionReport
+	req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 	return nil
 }
 
 // TODO: offload the entire node.
 // TODO: make sure the requestId is the one returned from the serverledge node that will execute
-func SubmitAsyncCompositionRequest(fcReq *CompositionRequest) {
-	executionReport, errInvoke := fcReq.Fc.Invoke(fcReq)
+func SubmitAsyncWorkflowInvocationRequest(req *Request) {
+	executionReport, errInvoke := req.W.Invoke(req)
 	if errInvoke != nil {
-		PublishAsyncCompositionResponse(fcReq.ReqId, CompositionResponse{Success: false})
+		PublishAsyncInvocationResponse(req.ReqId, InvocationResponse{Success: false})
 		return
 	}
 	reports := make(map[string]*function.ExecutionReport)
-	fcReq.ExecReport.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
+	req.ExecReport.Reports.Range(func(id ExecutionReportId, report *function.ExecutionReport) bool {
 		reports[string(id)] = report
 		return true
 	})
-	PublishAsyncCompositionResponse(fcReq.ReqId, CompositionResponse{
+	PublishAsyncInvocationResponse(req.ReqId, InvocationResponse{
 		Success:      true,
-		Result:       fcReq.ExecReport.Result,
+		Result:       req.ExecReport.Result,
 		Reports:      reports,
-		ResponseTime: fcReq.ExecReport.ResponseTime,
+		ResponseTime: req.ExecReport.ResponseTime,
 	})
-	fcReq.ExecReport = executionReport
-	fcReq.ExecReport.ResponseTime = time.Now().Sub(fcReq.Arrival).Seconds()
+	req.ExecReport = executionReport
+	req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 }

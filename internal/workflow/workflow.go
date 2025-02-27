@@ -22,7 +22,7 @@ import (
 // used to send output from parallel nodes to fan in node or to the next node
 // var outputChannel = make(chan map[string]interface{})
 
-// Workflow is a Workflow to drive the execution of the function composition
+// Workflow is a Workflow to drive the execution of the workflow
 type Workflow struct {
 	Name  string     // identifier of the Workflow
 	Start *StartNode // a single start must be added
@@ -231,7 +231,7 @@ func (workflow *Workflow) Print() string {
 	return result
 }
 
-func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialData, node *StartNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialData, node *StartNode, r *Request) (*PartialData, *Progress, bool, error) {
 
 	err := progress.CompleteNode(node.GetId())
 	if err != nil {
@@ -241,7 +241,7 @@ func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialD
 	return partialData, progress, true, nil
 }
 
-func (workflow *Workflow) executeSimple(progress *Progress, partialData *PartialData, simpleNode *SimpleNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeSimple(progress *Progress, partialData *PartialData, simpleNode *SimpleNode, r *Request) (*PartialData, *Progress, bool, error) {
 	// retrieving input
 	var pd *PartialData
 	nodeId := simpleNode.GetId()
@@ -283,7 +283,7 @@ func (workflow *Workflow) executeSimple(progress *Progress, partialData *Partial
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *Request) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	nodeId := choice.GetId()
@@ -324,7 +324,7 @@ func (workflow *Workflow) executeChoice(progress *Progress, partialData *Partial
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *Request) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	outputMap := make(map[string]interface{})
@@ -379,7 +379,7 @@ func (workflow *Workflow) executeFanOut(progress *Progress, partialData *Partial
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *CompositionRequest) (*PartialData, *Progress, error) {
+func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *Request) (*PartialData, *Progress, error) {
 	// preparing workflow nodes and channels for parallel execution
 	parallelTasks := make([]Task, 0)
 	inputs := make([]map[string]interface{}, 0)
@@ -472,7 +472,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	return pd, progress, nil
 }
 
-func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
 	nodeId := fanIn.GetId()
 	requestId := ReqId(r.ReqId)
 	var err error
@@ -524,15 +524,15 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeSucceedNode(progress *Progress, partialData *PartialData, succeedNode *SucceedNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeSucceedNode(progress *Progress, partialData *PartialData, succeedNode *SucceedNode, r *Request) (*PartialData, *Progress, bool, error) {
 	return commonExec(workflow, progress, partialData, succeedNode, r)
 }
 
-func (workflow *Workflow) executeFailNode(progress *Progress, partialData *PartialData, failNode *FailNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFailNode(progress *Progress, partialData *PartialData, failNode *FailNode, r *Request) (*PartialData, *Progress, bool, error) {
 	return commonExec(workflow, progress, partialData, failNode, r)
 }
 
-func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node Task, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node Task, r *Request) (*PartialData, *Progress, bool, error) {
 	var pd *PartialData
 	nodeId := node.GetId()
 	requestId := ReqId(r.ReqId)
@@ -574,7 +574,7 @@ func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialData, node *EndNode, r *CompositionRequest) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialData, node *EndNode, r *Request) (*PartialData, *Progress, bool, error) {
 	r.ExecReport.Reports.Set(CreateExecutionReportId(node), &function.ExecutionReport{Result: "end"})
 	err := progress.CompleteNode(node.Id)
 	if err != nil {
@@ -583,7 +583,7 @@ func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialDat
 	return partialData, progress, false, nil // false because we want to stop when reaching the end
 }
 
-func (workflow *Workflow) Execute(r *CompositionRequest, data *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) Execute(r *Request, data *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	nextNodes, err := progress.NextNodes()
@@ -666,7 +666,7 @@ func getEtcdKey(workflowName string) string {
 	return fmt.Sprintf("/workflow/%s", workflowName)
 }
 
-// GetAllFC returns the function composition names
+// GetAllFC returns the workflow names
 func GetAllFC() ([]string, error) {
 	return function.GetAllWithPrefix("/workflow")
 }
@@ -678,7 +678,7 @@ func getFCFromCache(name string) (*Workflow, bool) {
 		return nil, false
 	}
 	//cache hit
-	//return a safe copy of the function composition previously obtained
+	//return a safe copy of the workflow previously obtained
 	fc := *cachedObj.(*Workflow)
 	return &fc, true
 }
@@ -722,7 +722,7 @@ func GetFC(name string) (*Workflow, bool) {
 	return val, true
 }
 
-// SaveToEtcd creates and register the function composition in Serverledge
+// SaveToEtcd creates and register the workflow in Serverledge
 // It is like SaveToEtcd for a simple function
 func (workflow *Workflow) SaveToEtcd() error {
 	if len(workflow.Name) == 0 {
@@ -735,10 +735,10 @@ func (workflow *Workflow) SaveToEtcd() error {
 	}
 	ctx := context.TODO()
 
-	// marshal the function composition object into json
+	// marshal the workflow object into json
 	payload, err := json.Marshal(*workflow)
 	if err != nil {
-		return fmt.Errorf("could not marshal function composition: %v", err)
+		return fmt.Errorf("could not marshal workflow: %v", err)
 	}
 	// saves the json object into etcd
 	_, err = cli.Put(ctx, workflow.getEtcdKey(), string(payload))
@@ -746,14 +746,14 @@ func (workflow *Workflow) SaveToEtcd() error {
 		return fmt.Errorf("failed etcd Put: %v", err)
 	}
 
-	// Add the function composition to the local cache
+	// Add the workflow to the local cache
 	cache.GetCacheInstance().Set(workflow.Name, workflow, cache.DefaultExp)
 
 	return nil
 }
 
-// Invoke schedules each function of the composition and invokes them
-func (workflow *Workflow) Invoke(r *CompositionRequest) (CompositionExecutionReport, error) {
+// Invoke schedules each function of the workflow and invokes them
+func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 	var err error
 	requestId := ReqId(r.ReqId)
@@ -770,35 +770,35 @@ func (workflow *Workflow) Invoke(r *CompositionRequest) (CompositionExecutionRep
 		// executing workflow
 		pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 		if err != nil {
-			return CompositionExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed workflow execution: %v", err)
+			return ExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed workflow execution: %v", err)
 		}
 	}
 
 	// saving partialData and progress on etcd - implementing workflow offloading policies
 	err = savePartialDataToEtcd(pd)
 	if err != nil {
-		return CompositionExecutionReport{}, err
+		return ExecutionReport{}, err
 	}
 	err = saveProgressToEtcd(progress)
 	if err != nil {
-		return CompositionExecutionReport{}, err
+		return ExecutionReport{}, err
 	}
 
 	// deleting progresses and partial datas from cache and etcd
 	err = DeleteProgress(requestId, cache.Persist)
 	if err != nil {
-		return CompositionExecutionReport{}, err
+		return ExecutionReport{}, err
 	}
 	_, errDel := DeleteAllPartialData(requestId, cache.Persist)
 	if errDel != nil {
-		return CompositionExecutionReport{}, errDel
+		return ExecutionReport{}, errDel
 	}
 	r.ExecReport.Result = pd.Data
 
 	return r.ExecReport, nil
 }
 
-// Delete removes the FunctionComposition from cache and from etcd, so it cannot be invoked anymore
+// Delete removes the Workflow from cache and from etcd, so it cannot be invoked anymore
 func (workflow *Workflow) Delete() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
@@ -817,7 +817,7 @@ func (workflow *Workflow) Delete() error {
 	return nil
 }
 
-// Exists return true if the function composition exists either in etcd or in cache. If it only exists in Etcd, it saves the composition also in caches
+// Exists return true if the workflow exists either in etcd or in cache. If it only exists in Etcd, it saves the workflow also in caches
 func (workflow *Workflow) Exists() bool {
 	_, found := getFCFromCache(workflow.Name)
 	if !found {

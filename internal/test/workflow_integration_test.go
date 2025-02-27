@@ -14,7 +14,7 @@ import (
 	"github.com/lithammer/shortuuid"
 )
 
-func TestMarshalingFunctionComposition(t *testing.T) {
+func TestMarshalingFunctionWorkflow(t *testing.T) {
 	workflowName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
 		AddInput("input", function.Int{}).
@@ -36,7 +36,7 @@ func TestMarshalingFunctionComposition(t *testing.T) {
 			retrieved.String(), wflow.String()))
 }
 
-// TestComposeFC checks the CREATE, GET and DELETE functionality of the Function Composition
+// TestComposeFC checks the CREATE, GET and DELETE functionality of the Function Workflow
 func TestComposeFC(t *testing.T) {
 
 	if testing.Short() {
@@ -108,7 +108,7 @@ func TestInvokeFC(t *testing.T) {
 	params := make(map[string]interface{})
 	params[f.Signature.GetInputs()[0].Name] = 0
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
@@ -162,7 +162,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 	params := make(map[string]interface{})
 	params[f.Signature.GetInputs()[0].Name] = input
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
@@ -210,7 +210,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 2
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, err2 := wflow.Invoke(request)
 	if err2 != nil {
 		log.Printf("%v\n", err2)
@@ -256,7 +256,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 1
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -313,7 +313,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			params := make(map[string]interface{})
 			params[f.Signature.GetInputs()[0].Name] = i
 
-			request := workflow.NewCompositionRequest(fmt.Sprintf("goroutine_%d", i), wflow, params)
+			request := workflow.NewRequest(fmt.Sprintf("goroutine_%d", i), wflow, params)
 			// wait until all goroutines are ready
 			<-start
 			// return error
@@ -371,7 +371,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	// INVOKE - we call the function composition
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -445,7 +445,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	params := make(map[string]interface{})
 	params[isPrimePy.Signature.GetInputs()[0].Name] = input
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -464,7 +464,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-func TestInvokeCompositionError(t *testing.T) {
+func TestInvokeWorkflowError(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -491,12 +491,12 @@ func TestInvokeCompositionError(t *testing.T) {
 	params := make(map[string]interface{})
 	params[incPy.Signature.GetInputs()[0].Name] = 1
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	_, err2 := wflow.Invoke(request)
 	u.AssertNonNil(t, err2)
 }
 
-func TestInvokeCompositionFailAndSucceed(t *testing.T) {
+func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -520,7 +520,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 	params := make(map[string]interface{})
 	params["value"] = 1
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the branch (succeed)")
 
@@ -532,7 +532,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 	params2 := make(map[string]interface{})
 	params2["value"] = 2
 
-	request2 := workflow.NewCompositionRequest(shortuuid.New(), wflow, params2)
+	request2 := workflow.NewRequest(shortuuid.New(), wflow, params2)
 	resultMap2, errInvoke2 := wflow.Invoke(request2)
 	u.AssertNilMsg(t, errInvoke2, "error while invoking the branch (fail)")
 
@@ -544,7 +544,7 @@ func TestInvokeCompositionFailAndSucceed(t *testing.T) {
 	u.AssertEquals(t, "This should be an error", causeStr)
 }
 
-func TestInvokeCompositionPassDoNothing(t *testing.T) {
+func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -567,7 +567,7 @@ func TestInvokeCompositionPassDoNothing(t *testing.T) {
 	params := make(map[string]interface{})
 	params["input"] = 1
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
@@ -576,7 +576,7 @@ func TestInvokeCompositionPassDoNothing(t *testing.T) {
 	u.AssertEquals(t, 3, result)
 }
 
-func TestInvokeCompositionWait(t *testing.T) {
+func TestInvokeWorkflowWait(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -599,7 +599,7 @@ func TestInvokeCompositionWait(t *testing.T) {
 	params := make(map[string]interface{})
 	params["input"] = 1
 
-	request := workflow.NewCompositionRequest(shortuuid.New(), wflow, params)
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 

@@ -46,7 +46,7 @@ func (s *StartNode) AddOutput(workflow *Workflow, nodeId TaskId) error {
 	return nil
 }
 
-func (s *StartNode) Exec(*CompositionRequest, ...map[string]interface{}) (map[string]interface{}, error) {
+func (s *StartNode) Exec(*Request, ...map[string]interface{}) (map[string]interface{}, error) {
 	panic("you can't exec a start node")
 }
 

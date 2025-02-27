@@ -56,8 +56,8 @@ func TestContainerPool(t *testing.T) {
 	//utils.AssertTrueMsg(t, workflow.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
-// TestCreateComposition tests the compose REST API that creates a new function composition
-func TestCreateComposition(t *testing.T) {
+// TestCreateWorkflow tests the compose REST API that creates a new function composition
+func TestCreateWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -70,7 +70,7 @@ func TestCreateComposition(t *testing.T) {
 	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(wflow, HOST, PORT)
+	err = createWorkflowApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -85,8 +85,8 @@ func TestCreateComposition(t *testing.T) {
 
 }
 
-// TestInvokeComposition tests the REST API that executes a given function composition
-func TestInvokeComposition(t *testing.T) {
+// TestInvokeWorkflow tests the REST API that executes a given function composition
+func TestInvokeWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -99,7 +99,7 @@ func TestInvokeComposition(t *testing.T) {
 	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(wflow, HOST, PORT)
+	err = createWorkflowApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -108,7 +108,7 @@ func TestInvokeComposition(t *testing.T) {
 	// === this is the test ===
 	params := make(map[string]interface{})
 	params["input"] = 1
-	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
+	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
 	getFC, b := workflow.GetFC(fcName)
@@ -119,8 +119,8 @@ func TestInvokeComposition(t *testing.T) {
 
 }
 
-// TestInvokeComposition tests the REST API that executes a given function composition
-func TestInvokeComposition_DifferentFunctions(t *testing.T) {
+// TestInvokeWorkflow tests the REST API that executes a given function composition
+func TestInvokeWorkflow_DifferentFunctions(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -138,7 +138,7 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	wflow, err := workflow.CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(wflow, HOST, PORT)
+	err = createWorkflowApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -147,7 +147,7 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 	// === this is the test ===
 	params := make(map[string]interface{})
 	params["input"] = 1
-	invokeCompositionApiTest(t, params, fcName, HOST, PORT, false)
+	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
 	getFC, b := workflow.GetFC(fcName)
@@ -158,8 +158,8 @@ func TestInvokeComposition_DifferentFunctions(t *testing.T) {
 
 }
 
-// TestDeleteComposition tests the compose REST API that deletes a function composition
-func TestDeleteComposition(t *testing.T) {
+// TestDeleteWorkflow tests the compose REST API that deletes a function composition
+func TestDeleteWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -185,7 +185,7 @@ func TestDeleteComposition(t *testing.T) {
 	utils.AssertNil(t, err)
 
 	// the API under test is the following
-	deleteCompositionApiTest(t, fcName, HOST, PORT) // TODO: check success
+	deleteWorkflowApiTest(t, fcName, HOST, PORT) // TODO: check success
 
 	// delete the container when not used
 	// deleteApiTest(t, fn.Name, HOST, PORT) // the function has already been deleted during composition deletion
@@ -194,8 +194,8 @@ func TestDeleteComposition(t *testing.T) {
 	// utils.AssertTrueMsg(t, workflow.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
-// TestAsyncInvokeComposition tests the REST API that executes a given function composition
-func TestAsyncInvokeComposition(t *testing.T) {
+// TestAsyncInvokeWorkflow tests the REST API that executes a given function composition
+func TestAsyncInvokeWorkflow(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test")
 	}
@@ -208,7 +208,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	wflow, err := workflow.CreateSequenceWorkflow(fn, fn, fn)
 	wflow.Name = fcName
 	utils.AssertNil(t, err)
-	err = createCompositionApiTest(wflow, HOST, PORT)
+	err = createWorkflowApiTest(wflow, HOST, PORT)
 	if err != nil {
 		fmt.Println(err)
 		t.Fail()
@@ -217,7 +217,7 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	// === this is the test ===
 	params := make(map[string]interface{})
 	params["input"] = 1
-	invocationResult := invokeCompositionApiTest(t, params, fcName, HOST, PORT, true)
+	invocationResult := invokeWorkflowApiTest(t, params, fcName, HOST, PORT, true)
 
 	reqIdStruct := &function.AsyncResponse{}
 
@@ -227,9 +227,9 @@ func TestAsyncInvokeComposition(t *testing.T) {
 	// wait until the result is available
 	i := 0
 	for {
-		pollResult := pollCompositionTest(t, reqIdStruct.ReqId, HOST, PORT)
+		pollResult := pollWorkflowTest(t, reqIdStruct.ReqId, HOST, PORT)
 
-		var compExecReport workflow.CompositionExecutionReport
+		var compExecReport workflow.ExecutionReport
 		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &compExecReport)
 
 		if errUnmarshalExecResult != nil {

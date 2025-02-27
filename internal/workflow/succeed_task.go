@@ -31,7 +31,7 @@ func NewSucceedNode(message string) *SucceedNode {
 	return &succeedNode
 }
 
-func (s *SucceedNode) Exec(compRequest *CompositionRequest, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (s *SucceedNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	t0 := time.Now()
 	var err error = nil
 	if len(params) != 1 {
@@ -79,7 +79,7 @@ func (s *SucceedNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 	return nil
 }
 
-// PrepareOutput can be used in a SucceedNode to modify the composition output representation
+// PrepareOutput can be used in a SucceedNode to modify the workflow output representation
 func (s *SucceedNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	if s.OutputPath != "" {
 		return fmt.Errorf("OutputPath not currently implemented") // TODO: implement it
