@@ -11,7 +11,7 @@ type ReqId string
 
 // Request represents a workflow invocation, with params and metrics data
 type Request struct {
-	ReqId           string
+	Id              string
 	W               *Workflow
 	Params          map[string]interface{}
 	Arrival         time.Time
@@ -23,7 +23,7 @@ type Request struct {
 
 func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
 	return &Request{
-		ReqId:   reqId,
+		Id:      reqId,
 		W:       workflow,
 		Params:  params,
 		Arrival: time.Now(),

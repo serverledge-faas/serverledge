@@ -168,7 +168,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.CanDoOffloading = clientReq.CanDoOffloading
 	req.Async = clientReq.Async
 
-	req.ReqId = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
+	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
 
 	// TODO: do we really need to initialize all the reports at this point?
 	req.ExecReport.Reports = hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport]() // make(map[workflow.ExecutionReportId]*function.ExecutionReport)
@@ -183,7 +183,7 @@ func InvokeWorkflow(e echo.Context) error {
 
 	if req.Async {
 		go workflow.SubmitAsyncWorkflowInvocationRequest(req)
-		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: req.ReqId})
+		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: req.Id})
 	}
 
 	// sync execution

@@ -237,47 +237,41 @@ func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialD
 	return partialData, progress, true, nil
 }
 
-func (workflow *Workflow) executeSimple(progress *Progress, partialData *PartialData, simpleNode *SimpleNode, r *Request) (*PartialData, *Progress, bool, error) {
-	// retrieving input
-	var pd *PartialData
-	nodeId := simpleNode.GetId()
-	requestId := ReqId(r.ReqId)
-	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
+func (workflow *Workflow) executeSimple(progress *Progress, input *PartialData, task *SimpleNode, r *Request) (*PartialData, *Progress, bool, error) {
 
-	err := simpleNode.CheckInput(partialData.Data)
+	err := task.CheckInput(input.Data)
 	if err != nil {
-		return pd, progress, false, err
+		return nil, progress, false, err
 	}
-	// executing node
-	output, err := simpleNode.Exec(r, partialData.Data)
+	outputData, err := task.Exec(r, input.Data)
 	if err != nil {
-		return pd, progress, false, err
+		return nil, progress, false, err
 	}
 
-	forNode := simpleNode.GetNext()[0]
+	nextTask := task.GetNext()[0]
 
-	errSend := simpleNode.PrepareOutput(workflow, output)
+	errSend := task.PrepareOutput(workflow, outputData)
 	if errSend != nil {
-		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", simpleNode.String(), errSend)
+		return nil, progress, false, fmt.Errorf("the node %s cannot send the outputData: %v", task.String(), errSend)
 	}
 
-	// setting the remaining fields of pd
-	pd.ForTask = forNode
-	pd.Data = output
+	output := NewPartialData(ReqId(r.Id), "", task.Id, nil) // partial initialization of output
+	output.ForTask = nextTask
+	output.Data = outputData
 
-	err = progress.CompleteNode(nodeId)
+	err = progress.CompleteNode(task.Id)
 	if err != nil {
-		return pd, progress, false, err
+		return output, progress, false, err
 	}
 
-	return pd, progress, true, nil
+	return output, progress, true, nil
 }
 
 func (workflow *Workflow) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *Request) (*PartialData, *Progress, bool, error) {
 
 	var pd *PartialData
 	nodeId := choice.GetId()
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
 
 	err := choice.CheckInput(partialData.Data)
@@ -319,7 +313,7 @@ func (workflow *Workflow) executeFanOut(progress *Progress, partialData *Partial
 	var pd *PartialData
 	outputMap := make(map[string]interface{})
 	nodeId := fanOut.GetId()
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 
 	/* using forNode = "" in order to create a special partialData to handle fanout
 	 * case with Data field which contains a map[string]interface{} with the key set
@@ -375,7 +369,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	inputs := make([]map[string]interface{}, 0)
 	outputChannels := make([]chan map[string]interface{}, 0)
 	errorChannels := make([]chan error, 0)
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 	outputMap := make(map[string]interface{}, 0)
 	var node Task
 	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
@@ -464,7 +458,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 
 func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
 	nodeId := fanIn.GetId()
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 	var err error
 	pd := NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
 
@@ -514,18 +508,10 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeSucceedNode(progress *Progress, partialData *PartialData, succeedNode *SucceedNode, r *Request) (*PartialData, *Progress, bool, error) {
-	return commonExec(workflow, progress, partialData, succeedNode, r)
-}
-
-func (workflow *Workflow) executeFailNode(progress *Progress, partialData *PartialData, failNode *FailNode, r *Request) (*PartialData, *Progress, bool, error) {
-	return commonExec(workflow, progress, partialData, failNode, r)
-}
-
-func commonExec(workflow *Workflow, progress *Progress, partialData *PartialData, node Task, r *Request) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) commonExec(progress *Progress, partialData *PartialData, node Task, r *Request) (*PartialData, *Progress, bool, error) {
 	var pd *PartialData
 	nodeId := node.GetId()
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
 
 	err := node.CheckInput(partialData.Data)
@@ -567,58 +553,61 @@ func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialDat
 	return partialData, progress, false, nil // false because we want to stop when reaching the end
 }
 
-func (workflow *Workflow) Execute(r *Request, data *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
 
-	var pd *PartialData
+	var output *PartialData
 	nextNodes, err := progress.NextNodes()
 	if err != nil {
-		return data, progress, false, fmt.Errorf("failed to get next nodes from progress: %v", err)
+		return nil, progress, false, fmt.Errorf("failed to get next nodes from progress: %v", err)
 	}
 	shouldContinue := true
 
 	if len(nextNodes) > 1 {
-		pd, progress, err = workflow.executeParallel(progress, data, nextNodes, r)
+		// TODO: check executeParallel
+		output, progress, err = workflow.executeParallel(progress, input, nextNodes, r)
 		if err != nil {
-			return pd, progress, true, err
+			return output, progress, true, err
 		}
 	} else if len(nextNodes) == 1 {
 		n, ok := workflow.Find(nextNodes[0])
 		if !ok {
-			return data, progress, true, fmt.Errorf("failed to find node %s", n.GetId())
+			return nil, progress, true, fmt.Errorf("failed to find node %s", n.GetId())
 		}
 
 		switch node := n.(type) {
+		// TODO: is it necessary to pass Request?
 		case *SimpleNode:
-			pd, progress, shouldContinue, err = workflow.executeSimple(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeSimple(progress, input, node, r)
 		case *ChoiceNode:
-			pd, progress, shouldContinue, err = workflow.executeChoice(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeChoice(progress, input, node, r)
 		case *FanInNode:
-			pd, progress, shouldContinue, err = workflow.executeFanIn(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeFanIn(progress, input, node, r)
 		case *StartNode:
-			pd, progress, shouldContinue, err = workflow.executeStart(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeStart(progress, input, node, r)
 		case *FanOutNode:
-			pd, progress, shouldContinue, err = workflow.executeFanOut(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeFanOut(progress, input, node, r)
 		case *PassNode:
-			pd, progress, shouldContinue, err = commonExec(workflow, progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
 		case *WaitNode:
-			pd, progress, shouldContinue, err = commonExec(workflow, progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
 		case *FailNode:
-			pd, progress, shouldContinue, err = workflow.executeFailNode(progress, data, node, r) // TODO: use commonExec
+			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
 		case *SucceedNode:
-			pd, progress, shouldContinue, err = workflow.executeSucceedNode(progress, data, node, r) // TODO: use commonExec
+			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
 		case *EndNode:
-			pd, progress, shouldContinue, err = workflow.executeEnd(progress, data, node, r)
+			output, progress, shouldContinue, err = workflow.executeEnd(progress, input, node, r)
 		}
 		if err != nil {
 			_ = progress.FailNode(n.GetId())
 			r.ExecReport.Progress = progress
-			return pd, progress, true, err
+			return output, progress, false, err
 		}
 	} else {
-		return data, progress, false, fmt.Errorf("there aren't next nodes")
+		// should never happen
+		return nil, progress, false, nil
 	}
 
-	return pd, progress, shouldContinue, nil
+	return output, progress, shouldContinue, nil
 }
 
 // GetUniqueFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
@@ -740,8 +729,9 @@ func (workflow *Workflow) Save() error {
 func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 	var err error
-	requestId := ReqId(r.ReqId)
+	requestId := ReqId(r.Id)
 
+	// TODO: check these functions
 	progress := InitProgressRecursive(requestId, workflow)
 	pd := NewPartialData(requestId, workflow.Start.Next, "nil", r.Params) // TODO: can we use an empty string rather than "nil"?
 
@@ -754,25 +744,26 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 		}
 	}
 
-	// saving partialData and progress on etcd - implementing workflow offloading policies
-	err = savePartialDataToEtcd(pd)
-	if err != nil {
-		return ExecutionReport{}, err
-	}
-	err = saveProgressToEtcd(progress)
-	if err != nil {
-		return ExecutionReport{}, err
-	}
+	// TODO: we may need to handle offloading decisions here
+	//// saving partialData and progress on etcd - implementing workflow offloading policies
+	//err = savePartialDataToEtcd(pd)
+	//if err != nil {
+	//	return ExecutionReport{}, err
+	//}
+	//err = saveProgressToEtcd(progress)
+	//if err != nil {
+	//	return ExecutionReport{}, err
+	//}
 
-	// deleting progresses and partial datas from cache and etcd
-	err = DeleteProgress(requestId, cache.Persist)
-	if err != nil {
-		return ExecutionReport{}, err
-	}
-	_, errDel := DeleteAllPartialData(requestId, cache.Persist)
-	if errDel != nil {
-		return ExecutionReport{}, errDel
-	}
+	//// deleting progresses and partial datas from cache and etcd
+	//err = DeleteProgress(requestId, cache.Persist)
+	//if err != nil {
+	//	return ExecutionReport{}, err
+	//}
+	//_, errDel := DeleteAllPartialData(requestId, cache.Persist)
+	//if errDel != nil {
+	//	return ExecutionReport{}, errDel
+	//}
 	r.ExecReport.Result = pd.Data
 
 	return r.ExecReport, nil

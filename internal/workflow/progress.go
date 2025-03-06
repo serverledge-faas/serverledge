@@ -453,7 +453,7 @@ func (p *Progress) String() string {
 	tasks += "]"
 
 	return fmt.Sprintf(`Progress{
-		ReqId:     %s,
+		Id:     %s,
 		TaskInfos:  %s,
 		NextGroup: %d,
 	}`, p.ReqId, tasks, p.NextGroup)

@@ -51,7 +51,7 @@ func (pd PartialData) Equals(pd2 *PartialData) bool {
 
 func (pd PartialData) String() string {
 	return fmt.Sprintf(`PartialData{
-		ReqId:    %s,
+		Id:    %s,
 		ForTask:  %s,
 		FromTask: %s,
 		Data:     %v,

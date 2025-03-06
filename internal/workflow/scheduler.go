@@ -20,7 +20,7 @@ func SubmitWorkflowInvocationRequest(req *Request) error {
 func SubmitAsyncWorkflowInvocationRequest(req *Request) {
 	executionReport, errInvoke := req.W.Invoke(req)
 	if errInvoke != nil {
-		PublishAsyncInvocationResponse(req.ReqId, InvocationResponse{Success: false})
+		PublishAsyncInvocationResponse(req.Id, InvocationResponse{Success: false})
 		return
 	}
 	reports := make(map[string]*function.ExecutionReport)
@@ -28,7 +28,7 @@ func SubmitAsyncWorkflowInvocationRequest(req *Request) {
 		reports[string(id)] = report
 		return true
 	})
-	PublishAsyncInvocationResponse(req.ReqId, InvocationResponse{
+	PublishAsyncInvocationResponse(req.Id, InvocationResponse{
 		Success:      true,
 		Result:       req.ExecReport.Result,
 		Reports:      reports,

@@ -279,7 +279,7 @@ func pollWorkflowTest(t *testing.T, requestId string, host string, port int) str
 func newWorkflowRequestTest() *workflow.Request {
 
 	return &workflow.Request{
-		ReqId: "test",
+		Id: "test",
 		ExecReport: workflow.ExecutionReport{
 			Reports: hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport](), // make(map[workflow.ExecutionReportId]*function.ExecutionReport),
 		},

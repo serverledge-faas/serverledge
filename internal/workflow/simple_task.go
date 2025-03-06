@@ -39,66 +39,43 @@ func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}
 	if !ok {
 		return nil, fmt.Errorf("SimpleNode.function is null: you must initialize SimpleNode's function to execute it")
 	}
-	/*
-		// this is for debug
-		s.inputMutex.Lock()
-		fmt.Printf("executing simple node %s for request %s with input %v\n", s.Id, compRequest.ReqId, s.input)
-		s.inputMutex.Unlock()
-	*/
-	// creates the function if not exists. Maybe someone deleted by accident the function before starting the workflow.
-	if !funct.Exists() {
-		errNotSaved := funct.SaveToEtcd()
-		return nil, fmt.Errorf("the function %s cannot be saved while trying to exec the function workflow %v", s.Func, errNotSaved)
-	}
+
 	// the rest of the code is similar to a single function execution
 	now := time.Now()
 	requestId := fmt.Sprintf("%s-%s%d", s.Func, node.NodeIdentifier[len(node.NodeIdentifier)-5:], now.Nanosecond())
-	s.inputMutex.Lock()
+
 	r := &function.Request{
-		ReqId:   requestId,
-		Fun:     funct,
-		Params:  params[0],
-		Arrival: now,
-		ExecReport: function.ExecutionReport{
-			SchedAction:    "",
-			OffloadLatency: 0.0,
-		},
+		ReqId:           requestId,
+		Fun:             funct,
+		Params:          params[0],
+		Arrival:         now,
+		ExecReport:      function.ExecutionReport{},
 		RequestQoS:      compRequest.QoS,
 		CanDoOffloading: true,
 		Async:           false,
 	}
-	s.inputMutex.Unlock()
 
-	// executes the function, waiting for the result
 	err := scheduling.SubmitRequest(r)
 	if err != nil {
 		return nil, err
 	}
 
-	m := make(map[string]interface{})
-	firstOutputName := ""
+	outputData := make(map[string]interface{})
 
-	if funct.Signature == nil {
-		return nil, fmt.Errorf("signature of function %s is nil. Recreate the function with a valid signature. Parameters map: %v\n", funct.Name, params)
-	}
 	// extract output map
-	for i, o := range funct.Signature.GetOutputs() {
-
-		if i == 0 {
-			firstOutputName = o.Name
-		}
+	for _, o := range funct.Signature.GetOutputs() {
 		var result map[string]interface{}
 		//if the output is a struct/map, we should return a map with struct field and values
 		errNotUnmarshable := json.Unmarshal([]byte(r.ExecReport.Result), &result)
 		if errNotUnmarshable != nil {
 			// if the output is a simple type (e.g. int, bool, string, array) we simply add it to the map
 
-			m[o.Name] = r.ExecReport.Result
-			err1 := o.CheckOutput(m)
+			outputData[o.Name] = r.ExecReport.Result
+			err1 := o.CheckOutput(outputData)
 			if err1 != nil {
 				return nil, fmt.Errorf("output type checking failed: %v", err1)
 			}
-			m[o.Name], err1 = o.TryParse(r.ExecReport.Result)
+			outputData[o.Name], err1 = o.TryParse(r.ExecReport.Result)
 			if err1 != nil {
 				return nil, fmt.Errorf("failed to parse intermediate output: %v", err1)
 			}
@@ -107,17 +84,13 @@ func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}
 			if !found {
 				return nil, fmt.Errorf("failed to find result with name %s", o.Name)
 			}
-			m[o.Name] = val
+			outputData[o.Name] = val
 
 		}
 
 	}
 
-	if len(m) == 1 {
-		r.ExecReport.Result = fmt.Sprintf("%v", m[firstOutputName])
-	} else {
-		r.ExecReport.Result = fmt.Sprintf("%v", m)
-	}
+	r.ExecReport.Result = fmt.Sprintf("%v", outputData)
 	// saving execution report for this function
 	//compRequest.ExecReport.Reports[CreateExecutionReportId(s)] = &r.ExecReport
 	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(s), &r.ExecReport)
@@ -126,9 +99,9 @@ func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}
 		if !r.ExecReport.IsWarmStart {
 			cs = fmt.Sprintf("- cold start: %v", !r.ExecReport.IsWarmStart)
 		}
-		fmt.Printf("Function Request %s - result of simple node %s: %v %s\n", r.ReqId, s.Id, r.ExecReport.Result, cs)
+		fmt.Printf("Function Request %s - result of simple node %s: %v %s\n", r.Id, s.Id, r.ExecReport.Result, cs)
 	*/
-	return m, nil
+	return outputData, nil
 }
 
 func (s *SimpleNode) Equals(cmp types.Comparable) bool {
@@ -152,24 +125,16 @@ func (s *SimpleNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 }
 
 func (s *SimpleNode) CheckInput(input map[string]interface{}) error {
-	// TODO: must communicate and receive input from other node, if on another machine
-	funct, exists := function.GetFunction(s.Func) // we are getting the function from cache if not already downloaded
+	funct, exists := function.GetFunction(s.Func)
 	if !exists {
 		return fmt.Errorf("funtion %s doesn't exists", s.Func)
 	}
 
 	if funct.Signature == nil {
-		return nil // signature is optional, but if set, you can debug errors more easily
+		return fmt.Errorf("signature of function %s is nil. Recreate the function with a valid signature.\n", funct.Name)
 	}
 
-	err := funct.Signature.CheckAllInputs(input)
-	if err != nil {
-		return fmt.Errorf("error while receiving input: %v", err)
-	}
-	//s.inputMutex.Lock()
-	//s.input = input
-	//s.inputMutex.Unlock()
-	return nil
+	return funct.Signature.CheckAllInputs(input)
 }
 
 // PrepareOutput is used to send the output to the following function and if needed can be used to modify the SimpleNode output representation, like OutputPath
@@ -187,19 +152,15 @@ func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interfa
 		return fmt.Errorf("error while checking outputs: %v", err)
 	}
 	// get signature of next nodes, if present and maps the output there
-	for _, n := range s.GetNext() {
-		// we have only one output node
-		task, _ := workflow.Find(n)
 
-		switch nodeType := task.(type) {
+	// we have only one output node
+	task, _ := workflow.Find(s.GetNext()[0])
 
-		case *SimpleNode:
-			return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks
-		case *ChoiceNode:
-			return nodeType.MapOutput(output, *funct.Signature) // needed to convert type of data from one node to the next so that its signature type-checks
-
-		}
-
+	switch nodeType := task.(type) {
+	case *SimpleNode:
+		return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks
+	case *ChoiceNode:
+		return nodeType.MapOutput(output, *funct.Signature) // needed to convert type of data from one node to the next so that its signature type-checks
 	}
 
 	return nil
