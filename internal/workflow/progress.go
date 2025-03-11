@@ -114,8 +114,6 @@ func TaskFromType(nodeType TaskType) Task {
 		return &SucceedNode{}
 	case Pass:
 		return &PassNode{}
-	case Wait:
-		return &WaitNode{}
 	default:
 		return &SimpleNode{}
 	}
@@ -141,8 +139,6 @@ func parseType(dNode Task) TaskType {
 		return Succeed
 	case *PassNode:
 		return Pass
-	case *WaitNode:
-		return Wait
 	}
 
 	panic("unreachable!")
@@ -383,7 +379,7 @@ func extractNodeInfo(workflow *Workflow, node Task, group int, infos []*TaskInfo
 	}
 	group++
 	switch n := node.(type) {
-	case *StartNode, *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
+	case *StartNode, *SimpleNode, *PassNode, *SucceedNode, *FailNode:
 		task, _ := workflow.Find(n.GetNext()[0])
 		toAdd := extractNodeInfo(workflow, task, group, infos)
 		for _, add := range toAdd {

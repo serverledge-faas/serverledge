@@ -181,6 +181,7 @@ func (s SignatureBuilder) Build() *Signature {
 	return &s.signature
 }
 
+// TODO: this function might modify its input to force matching of single inputs
 func (s *Signature) CheckAllInputs(inputMap map[string]interface{}) error {
 	errors := ""
 	if len(inputMap) < len(s.Inputs) {
@@ -189,6 +190,19 @@ func (s *Signature) CheckAllInputs(inputMap map[string]interface{}) error {
 
 	for _, def := range s.Inputs {
 		err := def.CheckInput(inputMap)
+
+		if err != nil && len(s.Inputs) == 1 {
+			key, ok := def.FindEntryThatTypeChecks(inputMap)
+			if ok {
+				val := inputMap[key]
+				delete(inputMap, key)
+				inputMap[def.Name] = val
+				err = nil
+			} else {
+				err = fmt.Errorf("no output entry input-checks with the next function")
+			}
+		}
+
 		if err != nil {
 			errors += fmt.Sprintf("type-error: %v", err)
 		}

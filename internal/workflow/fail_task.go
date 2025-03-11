@@ -12,15 +12,11 @@ type FailNode struct {
 	Error    string
 	Cause    string
 
-	/* (Serverledge specific) */
-
-	// OutputTo for a SucceedNode is used to send the output to the EndNode
 	OutputTo TaskId
 	BranchId int
 }
 
 func (f *FailNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-	output[f.Error] = f.Cause
 	return nil
 }
 
@@ -38,12 +34,7 @@ func NewFailNode(error, cause string) *FailNode {
 }
 
 func (f *FailNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	output := make(map[string]interface{})
-	var err error = nil
-	if len(params) != 1 {
-		return nil, fmt.Errorf("failed to get one input for fail node: received %d inputs", len(params))
-	}
-	return output, err
+	return nil, nil
 }
 
 func (f *FailNode) Equals(cmp types.Comparable) bool {

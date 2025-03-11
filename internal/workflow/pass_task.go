@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"fmt"
-	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
 )
@@ -26,12 +25,7 @@ func NewPassNode(result string) *PassNode {
 }
 
 func (p *PassNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	var err error = nil
-	if len(params) != 1 {
-		return nil, fmt.Errorf("failed to get one input for pass node: received %d inputs", len(params))
-	}
-	output := params[0]
-	return output, err
+	return nil, nil
 }
 
 func (p *PassNode) Equals(cmp types.Comparable) bool {
@@ -62,62 +56,6 @@ func (p *PassNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 }
 
 func (p *PassNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-	if p.ResultPath != "" {
-		return fmt.Errorf("ResultPath not currently implemented") // TODO: implement it
-	}
-
-	if len(p.GetNext()) == 0 {
-		return fmt.Errorf("failed to map output: there are no next node after PassNode")
-	}
-	// Get the next node.
-	nextNodeId := p.GetNext()[0]
-
-	nextNode, ok := workflow.Find(nextNodeId)
-	if !ok {
-		return fmt.Errorf("failed to find next node")
-	}
-
-	// If it is a SimpleNode
-	nextSimpleNode, ok := nextNode.(*SimpleNode)
-	if !ok {
-		return nil
-	}
-	return p.MapOutput(nextSimpleNode, output)
-}
-
-// MapOutput changes the names of the output parameters to match the name of the input parameters of the next SimpleNode
-func (p *PassNode) MapOutput(nextNode *SimpleNode, output map[string]interface{}) error {
-	funct, exists := function.GetFunction(nextNode.Func)
-	if !exists {
-		return fmt.Errorf("function %s doesn't exist", nextNode.Func)
-	}
-	sign := funct.Signature
-	// if there are no inputs, we do nothing
-	for _, def := range sign.GetInputs() {
-		// if output has same name as input, we do not need to change name
-		_, present := output[def.Name]
-		if present {
-			continue
-		}
-		// find an entry in the output map that successfully checks the type of the InputDefinition
-		key, ok := def.FindEntryThatTypeChecks(output)
-		if ok {
-			// we get the output value
-			val := output[key]
-			// we remove the output entry ...
-			delete(output, key)
-			// and replace with the input entry
-			output[def.Name] = val
-			// save the output map in the input of the node
-			//s.inputMutex.Lock()
-			//s.input = output
-			//s.inputMutex.Unlock()
-		} else {
-			// otherwise if no one of the entry typechecks we are doomed
-			return fmt.Errorf("no output entry input-checks with the next function")
-		}
-	}
-	// if the outputs are more than the needed input, we do nothing
 	return nil
 }
 

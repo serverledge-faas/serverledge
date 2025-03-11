@@ -105,7 +105,7 @@ func Visit(workflow *Workflow, nodeId TaskId, nodes []Task, excludeEnd bool) []T
 			}
 		}
 		return nodes
-	case *SimpleNode, *PassNode, *WaitNode, *SucceedNode, *FailNode:
+	case *SimpleNode, *PassNode, *SucceedNode, *FailNode:
 		toAdd := Visit(workflow, n.GetNext()[0], nodes, excludeEnd)
 		for _, add := range toAdd {
 			if !isTaskPresent(add, nodes) {
@@ -517,39 +517,16 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) executeWait(progress *Progress, input *PartialData, task *WaitNode, r *Request) (*PartialData, *Progress, bool, error) {
-
-	err := task.CheckInput(input.Data)
-	if err != nil {
-		return nil, progress, false, err
-	}
-	// executing task
-	output, err := task.Exec(r, input.Data)
-	if err != nil {
-		return nil, progress, false, err
-	}
-
-	errSend := task.PrepareOutput(workflow, output)
-	if errSend != nil {
-		return nil, progress, false, fmt.Errorf("the task %s cannot send the output: %v", task.String(), errSend)
-	}
+func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request, inputPassThrough bool) (*PartialData, *Progress, bool, error) {
 
 	forNode := task.GetNext()[0]
+	var output map[string]interface{}
+	if inputPassThrough {
+		output = input.Data
+	} else {
+		output = make(map[string]interface{})
+	}
 	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), output)
-
-	err = progress.CompleteNode(task.GetId())
-	if err != nil {
-		return outputData, progress, false, err
-	}
-
-	shouldContinueExecution := task.GetNodeType() != Fail && task.GetNodeType() != Succeed
-	return outputData, progress, shouldContinueExecution, nil
-}
-
-func (workflow *Workflow) passthroughExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
-
-	forNode := task.GetNext()[0]
-	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), input.Data)
 
 	err := progress.CompleteNode(task.GetId())
 	if err != nil {
@@ -601,13 +578,12 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		case *FanOutNode:
 			output, progress, shouldContinue, err = workflow.executeFanOut(progress, input, node, r)
 		case *PassNode:
-			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
-		case *WaitNode:
-			output, progress, shouldContinue, err = workflow.executeWait(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, true)
 		case *FailNode:
-			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, false)
+			output.Data[node.Error] = node.Cause
 		case *SucceedNode:
-			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, true)
 		case *EndNode:
 			output, progress, shouldContinue, err = workflow.executeEnd(progress, input, node, r)
 		}

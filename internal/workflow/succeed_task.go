@@ -11,30 +11,20 @@ type SucceedNode struct {
 	NodeType   TaskType
 	InputPath  string
 	OutputPath string
-
-	/* (Serverledge specific) */
-	Message string
-	// OutputTo for a SucceedNode is used to send the output to the EndNode
-	OutputTo TaskId
-	BranchId int
+	OutputTo   TaskId
+	BranchId   int
 }
 
 func NewSucceedNode(message string) *SucceedNode {
 	succeedNode := SucceedNode{
 		Id:       TaskId("succeed_" + shortuuid.New()),
 		NodeType: Succeed,
-		Message:  message,
 	}
 	return &succeedNode
 }
 
 func (s *SucceedNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	var err error = nil
-	if len(params) != 1 {
-		return nil, fmt.Errorf("failed to get one input for succeed node: received %d inputs", len(params))
-	}
-	output := params[0]
-	return output, err
+	return nil, nil
 }
 
 func (s *SucceedNode) Equals(cmp types.Comparable) bool {
@@ -47,8 +37,7 @@ func (s *SucceedNode) Equals(cmp types.Comparable) bool {
 		s.InputPath == s2.InputPath &&
 		s.OutputPath == s2.OutputPath &&
 		s.OutputTo == s2.OutputTo &&
-		s.BranchId == s2.BranchId &&
-		s.Message == s2.Message
+		s.BranchId == s2.BranchId
 }
 
 func (s *SucceedNode) CheckInput(input map[string]interface{}) error {
@@ -66,9 +55,6 @@ func (s *SucceedNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 
 // PrepareOutput can be used in a SucceedNode to modify the workflow output representation
 func (s *SucceedNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-	if s.OutputPath != "" {
-		return fmt.Errorf("OutputPath not currently implemented") // TODO: implement it
-	}
 	return nil
 }
 
