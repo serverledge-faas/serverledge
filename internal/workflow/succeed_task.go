@@ -2,9 +2,6 @@ package workflow
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
 )
@@ -32,23 +29,11 @@ func NewSucceedNode(message string) *SucceedNode {
 }
 
 func (s *SucceedNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	t0 := time.Now()
 	var err error = nil
 	if len(params) != 1 {
 		return nil, fmt.Errorf("failed to get one input for succeed node: received %d inputs", len(params))
 	}
 	output := params[0]
-	respAndDuration := time.Now().Sub(t0).Seconds()
-	execReport := &function.ExecutionReport{
-		Result:         fmt.Sprintf("%v", output),
-		ResponseTime:   respAndDuration,
-		IsWarmStart:    true, // not in a container
-		InitTime:       0,
-		OffloadLatency: 0,
-		Duration:       respAndDuration,
-		SchedAction:    "",
-	}
-	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(s), execReport)
 	return output, err
 }
 

@@ -227,13 +227,12 @@ func (workflow *Workflow) Print() string {
 	return result
 }
 
-func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialData, node *StartNode, r *Request) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeStart(progress *Progress, partialData *PartialData, node *StartNode) (*PartialData, *Progress, bool, error) {
 
 	err := progress.CompleteNode(node.GetId())
 	if err != nil {
 		return partialData, progress, false, err
 	}
-	r.ExecReport.Reports.Set(CreateExecutionReportId(node), &function.ExecutionReport{Result: "start"})
 	return partialData, progress, true, nil
 }
 
@@ -518,44 +517,50 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) commonExec(progress *Progress, partialData *PartialData, node Task, r *Request) (*PartialData, *Progress, bool, error) {
-	var pd *PartialData
-	nodeId := node.GetId()
-	requestId := ReqId(r.Id)
-	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
+func (workflow *Workflow) executeWait(progress *Progress, input *PartialData, task *WaitNode, r *Request) (*PartialData, *Progress, bool, error) {
 
-	err := node.CheckInput(partialData.Data)
+	err := task.CheckInput(input.Data)
 	if err != nil {
-		return pd, progress, false, err
+		return nil, progress, false, err
 	}
-	// executing node
-	output, err := node.Exec(r, partialData.Data)
+	// executing task
+	output, err := task.Exec(r, input.Data)
 	if err != nil {
-		return pd, progress, false, err
+		return nil, progress, false, err
 	}
 
-	errSend := node.PrepareOutput(workflow, output)
+	errSend := task.PrepareOutput(workflow, output)
 	if errSend != nil {
-		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", node.String(), errSend)
+		return nil, progress, false, fmt.Errorf("the task %s cannot send the output: %v", task.String(), errSend)
 	}
 
-	forNode := node.GetNext()[0]
-	// setting the remaining fields of pd
-	pd.ForTask = forNode
-	pd.Data = output
+	forNode := task.GetNext()[0]
+	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), output)
 
-	err = progress.CompleteNode(nodeId)
+	err = progress.CompleteNode(task.GetId())
 	if err != nil {
-		return pd, progress, false, err
+		return outputData, progress, false, err
 	}
-	if node.GetNodeType() == Fail || node.GetNodeType() == Succeed {
-		return pd, progress, false, nil
+
+	shouldContinueExecution := task.GetNodeType() != Fail && task.GetNodeType() != Succeed
+	return outputData, progress, shouldContinueExecution, nil
+}
+
+func (workflow *Workflow) passthroughExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
+
+	forNode := task.GetNext()[0]
+	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), input.Data)
+
+	err := progress.CompleteNode(task.GetId())
+	if err != nil {
+		return outputData, progress, false, err
 	}
-	return pd, progress, true, nil
+
+	shouldContinueExecution := task.GetNodeType() != Fail && task.GetNodeType() != Succeed
+	return outputData, progress, shouldContinueExecution, nil
 }
 
 func (workflow *Workflow) executeEnd(progress *Progress, partialData *PartialData, node *EndNode, r *Request) (*PartialData, *Progress, bool, error) {
-	r.ExecReport.Reports.Set(CreateExecutionReportId(node), &function.ExecutionReport{Result: "end"})
 	err := progress.CompleteNode(node.Id)
 	if err != nil {
 		return partialData, progress, false, err
@@ -592,17 +597,17 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		case *FanInNode:
 			output, progress, shouldContinue, err = workflow.executeFanIn(progress, input, node, r)
 		case *StartNode:
-			output, progress, shouldContinue, err = workflow.executeStart(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.executeStart(progress, input, node)
 		case *FanOutNode:
 			output, progress, shouldContinue, err = workflow.executeFanOut(progress, input, node, r)
 		case *PassNode:
-			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
 		case *WaitNode:
-			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.executeWait(progress, input, node, r)
 		case *FailNode:
-			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
 		case *SucceedNode:
-			output, progress, shouldContinue, err = workflow.commonExec(progress, input, node, r)
+			output, progress, shouldContinue, err = workflow.passthroughExec(progress, input, node, r)
 		case *EndNode:
 			output, progress, shouldContinue, err = workflow.executeEnd(progress, input, node, r)
 		}

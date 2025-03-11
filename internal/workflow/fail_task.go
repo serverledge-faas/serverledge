@@ -2,9 +2,6 @@ package workflow
 
 import (
 	"fmt"
-	"time"
-
-	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
 )
@@ -41,23 +38,11 @@ func NewFailNode(error, cause string) *FailNode {
 }
 
 func (f *FailNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	t0 := time.Now()
 	output := make(map[string]interface{})
 	var err error = nil
 	if len(params) != 1 {
 		return nil, fmt.Errorf("failed to get one input for fail node: received %d inputs", len(params))
 	}
-	respAndDuration := time.Now().Sub(t0).Seconds()
-	execReport := &function.ExecutionReport{
-		Result:         fmt.Sprintf("%v", output),
-		ResponseTime:   respAndDuration,
-		IsWarmStart:    true, // not in a container
-		InitTime:       0,
-		OffloadLatency: 0,
-		Duration:       respAndDuration,
-		SchedAction:    "",
-	}
-	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(f), execReport)
 	return output, err
 }
 
@@ -86,10 +71,6 @@ func (f *FailNode) AddOutput(workflow *Workflow, taskId TaskId) error {
 	f.OutputTo = taskId
 	return nil
 }
-
-//func (f *FailNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-//	return nil
-//}
 
 func (f *FailNode) GetNext() []TaskId {
 	return []TaskId{f.OutputTo}
