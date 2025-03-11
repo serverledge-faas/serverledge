@@ -62,45 +62,37 @@ func (s *SimpleNode) Exec(compRequest *Request, params ...map[string]interface{}
 
 	outputData := make(map[string]interface{})
 
-	// extract output map
-	for _, o := range funct.Signature.GetOutputs() {
-		var result map[string]interface{}
-		//if the output is a struct/map, we should return a map with struct field and values
-		errNotUnmarshable := json.Unmarshal([]byte(r.ExecReport.Result), &result)
-		if errNotUnmarshable != nil {
-			// if the output is a simple type (e.g. int, bool, string, array) we simply add it to the map
-
-			outputData[o.Name] = r.ExecReport.Result
-			err1 := o.CheckOutput(outputData)
-			if err1 != nil {
-				return nil, fmt.Errorf("output type checking failed: %v", err1)
-			}
-			outputData[o.Name], err1 = o.TryParse(r.ExecReport.Result)
-			if err1 != nil {
-				return nil, fmt.Errorf("failed to parse intermediate output: %v", err1)
-			}
-		} else {
+	var result map[string]interface{}
+	//if the output is a struct/map, we should return a map with struct field and values
+	err = json.Unmarshal([]byte(r.ExecReport.Result), &result)
+	if err != nil {
+		// if the output is a simple type (e.g. int, bool, string, array) we simply add it to the map
+		if len(funct.Signature.GetOutputs()) != 1 {
+			return nil, fmt.Errorf("single value returned (%v), more than 1 expected", r.ExecReport.Result)
+		}
+		output := funct.Signature.GetOutputs()[0]
+		outputData[output.Name], err = output.TryParse(r.ExecReport.Result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse intermediate output: %v", err)
+		}
+	} else {
+		for _, o := range funct.Signature.GetOutputs() {
 			val, found := result[o.Name]
 			if !found {
 				return nil, fmt.Errorf("failed to find result with name %s", o.Name)
 			}
 			outputData[o.Name] = val
-
+			err = o.CheckOutput(outputData)
+			if err != nil {
+				return nil, fmt.Errorf("output type checking failed: %v", err)
+			}
 		}
 
 	}
 
-	r.ExecReport.Result = fmt.Sprintf("%v", outputData)
 	// saving execution report for this function
-	//compRequest.ExecReport.Reports[CreateExecutionReportId(s)] = &r.ExecReport
 	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(s), &r.ExecReport)
-	/*
-		cs := ""
-		if !r.ExecReport.IsWarmStart {
-			cs = fmt.Sprintf("- cold start: %v", !r.ExecReport.IsWarmStart)
-		}
-		fmt.Printf("Function Request %s - result of simple node %s: %v %s\n", r.Id, s.Id, r.ExecReport.Result, cs)
-	*/
+
 	return outputData, nil
 }
 
@@ -138,6 +130,7 @@ func (s *SimpleNode) CheckInput(input map[string]interface{}) error {
 }
 
 // PrepareOutput is used to send the output to the following function and if needed can be used to modify the SimpleNode output representation, like OutputPath
+// TODO: this logic might be integrated in input checking
 func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func) // we are getting the function from cache if not already downloaded
 	if !exists {
@@ -173,32 +166,27 @@ func (s *SimpleNode) MapOutput(output map[string]interface{}) error {
 		return fmt.Errorf("function %s doesn't exist", s.Func)
 	}
 	sign := funct.Signature
-	// if there are no inputs, we do nothing
+
 	for _, def := range sign.GetInputs() {
-		// if output has same name as input, we do not need to change name
 		_, present := output[def.Name]
 		if present {
 			continue
+		} else if len(sign.GetInputs()) > 1 {
+			return fmt.Errorf("key %s does not exist in output data: %v", def.Name, output)
 		}
+
 		// find an entry in the output map that successfully checks the type of the InputDefinition
 		key, ok := def.FindEntryThatTypeChecks(output)
 		if ok {
-			// we get the output value
 			val := output[key]
-			// we remove the output entry ...
 			delete(output, key)
-			// and replace with the input entry
 			output[def.Name] = val
-			// save the output map in the input of the node
-			//s.inputMutex.Lock()
-			//s.input = output
-			//s.inputMutex.Unlock()
 		} else {
 			// otherwise if no one of the entry typechecks we are doomed
 			return fmt.Errorf("no output entry input-checks with the next function")
 		}
 	}
-	// if the outputs are more than the needed input, we do nothing
+
 	return nil
 }
 

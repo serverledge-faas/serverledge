@@ -248,16 +248,13 @@ func (workflow *Workflow) executeSimple(progress *Progress, input *PartialData, 
 		return nil, progress, false, err
 	}
 
-	nextTask := task.GetNext()[0]
-
 	errSend := task.PrepareOutput(workflow, outputData)
 	if errSend != nil {
 		return nil, progress, false, fmt.Errorf("the node %s cannot send the outputData: %v", task.String(), errSend)
 	}
 
-	output := NewPartialData(ReqId(r.Id), "", task.Id, nil) // partial initialization of output
-	output.ForTask = nextTask
-	output.Data = outputData
+	nextTask := task.GetNext()[0]
+	output := NewPartialData(ReqId(r.Id), nextTask, task.Id, outputData)
 
 	err = progress.CompleteNode(task.Id)
 	if err != nil {
@@ -575,7 +572,6 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		}
 
 		switch node := n.(type) {
-		// TODO: is it necessary to pass Request?
 		case *SimpleNode:
 			output, progress, shouldContinue, err = workflow.executeSimple(progress, input, node, r)
 		case *ChoiceNode:

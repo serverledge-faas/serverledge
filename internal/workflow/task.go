@@ -38,6 +38,7 @@ type Display interface {
 	Name() string
 }
 
+// TODO: check if Executable is actually used for generic implementation of Task
 type Executable interface {
 	// Exec defines how the Task is executed. If successful, returns the output of the execution
 	Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error)

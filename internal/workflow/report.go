@@ -19,6 +19,7 @@ type ExecutionReport struct {
 	Progress     *Progress `json:"-"` // skipped in Json marshaling
 }
 
+// TODO: move into test files
 func (cer *ExecutionReport) GetSingleResult() (string, error) {
 	if len(cer.Result) == 1 {
 		for _, value := range cer.Result {
@@ -28,6 +29,7 @@ func (cer *ExecutionReport) GetSingleResult() (string, error) {
 	return "", fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
 }
 
+// TODO: move into test files
 func (cer *ExecutionReport) GetIntSingleResult() (int, error) {
 	if len(cer.Result) == 1 {
 		for _, value := range cer.Result {
@@ -39,15 +41,6 @@ func (cer *ExecutionReport) GetIntSingleResult() (int, error) {
 		}
 	}
 	return 0, fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
-}
-
-func (cer *ExecutionReport) GetAllResults() string {
-	result := "[\n"
-	for _, value := range cer.Result {
-		result += fmt.Sprintf("\t%v\n", value)
-	}
-	result += "]\n"
-	return result
 }
 
 func (cer *ExecutionReport) String() string {
