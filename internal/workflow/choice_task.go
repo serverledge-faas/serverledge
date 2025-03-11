@@ -3,12 +3,9 @@ package workflow
 import (
 	"errors"
 	"fmt"
-	"math"
-	"time"
-
-	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/lithammer/shortuuid"
+	"math"
 
 	// "strconv"
 	"strings"
@@ -19,24 +16,18 @@ type ChoiceNode struct {
 	Id           TaskId
 	NodeType     TaskType
 	BranchId     int
-	input        map[string]interface{}
 	Alternatives []TaskId
 	Conditions   []Condition
-	FirstMatch   int
 }
 
 func NewChoiceNode(conds []Condition) *ChoiceNode {
 	return &ChoiceNode{
-		Id:       TaskId(shortuuid.New()),
-		NodeType: Choice,
-		//input         make(map[string]interface{}, )
+		Id:           TaskId(shortuuid.New()),
+		NodeType:     Choice,
 		Conditions:   conds,
 		Alternatives: make([]TaskId, len(conds)),
-		FirstMatch:   -1,
 	}
 }
-
-// The condition function must be created from the Workflow specification in State Function Language or AFCL
 
 func (c *ChoiceNode) Equals(cmp types.Comparable) bool {
 	switch cmp.(type) {
@@ -60,46 +51,9 @@ func (c *ChoiceNode) Equals(cmp types.Comparable) bool {
 }
 
 // Exec for choice node evaluates the condition
-func (c *ChoiceNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	t0 := time.Now()
-	output := make(map[string]interface{})
-	var err error = nil
-
-	if len(params) != 1 {
-		return nil, fmt.Errorf("failed to get one input for choice node: received %d inputs", len(params))
-	}
-
-	// simply evalutes the Conditions and set the matching one
-	for i, condition := range c.Conditions {
-		ok, err := condition.Test(params[0])
-		if err != nil {
-			return nil, fmt.Errorf("error while testing condition: %v", err)
-		}
-		if ok {
-			c.FirstMatch = i
-			// the output map should be like the input map!
-			output = params[0]
-			break
-		}
-	}
-	if c.FirstMatch == -1 {
-		err = fmt.Errorf("no condition is met")
-		output["error"] = fmt.Sprintf("failed choice node %s - no condition is met", c.Id)
-	}
-	respAndDuration := time.Now().Sub(t0).Seconds()
-
-	execReport := &function.ExecutionReport{
-		Result:         fmt.Sprintf("%v", output),
-		ResponseTime:   respAndDuration,
-		IsWarmStart:    true, // not in a container
-		InitTime:       0,
-		OffloadLatency: 0,
-		Duration:       respAndDuration,
-		SchedAction:    "",
-	}
-
-	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(c), execReport)
-	return output, err
+func (c *ChoiceNode) Exec(_ *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
+	// TODO: ChoiceNode does not need this method
+	return nil, nil
 }
 
 func (c *ChoiceNode) AddOutput(workflow *Workflow, taskId TaskId) error {
@@ -119,54 +73,12 @@ func (c *ChoiceNode) CheckInput(input map[string]interface{}) error {
 }
 
 func (c *ChoiceNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-	// we should map the output to the input of the node that first matches the condition and not to every alternative
-	for _, n := range c.GetNext() {
-		task, ok := workflow.Find(n)
-		if !ok {
-			return fmt.Errorf("node not found while preparing output")
-		}
-		switch nod := task.(type) {
-		case *SimpleNode:
-			return nod.MapOutput(output)
-		}
-	}
+	// TODO: ChoiceNode should not have this method
 	return nil
 }
 
-// MapOutput transforms the output for the next simpleNode, to make it compatible with its Signature
-func (s *ChoiceNode) MapOutput(output map[string]interface{}, sign function.Signature) error {
-
-	// if there are no inputs, we do nothing
-	for _, def := range sign.GetInputs() {
-		// if output has same name as input, we do not need to change name
-		_, present := output[def.Name]
-		if present {
-			continue
-		}
-		// find an entry in the output map that successfully checks the type of the InputDefinition
-		key, ok := def.FindEntryThatTypeChecks(output)
-		if ok {
-			// we get the output value
-			val := output[key]
-			// we remove the output entry ...
-			delete(output, key)
-			// and replace with the input entry
-			output[def.Name] = val
-			// save the output map in the input of the node
-			//s.inputMutex.Lock()
-			//s.input = output
-			//s.inputMutex.Unlock()
-		} else {
-			// otherwise if no one of the entry typechecks we are doomed
-			return fmt.Errorf("no output entry input-checks with the next function")
-		}
-	}
-	// if the outputs are more than the needed input, we do nothing
-	return nil
-}
-
-// GetChoiceBranch returns all node ids of a branch under a choice node; branch number starts from 0
-func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []Task {
+// VisitBranch returns all node ids of a branch under a choice node; branch number starts from 0
+func (c *ChoiceNode) VisitBranch(workflow *Workflow, branch int) []Task {
 	branchNodes := make([]Task, 0)
 	if len(c.Alternatives) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
@@ -179,18 +91,15 @@ func (c *ChoiceNode) GetChoiceBranch(workflow *Workflow, branch int) []Task {
 // GetNodesToSkip skips all node that are in a branch that will not be executed.
 // If a skipped branch contains one or more node that is used by the current branch, the node,
 // should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
-func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []Task {
+func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow, matchedCondition int) []Task {
 	nodesToSkip := make([]Task, 0)
-	if c.FirstMatch == -1 || c.FirstMatch >= len(c.Alternatives) {
-		return nodesToSkip
-	}
 
-	nodesToNotSkip := c.GetChoiceBranch(workflow, c.FirstMatch)
+	nodesToNotSkip := c.VisitBranch(workflow, matchedCondition)
 	for i := 0; i < len(c.Alternatives); i++ {
-		if i == c.FirstMatch {
+		if i == matchedCondition {
 			continue
 		}
-		branchNodes := c.GetChoiceBranch(workflow, i)
+		branchNodes := c.VisitBranch(workflow, i)
 		for _, node := range branchNodes {
 			shouldBeSkipped := true
 			for _, nodeToNotSkip := range nodesToNotSkip {
@@ -208,16 +117,7 @@ func (c *ChoiceNode) GetNodesToSkip(workflow *Workflow) []Task {
 }
 
 func (c *ChoiceNode) GetNext() []TaskId {
-	// you should have called exec before calling GetNext
-	if c.FirstMatch >= len(c.Alternatives) {
-		panic("there aren't sufficient alternatives!")
-	}
-
-	if c.FirstMatch < 0 {
-		panic("first match cannot be less then 0. You should call Exec() before GetNext()")
-	}
-
-	return []TaskId{c.Alternatives[c.FirstMatch]}
+	panic("cannot know the next task of a ChoiceTask in advance!")
 }
 
 func (c *ChoiceNode) Width() int {

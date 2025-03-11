@@ -184,7 +184,7 @@ func TestProgressChoice1(t *testing.T) {
 	choice := checkAndCompleteNext(t, progress, wflow).(*workflow.ChoiceNode)
 
 	// Simple node (left) // suppose the left condition is true
-	checkAndCompleteChoice(t, progress, choice, wflow)
+	checkAndCompleteChoice(t, progress, choice, wflow, 0)
 
 	// End
 	checkAndCompleteNext(t, progress, wflow)
@@ -208,7 +208,8 @@ func TestProgressChoice2(t *testing.T) {
 	choice := checkAndCompleteNext(t, progress, wflow).(*workflow.ChoiceNode)
 
 	// Simple Node left is skipped, right is executed
-	checkAndCompleteChoice(t, progress, choice, wflow)
+	expectedMatch := 1
+	checkAndCompleteChoice(t, progress, choice, wflow, expectedMatch)
 
 	// Simple Node right 2
 	checkAndCompleteNext(t, progress, wflow)
@@ -285,7 +286,7 @@ func TestComplexProgress(t *testing.T) {
 	choice := checkAndCompleteNext(t, progress, wflow).(*workflow.ChoiceNode)
 
 	// Simple Node, FanOut
-	checkAndCompleteChoice(t, progress, choice, wflow)
+	checkAndCompleteChoice(t, progress, choice, wflow, 0)
 
 	// End node
 	checkAndCompleteNext(t, progress, wflow)
@@ -311,7 +312,7 @@ func TestComplexProgress2(t *testing.T) {
 	choice := checkAndCompleteNext(t, progress, wflow).(*workflow.ChoiceNode)
 
 	// Simple Node, FanOut // suppose the fanout node at the right and all its children are skipped
-	checkAndCompleteChoice(t, progress, choice, wflow)
+	checkAndCompleteChoice(t, progress, choice, wflow, 1)
 
 	// 3 Simple Nodes in parallel
 	checkAndCompleteMultiple(t, progress, wflow)
@@ -342,7 +343,7 @@ func checkAndCompleteNext(t *testing.T, progress *workflow.Progress, workflow *w
 	return node
 }
 
-func checkAndCompleteChoice(t *testing.T, progress *workflow.Progress, choice *workflow.ChoiceNode, workflow *workflow.Workflow) {
+func checkAndCompleteChoice(t *testing.T, progress *workflow.Progress, choice *workflow.ChoiceNode, workflow *workflow.Workflow, conditionToMatch int) {
 	nextNode, err := progress.NextNodes() // Simple1, Simple2
 	u.AssertNil(t, err)
 	simpleNodeLeft := choice.Alternatives[0]
@@ -352,10 +353,9 @@ func checkAndCompleteChoice(t *testing.T, progress *workflow.Progress, choice *w
 	u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nextNode[0]))
 	u.AssertEquals(t, progress.NextGroup, progress.GetGroup(nextNode[1]))
 
-	_, _ = choice.Exec(newWorkflowRequestTest(), make(map[string]interface{}))
-	err = progress.CompleteNode(nextNode[choice.FirstMatch])
+	err = progress.CompleteNode(nextNode[conditionToMatch])
 	u.AssertNil(t, err)
-	nodeToSkip := choice.GetNodesToSkip(workflow)
+	nodeToSkip := choice.GetNodesToSkip(workflow, conditionToMatch)
 	err = progress.SkipAll(nodeToSkip)
 	u.AssertNil(t, err)
 }

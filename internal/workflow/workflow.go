@@ -243,66 +243,79 @@ func (workflow *Workflow) executeSimple(progress *Progress, input *PartialData, 
 	if err != nil {
 		return nil, progress, false, err
 	}
-	outputData, err := task.Exec(r, input.Data)
+	output, err := task.Exec(r, input.Data)
 	if err != nil {
 		return nil, progress, false, err
 	}
 
-	errSend := task.PrepareOutput(workflow, outputData)
+	errSend := task.PrepareOutput(workflow, output)
 	if errSend != nil {
-		return nil, progress, false, fmt.Errorf("the node %s cannot send the outputData: %v", task.String(), errSend)
+		return nil, progress, false, fmt.Errorf("the node %s cannot send the output2: %v", task.String(), errSend)
 	}
 
 	nextTask := task.GetNext()[0]
-	output := NewPartialData(ReqId(r.Id), nextTask, task.Id, outputData)
+	outputData := NewPartialData(ReqId(r.Id), nextTask, task.Id, output)
 
 	err = progress.CompleteNode(task.Id)
 	if err != nil {
-		return output, progress, false, err
+		return outputData, progress, false, err
 	}
 
-	return output, progress, true, nil
+	return outputData, progress, true, nil
 }
 
-func (workflow *Workflow) executeChoice(progress *Progress, partialData *PartialData, choice *ChoiceNode, r *Request) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeChoice(progress *Progress, input *PartialData, task *ChoiceNode, r *Request) (*PartialData, *Progress, bool, error) {
 
-	var pd *PartialData
-	nodeId := choice.GetId()
-	requestId := ReqId(r.Id)
-	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
+	outputData := NewPartialData(ReqId(r.Id), "", task.GetId(), nil) // partial initialization of outputData
 
-	err := choice.CheckInput(partialData.Data)
-	if err != nil {
-		return pd, progress, false, err
-	}
-	// executing node
-	output, err := choice.Exec(r, partialData.Data)
-	if err != nil {
-		return pd, progress, false, err
-	}
+	// NOTE: we do not call task.CheckInput() as this task has no signature to match against
 
-	// setting the remaining fields of pd
-	pd.ForTask = choice.GetNext()[0]
-	pd.Data = output
-
-	errSend := choice.PrepareOutput(workflow, output)
-	if errSend != nil {
-		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", choice.String(), errSend)
+	// simply evaluate the Conditions and set the matching one
+	matchedCondition := -1
+	for i, condition := range task.Conditions {
+		ok, err := condition.Evaluate(input.Data)
+		if err != nil {
+			return nil, progress, false, fmt.Errorf("error while testing condition: %v", err)
+		}
+		if ok {
+			matchedCondition = i
+			break
+		}
 	}
 
-	// for choice node, we skip all branch that will not be executed
-	nodesToSkip := choice.GetNodesToSkip(workflow)
+	if matchedCondition < 0 {
+		return nil, progress, false, fmt.Errorf("no condition is met")
+	}
+
+	nextTaskId := task.Alternatives[matchedCondition]
+	outputData.ForTask = nextTaskId
+	outputData.Data = input.Data
+
+	nextTask, ok := workflow.Find(nextTaskId)
+	if !ok {
+		return nil, progress, false, fmt.Errorf("node not found while preparing output")
+	}
+	switch typedTask := nextTask.(type) {
+	case *SimpleNode:
+		err := typedTask.MapOutput(outputData.Data)
+		if err != nil {
+			return outputData, progress, false, fmt.Errorf("choice task %s cannot prepare the output for simple task: %v", task.String(), err)
+		}
+	}
+
+	// for task node, we skip all branch that will not be executed
+	nodesToSkip := task.GetNodesToSkip(workflow, matchedCondition)
 	errSkip := progress.SkipAll(nodesToSkip)
 	if errSkip != nil {
-		return pd, progress, false, errSkip
+		return outputData, progress, false, errSkip
 	}
 
-	err = progress.CompleteNode(nodeId)
+	err := progress.CompleteNode(task.GetId())
 	if err != nil {
-		return pd, progress, false, err
+		return outputData, progress, false, err
 	}
 
-	return pd, progress, true, nil
+	return outputData, progress, true, nil
 }
 
 func (workflow *Workflow) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *Request) (*PartialData, *Progress, bool, error) {

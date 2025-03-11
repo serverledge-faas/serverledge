@@ -3,7 +3,6 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/grussorusso/serverledge/internal/function"
@@ -19,18 +18,15 @@ type SimpleNode struct {
 	Id       TaskId
 	NodeType TaskType
 	BranchId int
-	// input      map[string]interface{}
-	OutputTo   TaskId
-	Func       string
-	inputMutex sync.Mutex // this is not marshaled
+	OutputTo TaskId
+	Func     string
 }
 
 func NewSimpleNode(f string) *SimpleNode {
 	return &SimpleNode{
-		Id:         TaskId(shortuuid.New()),
-		NodeType:   Simple,
-		Func:       f,
-		inputMutex: sync.Mutex{},
+		Id:       TaskId(shortuuid.New()),
+		NodeType: Simple,
+		Func:     f,
 	}
 }
 
@@ -152,8 +148,6 @@ func (s *SimpleNode) PrepareOutput(workflow *Workflow, output map[string]interfa
 	switch nodeType := task.(type) {
 	case *SimpleNode:
 		return nodeType.MapOutput(output) // needed to convert type of data from one node to the next so that its signature type-checks
-	case *ChoiceNode:
-		return nodeType.MapOutput(output, *funct.Signature) // needed to convert type of data from one node to the next so that its signature type-checks
 	}
 
 	return nil
