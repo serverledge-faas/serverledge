@@ -338,57 +338,59 @@ func (workflow *Workflow) executeFanOut(progress *Progress, input *PartialData, 
 	return outputData, progress, true, nil
 }
 
-func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *Request) (*PartialData, *Progress, error) {
+func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData, tasks []TaskId, r *Request) (*PartialData, *Progress, error) {
 	// preparing workflow nodes and channels for parallel execution
-	parallelTasks := make([]Task, 0)
-	inputs := make([]map[string]interface{}, 0)
-	outputChannels := make([]chan map[string]interface{}, 0)
-	errorChannels := make([]chan error, 0)
-	requestId := ReqId(r.Id)
-	outputMap := make(map[string]interface{}, 0)
-	var node Task
-	pd := NewPartialData(requestId, "", "", nil) // partial initialization of pd
+	parallelTasks := make([]Task, len(tasks))
+	inputs := make([]map[string]interface{}, len(tasks))
+	outputChannels := make([]chan map[string]interface{}, len(tasks))
+	errorChannels := make([]chan error, len(tasks))
+	outputMap := make(map[string]interface{})
+	// TODO: it would be enough to have a single channel, where each task sends a struct (comprising error/output and task id)
 
-	for _, nodeId := range nextNodes {
-		node, ok := workflow.Find(nodeId)
-		if ok {
-			parallelTasks = append(parallelTasks, node)
-			outputChannels = append(outputChannels, make(chan map[string]interface{}))
-			errorChannels = append(errorChannels, make(chan error))
-		}
-		// for simple node we also retrieve the partial data and receive input
-		if simple, isSimple := node.(*SimpleNode); isSimple {
-			errInput := simple.CheckInput(partialData.Data[fmt.Sprintf("%s", nodeId)].(map[string]interface{}))
-			if errInput != nil {
-				return pd, progress, errInput
-			}
-			inputs = append(inputs, partialData.Data[fmt.Sprintf("%s", nodeId)].(map[string]interface{}))
-		}
+	// Populate slices of inputs and channels
+	for i, taskId := range tasks {
+		parallelTasks[i], _ = workflow.Find(taskId)
+		outputChannels[i] = make(chan map[string]interface{})
+		errorChannels[i] = make(chan error)
+		inputs[i] = input.Data[fmt.Sprintf("%s", taskId)].(map[string]interface{})
 	}
+
 	// executing all nodes in parallel
-	for i, node := range parallelTasks {
-		go func(i int, params map[string]interface{}, node Task) {
-			output, err := node.Exec(r, params)
-			// for simple node, we also prepare output
-			if simpleNode, isSimple := node.(*SimpleNode); isSimple {
-				errSend := simpleNode.PrepareOutput(workflow, output)
-				if errSend != nil {
+	for i, task := range parallelTasks {
+		go func(i int, params map[string]interface{}, currTask Task) {
+			// TODO: only SimpleNode supported here!
+			if simpleTask, isSimple := currTask.(*SimpleNode); isSimple {
+
+				err := simpleTask.CheckInput(params)
+				if err != nil {
 					errorChannels[i] <- err
 					outputChannels[i] <- nil
 					return
 				}
-			}
-			// first send on error, then on output channels
-			if err != nil {
-				errorChannels[i] <- err
+				output, err := simpleTask.Exec(r, params)
+				if err != nil {
+					errorChannels[i] <- err
+					outputChannels[i] <- nil
+					return
+				}
+
+				errSend := simpleTask.PrepareOutput(workflow, output)
+				if errSend != nil {
+					errorChannels[i] <- fmt.Errorf("the node %s cannot send the output2: %v", currTask.String(), errSend)
+					outputChannels[i] <- nil
+					return
+				}
+
+				errorChannels[i] <- nil
+				outputChannels[i] <- output
+			} else {
+				errorChannels[i] <- fmt.Errorf("we do not support task of type %v in parallel regions", currTask.GetNodeType())
 				outputChannels[i] <- nil
 				return
 			}
-			errorChannels[i] <- nil
-			outputChannels[i] <- output
-		}(i, inputs[i], node)
+		}(i, inputs[i], task)
 	}
-	// checking errors
+
 	parallelErrors := make([]error, 0)
 	for _, errChan := range errorChannels {
 		err := <-errChan
@@ -398,42 +400,31 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 			// we also need to check the outputs.
 		}
 	}
-	// retrieving outputs (goroutines should end now)
-	parallelOutputs := make([]map[string]interface{}, 0)
-	for _, outChan := range outputChannels {
-		out := <-outChan
-		if out != nil {
-			parallelOutputs = append(parallelOutputs, out)
-		}
-	}
-	// returning errors
 	if len(parallelErrors) > 0 {
-		return pd, progress, fmt.Errorf("errors in parallel execution: %v", parallelErrors)
+		return nil, progress, fmt.Errorf("errors in parallel execution: %v", parallelErrors)
 	}
 
-	for i, output := range parallelOutputs {
-		node = parallelTasks[i]
-		outputMap[fmt.Sprintf("%s", node.GetId())] = output
+	for i, outChan := range outputChannels {
+		out := <-outChan
+		task := parallelTasks[i]
+		outputMap[fmt.Sprintf("%s", task.GetId())] = out
 		err := progress.CompleteNode(parallelTasks[i].GetId())
 		if err != nil {
-			return pd, progress, err
+			return nil, progress, err
 		}
 	}
-	/* using fromNode = "" in order to create a special partialData to handle parallel case with
-	 * Data field which contains a map[string]interface{} with the key set to nodeId
+
+	/* using fromNode = "" in order to create a special input to handle parallel case with
+	 * Data field which contains a map[string]interface{} with the key set to taskId
 	 * and the value which is also a map[string]interface{} containing the effective
-	 * output of the nth-parallel node */
-	//pd := NewPartialData(requestId, node.GetNext()[0], "", outputMap)
-	// setting the remaining fields of pd
-	// TODO: node is updated within the previous loop, hence we only get the next node for 1 of the parallel nodes
-	pd.ForTask = node.GetNext()[0]
-	pd.Data = outputMap
-	return pd, progress, nil
+	 * output of the nth-parallel task */
+	outputData := NewPartialData(ReqId(r.Id), "", "", outputMap) // partial initialization of outputData
+	outputData.ForTask = parallelTasks[0].GetNext()[0]           // TODO: we are assuming that the next node is unique for all the parallel tasks (i.e. a FanIn)
+	return outputData, progress, nil
 }
 
 func (workflow *Workflow) executeFanIn(progress *Progress, input *PartialData, task *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
-	var err error
-	pd := NewPartialData(ReqId(r.Id), "", task.GetId(), nil) // partial initialization of pd
+	outputData := NewPartialData(ReqId(r.Id), "", task.GetId(), nil) // partial initialization of outputData
 
 	// TODO: are you sure it is necessary?
 	//err := progress.PutInWait(task)
@@ -457,7 +448,7 @@ func (workflow *Workflow) executeFanIn(progress *Progress, input *PartialData, t
 
 	fired := timer.Stop()
 	if !fired {
-		return pd, progress, false, fmt.Errorf("fan in timeout occurred")
+		return outputData, progress, false, fmt.Errorf("fan in timeout occurred")
 	}
 	faninInputs := make([]map[string]interface{}, 0)
 	for _, partialDataMap := range input.Data {
@@ -467,18 +458,18 @@ func (workflow *Workflow) executeFanIn(progress *Progress, input *PartialData, t
 	// merging input into one output
 	output, err := task.Exec(r, faninInputs...)
 	if err != nil {
-		return pd, progress, false, err
+		return outputData, progress, false, err
 	}
 
-	// setting the remaining field of pd
-	pd.ForTask = task.GetNext()[0]
-	pd.Data = output
+	// setting the remaining field of outputData
+	outputData.ForTask = task.GetNext()[0]
+	outputData.Data = output
 	err = progress.CompleteNode(task.GetId())
 	if err != nil {
-		return pd, progress, false, err
+		return outputData, progress, false, err
 	}
 
-	return pd, progress, true, nil
+	return outputData, progress, true, nil
 }
 
 func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
