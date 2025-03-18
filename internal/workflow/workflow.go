@@ -517,15 +517,26 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 	return pd, progress, true, nil
 }
 
-func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request, inputPassThrough bool) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
 
 	forNode := task.GetNext()[0]
-	var output map[string]interface{}
-	if inputPassThrough {
-		output = input.Data
-	} else {
-		output = make(map[string]interface{})
+	output := input.Data
+	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), output)
+
+	err := progress.CompleteNode(task.GetId())
+	if err != nil {
+		return outputData, progress, false, err
 	}
+
+	shouldContinueExecution := task.GetNodeType() != Fail && task.GetNodeType() != Succeed
+	return outputData, progress, shouldContinueExecution, nil
+}
+
+func (workflow *Workflow) executeFail(progress *Progress, task *FailNode, r *Request) (*PartialData, *Progress, bool, error) {
+
+	forNode := task.GetNext()[0]
+	output := make(map[string]interface{})
+	output[task.Error] = task.Cause
 	outputData := NewPartialData(ReqId(r.Id), forNode, task.GetId(), output)
 
 	err := progress.CompleteNode(task.GetId())
@@ -578,12 +589,11 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		case *FanOutNode:
 			output, progress, shouldContinue, err = workflow.executeFanOut(progress, input, node, r)
 		case *PassNode:
-			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, true)
+			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r)
 		case *FailNode:
-			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, false)
-			output.Data[node.Error] = node.Cause
+			output, progress, shouldContinue, err = workflow.executeFail(progress, node, r)
 		case *SucceedNode:
-			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r, true)
+			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, node, r)
 		case *EndNode:
 			output, progress, shouldContinue, err = workflow.executeEnd(progress, input, node, r)
 		}
