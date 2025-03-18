@@ -317,59 +317,25 @@ func (workflow *Workflow) executeChoice(progress *Progress, input *PartialData, 
 	return outputData, progress, true, nil
 }
 
-func (workflow *Workflow) executeFanOut(progress *Progress, partialData *PartialData, fanOut *FanOutNode, r *Request) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) executeFanOut(progress *Progress, input *PartialData, task *FanOutNode, r *Request) (*PartialData, *Progress, bool, error) {
+	output, err := task.Exec(r, input.Data)
+	if err != nil {
+		return nil, progress, false, err
+	}
 
-	var pd *PartialData
-	outputMap := make(map[string]interface{})
-	nodeId := fanOut.GetId()
-	requestId := ReqId(r.Id)
-
-	/* using forNode = "" in order to create a special partialData to handle fanout
+	/* using forNode = "" in order to create a special input to handle fanout
 	 * case with Data field which contains a map[string]interface{} with the key set
 	 * to nodeId and the value which is also a map[string]interface{} containing the
 	 * effective input for the nth-parallel node */
-	pd = NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
+	outputData := NewPartialData(ReqId(r.Id), "", task.GetId(), output)
+	//newOutputDataMap := make(map[string]interface{})        // TODO: consider using a map of PartialData rather than a single PartialData object
 
-	// executing node
-	output, err := fanOut.Exec(r, partialData.Data)
-	if err != nil {
-		return pd, progress, false, err
-	}
-	// sends output to each next node
-	errSend := fanOut.PrepareOutput(workflow, output)
-	if errSend != nil {
-		return pd, progress, false, fmt.Errorf("the node %s cannot send the output: %v", fanOut.String(), errSend)
-	}
-
-	for i, nextNode := range fanOut.GetNext() {
-		if fanOut.Type == Broadcast {
-			outputMap[fmt.Sprintf("%s", nextNode)] = output[fmt.Sprintf("%d", i)].(map[string]interface{})
-		} else if fanOut.Type == Scatter {
-			firstName := ""
-			for name := range output {
-				firstName = name
-				break
-			}
-			inputForNode := make(map[string]interface{})
-			subMap, found := output[firstName].(map[string]interface{})
-			if !found {
-				return pd, progress, false, fmt.Errorf("cannot find parameter for nextNode %s", nextNode)
-			}
-			inputForNode[firstName] = subMap[fmt.Sprintf("%d", i)]
-			outputMap[fmt.Sprintf("%s", nextNode)] = inputForNode
-		} else {
-			return pd, progress, false, fmt.Errorf("invalid fanout type %d", fanOut.Type)
-		}
-	}
-
-	// setting the remaining field of pd
-	pd.Data = outputMap
 	// and updating progress
-	err = progress.CompleteNode(nodeId)
+	err = progress.CompleteNode(task.GetId())
 	if err != nil {
-		return pd, progress, false, err
+		return nil, progress, false, err
 	}
-	return pd, progress, true, nil
+	return outputData, progress, true, nil
 }
 
 func (workflow *Workflow) executeParallel(progress *Progress, partialData *PartialData, nextNodes []TaskId, r *Request) (*PartialData, *Progress, error) {
@@ -465,30 +431,28 @@ func (workflow *Workflow) executeParallel(progress *Progress, partialData *Parti
 	return pd, progress, nil
 }
 
-func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialData, fanIn *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
-	nodeId := fanIn.GetId()
-	requestId := ReqId(r.Id)
+func (workflow *Workflow) executeFanIn(progress *Progress, input *PartialData, task *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
 	var err error
-	pd := NewPartialData(requestId, "", nodeId, nil) // partial initialization of pd
+	pd := NewPartialData(ReqId(r.Id), "", task.GetId(), nil) // partial initialization of pd
 
 	// TODO: are you sure it is necessary?
-	//err := progress.PutInWait(fanIn)
+	//err := progress.PutInWait(task)
 	//if err != nil {
 	//	return false, err
 	//}
 
 	timerElapsed := false
-	timer := time.AfterFunc(fanIn.Timeout, func() {
+	timer := time.AfterFunc(task.Timeout, func() {
 		fmt.Println("timeout elapsed")
 		timerElapsed = true
 	})
 
 	for !timerElapsed {
-		if len(partialData.Data) == fanIn.FanInDegree {
+		if len(input.Data) == task.FanInDegree {
 			break
 		}
-		fmt.Printf("fanin waiting partial datas: %d/%d\n", len(partialData.Data), fanIn.FanInDegree)
-		time.Sleep(fanIn.Timeout / 100)
+		fmt.Printf("fanin waiting partial datas: %d/%d\n", len(input.Data), task.FanInDegree)
+		time.Sleep(task.Timeout / 100)
 	}
 
 	fired := timer.Stop()
@@ -496,20 +460,20 @@ func (workflow *Workflow) executeFanIn(progress *Progress, partialData *PartialD
 		return pd, progress, false, fmt.Errorf("fan in timeout occurred")
 	}
 	faninInputs := make([]map[string]interface{}, 0)
-	for _, partialDataMap := range partialData.Data {
+	for _, partialDataMap := range input.Data {
 		faninInputs = append(faninInputs, partialDataMap.(map[string]interface{}))
 	}
 
 	// merging input into one output
-	output, err := fanIn.Exec(r, faninInputs...)
+	output, err := task.Exec(r, faninInputs...)
 	if err != nil {
 		return pd, progress, false, err
 	}
 
 	// setting the remaining field of pd
-	pd.ForTask = fanIn.GetNext()[0]
+	pd.ForTask = task.GetNext()[0]
 	pd.Data = output
-	err = progress.CompleteNode(nodeId)
+	err = progress.CompleteNode(task.GetId())
 	if err != nil {
 		return pd, progress, false, err
 	}

@@ -3,25 +3,21 @@ package workflow
 import (
 	"errors"
 	"fmt"
-	"log"
-	"math"
-	"reflect"
-	"strings"
-	"time"
-
-	"github.com/grussorusso/serverledge/internal/function"
 	"github.com/grussorusso/serverledge/internal/types"
 	"github.com/grussorusso/serverledge/utils"
 	"github.com/lithammer/shortuuid"
+	"golang.org/x/exp/maps"
+	"log"
+	"math"
+	"strings"
 )
 
 // TODO: when a branch has a fail node, all other branches should terminate immediately and the FanOut, FanIn and all nodes in the branches should be considered failed
 // FanOutNode is a Task that receives one input and sends multiple result, produced in parallel
 type FanOutNode struct {
-	Id       TaskId
-	NodeType TaskType
-	BranchId int
-	// input           map[string]interface{}
+	Id              TaskId
+	NodeType        TaskType
+	BranchId        int
 	OutputTo        []TaskId
 	FanOutDegree    int
 	Type            FanOutType
@@ -34,8 +30,6 @@ const (
 	Scatter
 )
 
-type ScatterMode int
-
 func NewFanOutNode(fanOutDegree int, fanOutType FanOutType) *FanOutNode {
 	return &FanOutNode{
 		Id:           TaskId(shortuuid.New()),
@@ -44,15 +38,6 @@ func NewFanOutNode(fanOutDegree int, fanOutType FanOutType) *FanOutNode {
 		FanOutDegree: fanOutDegree,
 		Type:         fanOutType,
 	}
-}
-
-func (f *FanOutNode) getBranchNumbers(workflow *Workflow) []int {
-	branchNumbers := make([]int, f.FanOutDegree)
-	for i, o := range f.OutputTo {
-		nod, _ := workflow.Find(o)
-		branchNumbers[i] = nod.GetBranchId()
-	}
-	return branchNumbers
 }
 
 func (f *FanOutNode) Equals(cmp types.Comparable) bool {
@@ -73,66 +58,43 @@ func (f *FanOutNode) Equals(cmp types.Comparable) bool {
 // Exec splits the output for the next parallel dags
 // Scatter mode can only be used if the value held in the map is of type slice. Subdivides each map entry to a different node
 // Broadcast mode can always be used. Copies the entire map to each of the subsequent nodes
-func (f *FanOutNode) Exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
-	var output map[string]interface{} = nil
-	var err error = nil
-	t0 := time.Now()
+func (f *FanOutNode) Exec(_ *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
+	output := make(map[string]interface{})
 
+	// TODO: avoid forcing the interface implementation, so that the signature of Exec can be adapted
 	if len(params) != 1 {
 		return nil, fmt.Errorf("failed to get one input for choice node: received %d inputs", len(params))
 	}
 
 	// input -> output: map["input":1] -> map["0":map["input":1], "1":map["input":1]]
 	if f.Type == Broadcast {
-		broadcast := make(map[string]interface{})
-		for i := 0; i < f.FanOutDegree; i++ {
-			broadcast[fmt.Sprintf("%d", i)] = params[0] // simply returns input, that will be copied to each subsequent node
+		for _, nextNode := range f.GetNext() {
+			// TODO: check if a copy of params[0] is needed
+			output[string(nextNode)] = params[0] // simply returns input, that will be copied to each subsequent node
 		}
-		output = broadcast
 	} else if f.Type == Scatter { // scatter only accepts an array with exactly fanOutDegree elements. However, multiple input values are allowed
-		// get inputs
-		output = make(map[string]interface{})
-		for inputName, inputToScatter := range params[0] {
-			inputArrayToScatter, errNotSlice := utils.ConvertToSlice(inputToScatter)
-			if errNotSlice != nil {
-				//fmt.Println(errNotSlice)
-				continue
-			}
-
-			if len(inputArrayToScatter) != f.FanOutDegree {
-				err = fmt.Errorf("input array size (%d) must be equal to fanOutDegree (%d). Check the previous node output", len(inputArrayToScatter), f.FanOutDegree)
-				break
-			}
-
-			scatter := make(map[string]interface{})
-			for i := 0; i < f.FanOutDegree; i++ {
-				scatter[fmt.Sprintf("%d", i)] = inputArrayToScatter[i]
-			}
-			output[inputName] = scatter
-			// there is only one element, so we break now for safety
-			break
+		inputName := maps.Keys(params[0])[0]
+		inputToScatter := params[0][inputName]
+		inputArrayToScatter, errNotSlice := utils.ConvertToSlice(inputToScatter)
+		if errNotSlice != nil {
+			return nil, fmt.Errorf("cannot convert input %v to slice", inputToScatter)
 		}
 
-		if output == nil {
-			err = fmt.Errorf("invalid fanout input, should accept one array with %d elements, but it's length is %d", f.FanOutDegree, len(params[0]))
+		if len(inputArrayToScatter) != f.FanOutDegree {
+			return nil, fmt.Errorf("input array size (%d) must be equal to fanOutDegree (%d). Check the previous node output",
+				len(inputArrayToScatter), f.FanOutDegree)
+		}
+
+		for i, nextNode := range f.GetNext() {
+			iOutput := make(map[string]interface{})
+			iOutput[inputName] = inputArrayToScatter[i]
+			output[string(nextNode)] = iOutput
 		}
 	} else {
-		output = nil
-		err = fmt.Errorf("invalid fanout mode, valid values are 0=Broadcast and 1=Scatter")
+		return nil, fmt.Errorf("invalid fanout mode: %d", f.Type)
 	}
-	respAndDuration := time.Now().Sub(t0).Seconds()
-	execReport := &function.ExecutionReport{
-		Result:         fmt.Sprintf("%v", output),
-		ResponseTime:   respAndDuration,
-		IsWarmStart:    true, // not in a container
-		InitTime:       0,
-		OffloadLatency: 0,
-		Duration:       respAndDuration,
-		SchedAction:    "",
-	}
-	// compRequest.ExecReport.Reports[CreateExecutionReportId(f)] = execReport
-	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(f), execReport)
-	return output, err
+
+	return output, nil
 }
 
 func (f *FanOutNode) AddOutput(workflow *Workflow, taskId TaskId) error {
@@ -150,57 +112,12 @@ func (f *FanOutNode) CheckInput(input map[string]interface{}) error {
 
 // PrepareOutput sends output to the next node in each parallel branch
 func (f *FanOutNode) PrepareOutput(workflow *Workflow, output map[string]interface{}) error {
-	for i, nodeId := range f.GetNext() {
-		outputNode, ok := workflow.Find(nodeId)
-		if !ok {
-			return fmt.Errorf("FanoutNode.PrepareOutput: cannot find node")
-		}
-		if f.Type == Broadcast {
-			err := outputNode.CheckInput(output[fmt.Sprintf("%d", i)].(map[string]interface{}))
-			if err != nil {
-				return err
-			}
-		} else if f.Type == Scatter { // there must be exactly one entry with a map[string]interface{} as value
-			if len(output) != 1 {
-				return fmt.Errorf("for scatter fanout, there must be exactly one entry with a map[string]interface{} as value, but there are %d", len(output))
-			}
-			entryName := ""
-			for name := range output {
-				entryName = name
-				break
-			}
-			valueMap, castOk := output[entryName].(map[string]interface{})
-			if !castOk {
-				return fmt.Errorf("for scatter fanout, the entry must have a map[string]interface{} as value, but is %v", reflect.TypeOf(castOk).Kind())
-			}
-			if len(valueMap) != f.FanOutDegree {
-				return fmt.Errorf("for scatter fanout, the map value should be of size equal to FanOutDegree, but there are %d", len(valueMap))
-			}
-
-			inputMap := make(map[string]interface{})
-			val, found := valueMap[fmt.Sprintf("%d", i)]
-			if !found {
-				return fmt.Errorf("scatter fanout: value map should have integer as keys and needed type as value")
-			}
-			inputMap[entryName] = val
-			err := outputNode.CheckInput(inputMap)
-			if err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("invalid argument")
-		}
-	}
+	// nothing to do
 	return nil
 }
 
+// TODO: should return an error instead of an empty list, if OutputTo is nil or has less elements than fanOutDegree
 func (f *FanOutNode) GetNext() []TaskId {
-	// we have multiple outputs
-	if f.FanOutDegree <= 1 {
-		log.Printf("You should have used a SimpleNode or EndNode for fanOutDegree less than 2\n")
-		return []TaskId{}
-	}
-
 	if f.OutputTo == nil {
 		log.Printf("You forgot to initialize OutputTo for FanOutNode\n")
 		return []TaskId{}
