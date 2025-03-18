@@ -26,6 +26,6 @@ type StatusInformation struct {
 	AvailableWarmContainers map[string]int // <k, v> = <function name, warm container number>
 	AvailableMemMB          int64
 	AvailableCPUs           float64
-	DropCount               int64
 	Coordinates             vivaldi.Coordinate
+	LoadAvg                 []float64
 }

@@ -156,8 +156,68 @@ An example response for a successful **asynchronous** request:
 > | `503`         | `text/plain`              |  |    Prewarming failed                        |
 
 ------------------------------------------------------------------------------------------
+### Status information
 
-<!--
-status API
-function API
--->
+ <code>GET</code> <code><b>/status</b></code> (get current status of the node)
+
+##### Parameters
+
+None
+
+##### Responses
+
+> | http code     | content-type                      | response                        | comments                                    |
+> |---------------|-----------------------------------|---------------------------------|-----------------------------------|
+> | `200`         | `application/json`        | *See response example.*    |                            |
+> | `500`         | `text/plain`              | `Could not retrieve results` |    
+
+An example response for a successful request:
+
+```
+{
+	"Url": "http://192.168.1.23:1323",
+	"AvailableWarmContainers": {
+		"isprime": 1,
+		"sleepSec": 2
+	},
+	"AvailableMemMB": 3072,
+	"AvailableCPUs": 8,
+	"Coordinates": {
+		"Vec": [
+			0,
+			0,
+			0
+		],
+		"Error": 1.5,
+		"Height": 0.00001
+	},
+	"LoadAvg": [
+		1.34,
+		1.43,
+		0.94
+	]
+}
+```
+
+`AvailableMemMB` and `AvailableCPUs` indicate the currently amount of memory
+and CPUs (intended as vCPUs or fractions of them) that can be allocated to new
+requests in the node. `Coordinates.Vec` reports the coordinates of this node
+in the virtual coordinate space computed by Vivaldi algorithm.
+
+### Listing functions
+
+ <code>GET</code> <code><b>/functions</b></code> (get list of registered functions)
+
+##### Parameters
+
+None
+
+##### Responses
+
+> | http code     | content-type                      | response                        | comments                                    |
+> |---------------|-----------------------------------|---------------------------------|-----------------------------------|
+> | `200`         | `application/json`        | *List of names of existing functions.*    |                            |
+> | `500`         | `text/plain`              | `Could not retrieve results` |    
+
+Note that functions are globally registered in the system. Therefore, the same
+list is returned by every node in the same cluster.

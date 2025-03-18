@@ -66,6 +66,7 @@ func handleUDPConnection(conn *net.UDPConn) {
 	}
 }
 
+// TODO: this function should reuse the code in api.go for the /status API
 func getCurrentStatusInformation() (status []byte, err error) {
 	portNumber := config.GetInt("api.port", 1323)
 	url := fmt.Sprintf("http://%s:%d", utils.GetIpAddress().String(), portNumber)
@@ -74,7 +75,6 @@ func getCurrentStatusInformation() (status []byte, err error) {
 		AvailableWarmContainers: node.WarmStatus(),
 		AvailableMemMB:          node.Resources.AvailableMemMB,
 		AvailableCPUs:           node.Resources.AvailableCPUs,
-		DropCount:               node.Resources.DropCount,
 		Coordinates:             *Reg.Client.GetCoordinate(),
 	}
 

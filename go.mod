@@ -10,6 +10,7 @@ require (
 	github.com/hexablock/vivaldi v0.0.0-20180727225019-07adad3f2b5f
 	github.com/labstack/echo/v4 v4.6.1
 	github.com/lithammer/shortuuid v3.0.0+incompatible
+	github.com/mikoim/go-loadavg v0.0.0-20150917074714-35ece5f6d547
 	github.com/prometheus/client_golang v1.13.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.4.0
@@ -17,6 +18,7 @@ require (
 	go.opentelemetry.io/otel v1.28.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.28.0
 	go.opentelemetry.io/otel/sdk v1.28.0
+	go.opentelemetry.io/otel/trace v1.28.0
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 )
 
@@ -65,7 +67,6 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.1 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
