@@ -11,6 +11,7 @@ require (
 	github.com/hexablock/vivaldi v0.0.0-20180727225019-07adad3f2b5f
 	github.com/labstack/echo/v4 v4.6.1
 	github.com/lithammer/shortuuid v3.0.0+incompatible
+	github.com/mikoim/go-loadavg v0.0.0-20150917074714-35ece5f6d547
 	github.com/prometheus/client_golang v1.13.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.4.0

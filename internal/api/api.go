@@ -21,8 +21,9 @@ import (
 	"github.com/serverledge-faas/serverledge/utils"
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/serverledge-faas/serverledge/internal/scheduling"
 	"github.com/labstack/echo/v4"
+	"github.com/mikoim/go-loadavg"
+	"github.com/serverledge-faas/serverledge/internal/scheduling"
 )
 
 var requestsPool = sync.Pool{
@@ -209,14 +210,23 @@ func DecodeServiceClass(serviceClass string) (p function.ServiceClass) {
 func GetServerStatus(c echo.Context) error {
 	node.Resources.RLock()
 	defer node.Resources.RUnlock()
+
 	portNumber := config.GetInt("api.port", 1323)
 	url := fmt.Sprintf("http://%s:%d", utils.GetIpAddress().String(), portNumber)
+
+	loadAvg, err := loadavg.Parse()
+	loadAvgValues := []float64{-1.0, -1.0, -1.0}
+	if err == nil {
+		loadAvgValues = []float64{loadAvg.LoadAverage1, loadAvg.LoadAverage5, loadAvg.LoadAverage10}
+	}
+
 	response := registration.StatusInformation{
-		Url:            url,
-		AvailableMemMB: node.Resources.AvailableMemMB,
-		AvailableCPUs:  node.Resources.AvailableCPUs,
-		DropCount:      node.Resources.DropCount,
-		Coordinates:    *registration.Reg.Client.GetCoordinate(),
+		Url:                     url,
+		AvailableWarmContainers: node.WarmStatus(),
+		AvailableMemMB:          node.Resources.AvailableMemMB,
+		AvailableCPUs:           node.Resources.AvailableCPUs,
+		Coordinates:             *registration.Reg.Client.GetCoordinate(),
+		LoadAvg:                 loadAvgValues,
 	}
 
 	return c.JSON(http.StatusOK, response)
