@@ -424,49 +424,22 @@ func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData
 }
 
 func (workflow *Workflow) executeFanIn(progress *Progress, input *PartialData, task *FanInNode, r *Request) (*PartialData, *Progress, bool, error) {
-	outputData := NewPartialData(ReqId(r.Id), "", task.GetId(), nil) // partial initialization of outputData
-
-	// TODO: are you sure it is necessary?
-	//err := progress.PutInWait(task)
-	//if err != nil {
-	//	return false, err
-	//}
-
-	timerElapsed := false
-	timer := time.AfterFunc(task.Timeout, func() {
-		fmt.Println("timeout elapsed")
-		timerElapsed = true
-	})
-
-	for !timerElapsed {
-		if len(input.Data) == task.FanInDegree {
-			break
-		}
-		fmt.Printf("fanin waiting partial datas: %d/%d\n", len(input.Data), task.FanInDegree)
-		time.Sleep(task.Timeout / 100)
+	inputs := make([]map[string]interface{}, task.FanInDegree)
+	i := 0
+	for _, inputMap := range input.Data {
+		inputs[i] = inputMap.(map[string]interface{})
+		i++
 	}
 
-	fired := timer.Stop()
-	if !fired {
-		return outputData, progress, false, fmt.Errorf("fan in timeout occurred")
-	}
-	faninInputs := make([]map[string]interface{}, 0)
-	for _, partialDataMap := range input.Data {
-		faninInputs = append(faninInputs, partialDataMap.(map[string]interface{}))
-	}
-
-	// merging input into one output
-	output, err := task.Exec(r, faninInputs...)
+	output, err := task.Exec(r, inputs...)
 	if err != nil {
-		return outputData, progress, false, err
+		return nil, progress, false, err
 	}
 
-	// setting the remaining field of outputData
-	outputData.ForTask = task.GetNext()[0]
-	outputData.Data = output
+	outputData := NewPartialData(ReqId(r.Id), task.GetNext()[0], task.GetId(), output)
 	err = progress.CompleteNode(task.GetId())
 	if err != nil {
-		return outputData, progress, false, err
+		return nil, progress, false, err
 	}
 
 	return outputData, progress, true, nil
@@ -521,7 +494,6 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 	shouldContinue := true
 
 	if len(nextNodes) > 1 {
-		// TODO: check executeParallel
 		output, progress, err = workflow.executeParallel(progress, input, nextNodes, r)
 		if err != nil {
 			return output, progress, true, err

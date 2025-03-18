@@ -404,7 +404,7 @@ func TestWorkflowBuilder(t *testing.T) {
 		NextBranch(workflow.NewBuilder().
 			AddScatterFanOutNode(width).
 			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f) }).
-			AddFanInNode(workflow.AddToArrayEntry).
+			AddFanInNode().
 			Build()).
 		EndChoiceAndBuild()
 
@@ -481,7 +481,7 @@ func TestVisit(t *testing.T) {
 		NextBranch(workflow.NewBuilder().
 			AddScatterFanOutNode(3).
 			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(f) }).
-			AddFanInNode(workflow.AddToArrayEntry).
+			AddFanInNode().
 			Build()).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)

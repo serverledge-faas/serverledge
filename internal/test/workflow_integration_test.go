@@ -4,7 +4,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"log"
 	"testing"
 
@@ -262,9 +261,11 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 
 	// check multiple result
 	output := resultMap.Result
+
 	u.AssertNonNil(t, output)
-	for _, res := range output {
-		u.AssertEquals(t, 2, res.(int))
+	for i := 0; i < width; i++ {
+		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
+		u.AssertEquals(t, 2, currOutput["result"])
 	}
 
 	// cleaning up function composition and functions
@@ -378,22 +379,9 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	// check multiple result
 	output := resultMap.Result
 	u.AssertNonNil(t, output)
-	for _, res := range output {
-		genericSlice, ok := res.([]interface{})
-		u.AssertTrue(t, ok)
-		specificSlice, err := u.ConvertToSpecificSlice[int](genericSlice)
-		u.AssertNil(t, err)
-		// check that the result has exactly 3 elements and they are 2,4,6
-		if len(specificSlice) != 3 {
-			fmt.Println("the length of the slice is 3")
-			t.Fail()
-		}
-		for _, i := range []int{2, 4, 6} {
-			if !slices.Contains(specificSlice, i) {
-				fmt.Printf("the result slice does not contain %d", i)
-				t.Fail()
-			}
-		}
+	for i := 0; i < width; i++ {
+		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
+		u.AssertEquals(t, (i+1)*2, currOutput["result"].(int))
 	}
 
 	// cleaning up function composition and functions

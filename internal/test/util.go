@@ -316,7 +316,7 @@ func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree in
 	return workflow.NewBuilder().
 		AddScatterFanOutNode(fanOutDegree).
 		ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fun) }).
-		AddFanInNode(workflow.AddToArrayEntry).
+		AddFanInNode().
 		Build()
 }
 
@@ -327,7 +327,7 @@ func CreateBroadcastWorkflow(dagger func() (*workflow.Workflow, error), fanOutDe
 	return workflow.NewBuilder().
 		AddBroadcastFanOutNode(fanOutDegree).
 		ForEachParallelBranch(dagger).
-		AddFanInNode(workflow.AddNewMapEntry).
+		AddFanInNode().
 		Build()
 }
 
@@ -342,6 +342,6 @@ func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*workflow.Workflow, 
 		builder = builder.NextFanOutBranch(dagFn())
 	}
 	return builder.
-		AddFanInNode(workflow.AddNewMapEntry).
+		AddFanInNode().
 		Build()
 }

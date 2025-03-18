@@ -46,7 +46,7 @@ func parallelProgress(t *testing.T) (*workflow.Progress, *workflow.Workflow) {
 		NextFanOutBranch(CreateSequenceWorkflow(py)).
 		NextFanOutBranch(CreateSequenceWorkflow(py, py)).
 		NextFanOutBranch(CreateSequenceWorkflow(py, py, py)).
-		AddFanInNode(workflow.AddNewMapEntry).
+		AddFanInNode().
 		Build()
 	u.AssertNil(t, err)
 
@@ -69,7 +69,7 @@ func complexProgress(t *testing.T, condition workflow.Condition) (*workflow.Prog
 		NextBranch(workflow.NewBuilder().
 			AddBroadcastFanOutNode(3).
 			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(py, py) }).
-			AddFanInNode(workflow.AddNewMapEntry).
+			AddFanInNode().
 			Build()).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)

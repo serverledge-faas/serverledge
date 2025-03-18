@@ -442,10 +442,10 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 	return p
 }
 
-func (p *ParallelScatterBranchBuilder) AddFanInNode(mergeMode MergeMode) *Builder {
+func (p *ParallelScatterBranchBuilder) AddFanInNode() *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
 	workflow := &p.builder.workflow
-	fanInNode := NewFanInNode(mergeMode, p.builder.prevNode.Width(), nil)
+	fanInNode := NewFanInNode(p.builder.prevNode.Width())
 	p.builder.BranchNumber++
 	fanInNode.setBranchId(p.builder.BranchNumber)
 	// TODO: set fanin inside fanout, so that we know which fanin are dealing with
@@ -469,10 +469,10 @@ func (p *ParallelScatterBranchBuilder) AddFanInNode(mergeMode MergeMode) *Builde
 	return p.builder
 }
 
-func (p *ParallelBroadcastBranchBuilder) AddFanInNode(mergeMode MergeMode) *Builder {
+func (p *ParallelBroadcastBranchBuilder) AddFanInNode() *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
 	workflow := &p.builder.workflow
-	fanInNode := NewFanInNode(mergeMode, p.builder.prevNode.Width(), nil)
+	fanInNode := NewFanInNode(p.builder.prevNode.Width())
 	p.builder.BranchNumber++
 	fanInNode.setBranchId(p.builder.BranchNumber)
 	for _, n := range p.terminalNodes {
