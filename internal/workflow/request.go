@@ -3,7 +3,6 @@ package workflow
 import (
 	"time"
 
-	"github.com/cornelk/hashmap"
 	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
@@ -19,6 +18,7 @@ type Request struct {
 	QoS             function.RequestQoS // every function should have its QoS
 	CanDoOffloading bool                // every function inherits this flag
 	Async           bool
+	Resuming        bool // indicating whether the function is resuming from a previous (partial) execution
 }
 
 func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
@@ -28,10 +28,11 @@ func NewRequest(reqId string, workflow *Workflow, params map[string]interface{})
 		Params:  params,
 		Arrival: time.Now(),
 		ExecReport: ExecutionReport{
-			Reports: hashmap.New[ExecutionReportId, *function.ExecutionReport](), // make(map[ExecutionReportId]*function.ExecutionReport),
+			Reports: map[string]*function.ExecutionReport{},
 		},
 		CanDoOffloading: true,
 		Async:           false,
+		Resuming:        false,
 	}
 }
 

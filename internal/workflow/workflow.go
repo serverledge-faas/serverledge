@@ -428,11 +428,37 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 	var err error
 	requestId := ReqId(r.Id)
 
-	progress := InitProgress(requestId, workflow)
-	pd := NewPartialData(requestId, workflow.Start.Next, "", r.Params)
+	var progress *Progress
+	var pd *PartialData
+
+	// TODO: move into a function?
+	if !r.Resuming {
+		progress = InitProgress(requestId, workflow)
+		pd = NewPartialData(requestId, workflow.Start.Next, "", r.Params)
+	} else {
+		var found bool
+		progress, found = RetrieveProgress(requestId, true)
+		if !found {
+			return ExecutionReport{}, fmt.Errorf("failed to retrieve workflow progress: %v", requestId)
+		}
+		if len(progress.ReadyToExecute) == 0 {
+			return ExecutionReport{}, fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
+		} else if len(progress.ReadyToExecute) > 1 {
+			// TODO: manage case when len is > 1 (e.g., parallel branches)
+			return ExecutionReport{}, fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
+		}
+
+		pd, err = RetrieveSinglePartialData(requestId, progress.ReadyToExecute[0], true)
+		if err != nil {
+			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", requestId)
+		}
+	}
 
 	shouldContinue := true
 	for shouldContinue {
+		// TODO: introduce a workflow offloading policy
+
+		// TODO: if local execution:
 		// executing workflow
 		pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 		if err != nil {
