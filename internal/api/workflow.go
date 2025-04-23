@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cornelk/hashmap"
 	"github.com/labstack/echo/v4"
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -160,7 +159,6 @@ func InvokeWorkflow(e echo.Context) error {
 	}
 
 	req := workflowInvocationRequestPool.Get().(*workflow.Request)
-	defer workflowInvocationRequestPool.Put(req) // at the end of the function, the function.NewRequest is added to the pool.
 	req.W = wflow
 	req.Params = clientReq.Params
 	req.Arrival = time.Now()
@@ -169,38 +167,49 @@ func InvokeWorkflow(e echo.Context) error {
 	req.Async = clientReq.Async
 
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
-	req.ExecReport.Reports = hashmap.New[workflow.ExecutionReportId, *function.ExecutionReport]() // make(map[workflow.ExecutionReportId]*function.ExecutionReport)
+	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	if req.Async {
-		go workflow.SubmitAsyncWorkflowInvocationRequest(req)
+		go func() {
+			_, errInvoke := req.W.Invoke(req)
+
+			defer workflowInvocationRequestPool.Put(req)
+
+			if errInvoke != nil {
+				log.Printf("Invocation failed: %v", errInvoke)
+				workflow.PublishAsyncInvocationResponse(req.Id, workflow.InvocationResponse{Success: false})
+				return
+			}
+
+			req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
+			workflow.PublishAsyncInvocationResponse(req.Id, workflow.InvocationResponse{
+				Success:      true,
+				Result:       req.ExecReport.Result,
+				Reports:      req.ExecReport.Reports,
+				ResponseTime: req.ExecReport.ResponseTime,
+			})
+		}()
+
 		return e.JSON(http.StatusOK, function.AsyncResponse{ReqId: req.Id})
 	}
 
-	err = workflow.SubmitWorkflowInvocationRequest(req)
+	// Synchronous execution of the workflow
+	_, err = req.W.Invoke(req)
+
+	defer workflowInvocationRequestPool.Put(req)
 
 	if errors.Is(err, node.OutOfResourcesErr) {
 		return e.String(http.StatusTooManyRequests, "")
 	} else if err != nil {
 		log.Printf("Invocation failed: %v", err)
-		v := struct {
-			Error    string
-			Progress string
-		}{
-			Error:    err.Error(),
-			Progress: req.ExecReport.Progress.PrettyString(),
-		}
-		return e.JSON(http.StatusInternalServerError, v)
+		return e.JSON(http.StatusInternalServerError, err.Error())
 	} else {
-		reports := make(map[string]*function.ExecutionReport)
-		req.ExecReport.Reports.Range(func(id workflow.ExecutionReportId, report *function.ExecutionReport) bool {
-			reports[string(id)] = report
-			return true
-		})
+		req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 
 		return e.JSON(http.StatusOK, workflow.InvocationResponse{
 			Success:      true,
 			Result:       req.ExecReport.Result,
-			Reports:      reports,
+			Reports:      req.ExecReport.Reports,
 			ResponseTime: req.ExecReport.ResponseTime,
 		})
 	}
