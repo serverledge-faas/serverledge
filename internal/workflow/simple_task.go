@@ -103,11 +103,10 @@ func (s *SimpleTask) exec(compRequest *Request, params ...map[string]interface{}
 				return nil, fmt.Errorf("output type checking failed: %v", err)
 			}
 		}
-
 	}
 
 	// saving execution report for this function
-	compRequest.ExecReport.Reports.Set(CreateExecutionReportId(s), &report)
+	compRequest.ExecReport.Reports[CreateExecutionReportId(s)] = &report
 
 	return outputData, nil
 }

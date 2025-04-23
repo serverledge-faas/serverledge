@@ -297,7 +297,6 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		}
 		if err != nil {
 			progress.Fail(n.GetId())
-			r.ExecReport.Progress = progress
 			return output, progress, false, err
 		}
 	} else {
@@ -437,12 +436,13 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 		// executing workflow
 		pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 		if err != nil {
-			return ExecutionReport{Result: nil, Progress: progress}, fmt.Errorf("failed workflow execution: %v", err)
+			return ExecutionReport{}, fmt.Errorf("failed workflow execution: %v", err)
 		}
 	}
 
 	r.ExecReport.Result = pd.Data
 
+	// TODO: remove r.ExecReport
 	return r.ExecReport, nil
 }
 
