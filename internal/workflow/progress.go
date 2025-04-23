@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -206,7 +207,7 @@ func InitProgress(reqId ReqId, workflow *Workflow) *Progress {
 		ReadyToExecute: make([]TaskId, 0),
 	}
 
-	p.ReadyToExecute = append(p.ReadyToExecute, workflow.Start.GetId())
+	p.ReadyToExecute = append(p.ReadyToExecute, workflow.Start.Next)
 
 	return p
 }
@@ -283,6 +284,7 @@ func RetrieveProgress(reqId ReqId, tryFromEtcd bool) (*Progress, bool) {
 		// cache miss - retrieve progress from ETCD
 		progress, err = getProgressFromEtcd(reqId)
 		if err != nil {
+			log.Printf("failed to retrieve progress from Etcd %v: %v", reqId, err)
 			return nil, false
 		}
 		// insert a new element to the cache
@@ -345,6 +347,7 @@ func saveProgressToEtcd(p *Progress) error {
 	}
 	// saves the json object into etcd
 	key := getProgressEtcdKey(p.ReqId)
+	log.Printf("Saving progress with key: %s", key)
 	progressMutexEtcd.Lock()
 	defer progressMutexEtcd.Unlock()
 	_, err = cli.Put(ctx, key, string(payload))

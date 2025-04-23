@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -230,7 +231,10 @@ func savePartialDataToEtcd(pd *PartialData) error {
 	pdEtcdMutex.Lock()
 	defer pdEtcdMutex.Unlock()
 	// saves the json object into etcd
-	_, err = cli.Put(ctx, getPartialDataEtcdKey(pd.ReqId, pd.ForTask), string(payload))
+	key := getPartialDataEtcdKey(pd.ReqId, pd.ForTask)
+	log.Printf("Saving PD on etcd with key: %s\n", key)
+
+	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
 		return fmt.Errorf("failed etcd Put partial data: %v", err)
 	}

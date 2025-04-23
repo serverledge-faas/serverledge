@@ -32,6 +32,7 @@ func StartAPIServer(e *echo.Echo) {
 	e.GET("/status", GetServerStatus)
 	// Workflow routes
 	e.POST("/workflow/invoke/:workflow", InvokeWorkflow)
+	e.POST("/workflow/resume/:workflow", ResumeWorkflow)
 	e.POST("/workflow/create", CreateWorkflowFromASL)
 	e.POST("/workflow/import", CreateWorkflow)
 	e.POST("/workflow/delete", DeleteWorkflow)

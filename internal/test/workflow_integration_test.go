@@ -11,6 +11,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
 	u "github.com/serverledge-faas/serverledge/utils"
+	"github.com/spf13/cast"
 )
 
 func TestMarshalingFunctionWorkflow(t *testing.T) {
@@ -108,13 +109,16 @@ func TestInvokeFC(t *testing.T) {
 	params[f.Signature.GetInputs()[0].Name] = 0
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check result
-	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	u.AssertEquals(t, length, output.(int))
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	if length != output {
+		t.FailNow()
+	}
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -162,11 +166,12 @@ func TestInvokeChoiceFC(t *testing.T) {
 	params[f.Signature.GetInputs()[0].Name] = input
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
-	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	u.AssertEquals(t, input*2, output.(int))
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	u.AssertEquals(t, input*2, output)
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -210,6 +215,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 2
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	if err2 != nil {
 		log.Printf("%v\n", err2)
@@ -218,12 +224,10 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, err2)
 
 	// check result
-	output := resultMap.Result[fInc.Signature.GetOutputs()[0].Name]
+	output := cast.ToInt(resultMap.Result[fInc.Signature.GetOutputs()[0].Name])
 	if output != 11 {
 		t.FailNow()
 	}
-
-	u.AssertEquals(t, (2*2+1)*2+1, output.(int))
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -256,6 +260,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 1
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -315,6 +320,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			params[f.Signature.GetInputs()[0].Name] = i
 
 			request := workflow.NewRequest(fmt.Sprintf("goroutine_%d", i), wflow, params)
+			request.CanDoOffloading = false
 			// wait until all goroutines are ready
 			<-start
 			// return error
@@ -373,16 +379,16 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check multiple result
 	output := resultMap.Result
-	fmt.Println(output)
 	u.AssertNonNil(t, output)
 	for i := 0; i < width; i++ {
 		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
-		u.AssertEquals(t, (i+1)*2, currOutput["result"].(int))
+		u.AssertEquals(t, (i+1)*2, cast.ToInt(currOutput["result"]))
 	}
 
 	// cleaning up function composition and functions
@@ -435,6 +441,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	params[isPrimePy.Signature.GetInputs()[0].Name] = input
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -481,6 +488,7 @@ func TestInvokeWorkflowError(t *testing.T) {
 	params[incPy.Signature.GetInputs()[0].Name] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	_, err2 := wflow.Invoke(request)
 	u.AssertNonNil(t, err2)
 }
@@ -510,6 +518,7 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	params["value"] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the branch (succeed)")
 
@@ -522,6 +531,7 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	params2["value"] = 2
 
 	request2 := workflow.NewRequest(shortuuid.New(), wflow, params2)
+	request.CanDoOffloading = false
 	resultMap2, errInvoke2 := wflow.Invoke(request2)
 	u.AssertNilMsg(t, errInvoke2, "error while invoking the branch (fail)")
 
@@ -557,10 +567,61 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	params["input"] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
 	result, err := GetIntSingleResult(&resultMap)
 	u.AssertNilMsg(t, err, "Result not found")
 	u.AssertEquals(t, 3, result)
+}
+
+// TestResumeWorkflow offloads the execution of an invocation request to the same node
+func TestResumeWorkflow(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	workflowName := "test"
+	// CREATE - we create a test function composition
+	length := 5
+	f, fArr, err := initializeSameFunctionSlice(length, "js")
+	u.AssertNil(t, err)
+	wflow, err := CreateSequenceWorkflow(fArr...)
+	wflow.Name = workflowName
+	u.AssertNil(t, err)
+	err1 := wflow.Save()
+	u.AssertNil(t, err1)
+
+	// INVOKE - we call the function composition
+	params := make(map[string]interface{})
+	params[f.Signature.GetInputs()[0].Name] = 0
+
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+
+	progress := workflow.InitProgress(workflow.ReqId(request.Id), wflow)
+	pd := workflow.NewPartialData(workflow.ReqId(request.Id), wflow.Start.Next, "", request.Params)
+
+	err = workflow.SaveProgress(progress, true)
+	u.AssertNil(t, err)
+	err = workflow.SavePartialData(pd, true)
+	u.AssertNil(t, err)
+
+	resumedRequest := workflow.NewRequest(request.Id, wflow, params)
+	resumedRequest.CanDoOffloading = true
+	resumedRequest.Resuming = true
+
+	resultMap, err2 := wflow.Invoke(resumedRequest)
+	u.AssertNil(t, err2)
+
+	// check result
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	if length != output {
+		t.FailNow()
+	}
+
+	// cleaning up function composition and function
+	err3 := wflow.Delete()
+	u.AssertNil(t, err3)
 }

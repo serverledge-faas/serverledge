@@ -479,11 +479,8 @@ func invokeWorkflow(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Prepare request // TODO: it's ok to reuse the same type that function invocation uses?
-	request := client.InvocationRequest{
+	request := client.WorkflowInvocationRequest{
 		Params:          paramsMap,
-		QoSClass:        api.DecodeServiceClass(qosClass),
-		QoSMaxRespT:     qosMaxRespT,
 		CanDoOffloading: true,
 		Async:           asyncInvocation}
 	invocationBody, err := json.Marshal(request)

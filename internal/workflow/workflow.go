@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"io"
+	"net/http"
 	"sort"
 	"time"
 
@@ -17,8 +20,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-// used to send output from parallel tasks to fan in task or to the next task
-// var outputChannel = make(chan map[string]interface{})
+var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
 // Workflow is a Workflow to drive the execution of the workflow
 type Workflow struct {
@@ -428,22 +430,116 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 	var err error
 	requestId := ReqId(r.Id)
 
-	progress := InitProgress(requestId, workflow)
-	pd := NewPartialData(requestId, workflow.Start.Next, "", r.Params)
+	var progress *Progress
+	var pd *PartialData
 
-	shouldContinue := true
-	for shouldContinue {
-		// executing workflow
-		pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
+	// TODO: move into a function?
+	if !r.Resuming {
+		progress = InitProgress(requestId, workflow)
+		pd = NewPartialData(requestId, workflow.Start.Next, "", r.Params)
+	} else {
+		var found bool
+		progress, found = RetrieveProgress(requestId, true)
+		if !found {
+			return ExecutionReport{}, fmt.Errorf("failed to retrieve workflow progress: %v", requestId)
+		}
+		if len(progress.ReadyToExecute) == 0 {
+			return ExecutionReport{}, fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
+		} else if len(progress.ReadyToExecute) > 1 {
+			// TODO: manage case when len is > 1 (e.g., parallel branches)
+			return ExecutionReport{}, fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
+		}
+
+		pd, err = RetrieveSinglePartialData(requestId, progress.ReadyToExecute[0], true)
 		if err != nil {
-			return ExecutionReport{}, fmt.Errorf("failed workflow execution: %v", err)
+			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
 		}
 	}
 
-	r.ExecReport.Result = pd.Data
+	shouldContinue := true
+	for shouldContinue {
+		decision, err := offloadingPolicy.Evaluate(r, progress)
+		if err == nil && decision.Offload {
+			err = offload(r, decision.RemoteHost, progress, pd)
+			if err != nil {
+				return ExecutionReport{}, err
+			}
+			shouldContinue = false
+		} else {
+			pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
+			if err != nil {
+				return ExecutionReport{}, fmt.Errorf("failed workflow execution: %v", err)
+			}
+
+			if !shouldContinue {
+				r.ExecReport.Result = pd.Data
+			}
+		}
+
+	}
 
 	// TODO: remove r.ExecReport
 	return r.ExecReport, nil
+}
+
+func offload(r *Request, hostPort string, progress *Progress, pd *PartialData) error {
+
+	err := saveProgressToEtcd(progress)
+	if err != nil {
+		return fmt.Errorf("Could not save progress: %v", err)
+	}
+	err = savePartialDataToEtcd(pd)
+	if err != nil {
+		return fmt.Errorf("Could not save partial data: %v", err)
+	}
+
+	request := client.WorkflowInvocationResumeRequest{
+		ReqId: r.Id,
+		WorkflowInvocationRequest: client.WorkflowInvocationRequest{
+			Params:          r.Params,
+			CanDoOffloading: false,
+			Async:           r.Async,
+		},
+	}
+	invocationBody, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("JSON marshaling failed: %v", err)
+	}
+
+	// Send invocation request
+	url := fmt.Sprintf("http://%s/workflow/resume/%s", hostPort, r.W.Name)
+	resp, err := utils.PostJson(url, invocationBody)
+	if err != nil {
+		return fmt.Errorf("HTTP request for offloading failed: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed offloaded workflow: %v", err)
+	}
+
+	if r.Async {
+		// no need to parse and return response
+		return nil
+	}
+
+	var response InvocationResponse
+	body, _ := io.ReadAll(resp.Body)
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return fmt.Errorf("Failed InvocationResponse unmarshaling: %v", err)
+	}
+
+	if !response.Success {
+		return fmt.Errorf("failed offloaded workflow: %v", err)
+	}
+
+	r.ExecReport.Result = response.Result
+
+	for k, v := range response.Reports {
+		r.ExecReport.Reports[k] = v
+	}
+
+	return nil
 }
 
 // Delete removes the Workflow from cache and from etcd, so it cannot be invoked anymore
