@@ -148,6 +148,10 @@ The configuration file may look like this:
 	scheduler.queue.capacity: 0
 	metrics.enabled: true
 
+## Workflows
+
+Serverledge supports the composition of multiple functions into workflows.
+More information [here](./docs/workflows.md)
 
 ## Additional Documentation
 

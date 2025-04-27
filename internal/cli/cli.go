@@ -101,7 +101,6 @@ var paramsFile string
 var asyncInvocation bool
 var verbose bool
 var returnOutput bool
-var rmFnOnDeletion bool
 
 func Init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
@@ -149,9 +148,8 @@ func Init() {
 	compInvokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous workflow invocation")
 
 	rootCmd.AddCommand(compCreateCmd)
-	compCreateCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the function")
+	compCreateCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
 	compCreateCmd.Flags().StringVarP(&jsonSrc, "src", "s", "", "source Amazon States Language file  that defines the workflow")
-	compCreateCmd.Flags().BoolVarP(&rmFnOnDeletion, "deletion", "d", false, "flag to delete also functions associated with the FC")
 
 	rootCmd.AddCommand(compDeleteCmd)
 	compDeleteCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
@@ -506,7 +504,7 @@ func createWorkflow(cmd *cobra.Command, args []string) {
 
 	src, err := os.ReadFile(jsonSrc)
 	if err != nil {
-		fmt.Errorf("Could not read source file: %s\n", jsonSrc)
+		fmt.Printf("Could not read source file: %s\n", jsonSrc)
 		os.Exit(1)
 	}
 	encoded := base64.StdEncoding.EncodeToString(src)
@@ -520,7 +518,7 @@ func createWorkflow(cmd *cobra.Command, args []string) {
 		os.Exit(3)
 	}
 
-	url := fmt.Sprintf("http://%s:%d/workflow/createASL", ServerConfig.Host, ServerConfig.Port)
+	url := fmt.Sprintf("http://%s:%d/workflow/create", ServerConfig.Host, ServerConfig.Port)
 	resp, err := utils.PostJson(url, requestBody)
 	if err != nil {
 		// TODO: check returned error code
