@@ -12,7 +12,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/serverledge-faas/serverledge/internal/api"
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
@@ -58,9 +57,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 		log.Fatal(err)
 	}
 
-	ip := config.GetString(config.API_IP, outboundIp)
-	url := fmt.Sprintf("http://%s:%d", ip, PORT)
-	myKey, err := registry.RegisterToEtcd(url)
+	myKey, err := registry.RegisterToEtcd()
 	if err != nil {
 		log.Fatal(err)
 	}

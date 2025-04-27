@@ -46,13 +46,14 @@ func main() {
 		log.Fatal(err)
 	}
 
+	defaultAddressStr := "127.0.0.1"
 	address, err := utils.GetOutboundIp()
-	if err != nil {
-		log.Fatalf("failed to get ip address: %v", err)
+	if err == nil {
+		defaultAddressStr = address.String()
 	}
-	ip := config.GetString(config.API_IP, address.String())
-	url := fmt.Sprintf("http://%s:%d", ip, config.GetInt(config.API_PORT, 1323))
-	myKey, err := registry.RegisterToEtcd(url)
+	registration.RegisteredLocalIP = config.GetString(config.API_IP, defaultAddressStr)
+
+	myKey, err := registry.RegisterToEtcd()
 	if err != nil {
 		log.Fatal(err)
 	}

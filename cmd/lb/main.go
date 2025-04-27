@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/lb"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/utils"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 func registerTerminationHandler(e *echo.Echo) {
@@ -47,14 +47,15 @@ func main() {
 	// TODO: split Area in Region + Type (e.g., cloud/lb/edge)
 	region := config.GetString(config.REGISTRY_AREA, "ROME")
 	registry := &registration.Registry{Area: "lb/" + region}
-	ipAddress, err := utils.GetOutboundIp()
-	if err != nil {
-		log.Printf("Could not get ip address: %v\n", err)
-		return
-	}
 
-	hostport := fmt.Sprintf("http://%s:%d", ipAddress.String(), config.GetInt(config.API_PORT, 1323))
-	if _, err := registry.RegisterToEtcd(hostport); err != nil {
+	defaultAddressStr := "127.0.0.1"
+	address, err := utils.GetOutboundIp()
+	if err == nil {
+		defaultAddressStr = address.String()
+	}
+	registration.RegisteredLocalIP = config.GetString(config.API_IP, defaultAddressStr)
+
+	if _, err := registry.RegisterToEtcd(); err != nil {
 		log.Printf("Could not register to Etcd: %v\n", err)
 	}
 

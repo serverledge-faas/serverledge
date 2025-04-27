@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lithammer/shortuuid"
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/utils"
-	"github.com/lithammer/shortuuid"
 	_ "go.etcd.io/etcd/client/v3"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"golang.org/x/net/context"
@@ -17,6 +17,8 @@ import (
 var BASEDIR = "registry"
 var TTL = config.GetInt(config.REGISTRATION_TTL, 20) // lease time in Seconds
 
+var RegisteredLocalIP string = "127.0.0.1"
+
 // getEtcdKey append to a given unique id the logical path depending on the Area.
 // If it is called with  an empty string  it returns the base path for the current local Area.
 func (r *Registry) getEtcdKey(id string) (key string) {
@@ -24,7 +26,7 @@ func (r *Registry) getEtcdKey(id string) (key string) {
 }
 
 // RegisterToEtcd make a registration to the local Area; etcd put operation is performed
-func (r *Registry) RegisterToEtcd(hostport string) (string, error) {
+func (r *Registry) RegisterToEtcd() (string, error) {
 	etcdClient, err := utils.GetEtcdClient()
 	if err != nil {
 		log.Fatal(UnavailableClientErr)
@@ -41,6 +43,7 @@ func (r *Registry) RegisterToEtcd(hostport string) (string, error) {
 		return "", err
 	}
 
+	hostport := fmt.Sprintf("http://%s:%d", RegisteredLocalIP, config.GetInt(config.API_PORT, 1323))
 	log.Printf("Registration key: %s\n", r.Key)
 	// save couple (id, hostport) to the correct Area-dir on etcd
 	_, err = etcdClient.Put(ctx, r.Key, hostport, clientv3.WithLease(resp.ID))

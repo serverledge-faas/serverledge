@@ -16,11 +16,7 @@ import (
 // UDPStatusServer listen for incoming request from other edge-nodes which want to retrieve the status of this server
 // this listener should be called asynchronously in the main function
 func UDPStatusServer() {
-	hostname, err := utils.GetOutboundIp()
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	hostname := RegisteredLocalIP
 	port := config.GetInt(config.LISTEN_UDP_PORT, 9876)
 	address := fmt.Sprintf("%s:%d", hostname, port)
 	udpAddr, err := net.ResolveUDPAddr("udp", address)

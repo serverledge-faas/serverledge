@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/cornelk/hashmap"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -50,7 +50,7 @@ func CreateWorkflowFromASL(e echo.Context) error {
 	comp, err := workflow.FromASL(creationRequest.Name, decodedSrc[:])
 	if err != nil {
 		log.Printf("Could not parse workflow from ASL: %v", err)
-		return e.JSON(http.StatusBadRequest, "workflow already exists")
+		return e.JSON(http.StatusBadRequest, "ASL parsing failed")
 	}
 
 	err = comp.Save()

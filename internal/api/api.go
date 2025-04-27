@@ -214,8 +214,7 @@ func GetServerStatus(c echo.Context) error {
 
 	portNumber := config.GetInt("api.port", 1323)
 
-	address, err := utils.GetOutboundIp()
-	url := fmt.Sprintf("http://%s:%d", address.String(), portNumber)
+	url := fmt.Sprintf("http://%s:%d", registration.RegisteredLocalIP, portNumber)
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
