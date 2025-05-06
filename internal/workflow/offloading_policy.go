@@ -9,6 +9,13 @@ type OffloadingPolicy interface {
 	Evaluate(r *Request, p *Progress) (OffloadingDecision, error)
 }
 
+type NoOffloadingPolicy struct{}
+
+func (policy *NoOffloadingPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {
+
+	return OffloadingDecision{Offload: false}, nil
+}
+
 type SimpleOffloadingPolicy struct{}
 
 func (policy *SimpleOffloadingPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {

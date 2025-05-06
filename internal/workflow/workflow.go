@@ -20,7 +20,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-var offloadingPolicy OffloadingPolicy = &SimpleOffloadingPolicy{} // TODO: handle initialization elsewhere
+var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
 // Workflow is a Workflow to drive the execution of the workflow
 type Workflow struct {
