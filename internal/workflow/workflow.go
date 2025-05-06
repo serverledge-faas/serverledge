@@ -452,7 +452,7 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 		pd, err = RetrieveSinglePartialData(requestId, progress.ReadyToExecute[0], true)
 		if err != nil {
-			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", requestId)
+			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
 		}
 	}
 

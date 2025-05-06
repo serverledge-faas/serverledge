@@ -114,7 +114,9 @@ func TestInvokeFC(t *testing.T) {
 
 	// check result
 	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	u.AssertEquals(t, length, output.(int))
+	if length != int(output.(float64)) {
+		t.FailNow()
+	}
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -563,4 +565,53 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	result, err := GetIntSingleResult(&resultMap)
 	u.AssertNilMsg(t, err, "Result not found")
 	u.AssertEquals(t, 3, result)
+}
+
+// TestResumeWorkflow offloads the execution of an invocation request to the same node
+func TestResumeWorkflow(t *testing.T) {
+
+	if testing.Short() {
+		t.Skip("Skipping integration test")
+	}
+
+	workflowName := "test"
+	// CREATE - we create a test function composition
+	length := 5
+	f, fArr, err := initializeSameFunctionSlice(length, "js")
+	u.AssertNil(t, err)
+	wflow, err := CreateSequenceWorkflow(fArr...)
+	wflow.Name = workflowName
+	u.AssertNil(t, err)
+	err1 := wflow.Save()
+	u.AssertNil(t, err1)
+
+	// INVOKE - we call the function composition
+	params := make(map[string]interface{})
+	params[f.Signature.GetInputs()[0].Name] = 0
+
+	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+
+	progress := workflow.InitProgress(workflow.ReqId(request.Id), wflow)
+	pd := workflow.NewPartialData(workflow.ReqId(request.Id), wflow.Start.Next, "", request.Params)
+
+	err = workflow.SaveProgress(progress, true)
+	u.AssertNil(t, err)
+	err = workflow.SavePartialData(pd, true)
+	u.AssertNil(t, err)
+
+	resumedRequest := workflow.NewRequest(request.Id, wflow, params)
+	resumedRequest.Resuming = true
+
+	resultMap, err2 := wflow.Invoke(resumedRequest)
+	u.AssertNil(t, err2)
+
+	// check result
+	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
+	if length != int(output.(float64)) {
+		t.FailNow()
+	}
+
+	// cleaning up function composition and function
+	err3 := wflow.Delete()
+	u.AssertNil(t, err3)
 }

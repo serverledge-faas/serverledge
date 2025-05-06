@@ -207,7 +207,7 @@ func InitProgress(reqId ReqId, workflow *Workflow) *Progress {
 		ReadyToExecute: make([]TaskId, 0),
 	}
 
-	p.ReadyToExecute = append(p.ReadyToExecute, workflow.Start.GetId())
+	p.ReadyToExecute = append(p.ReadyToExecute, workflow.Start.Next)
 
 	return p
 }
