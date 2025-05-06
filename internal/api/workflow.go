@@ -142,6 +142,36 @@ func DeleteWorkflow(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
+// ResumeWorkflow handles a workflow invocation resume request (workflow offloading).
+func ResumeWorkflow(e echo.Context) error {
+	workflowName := e.Param("workflow")
+	wflow, ok := workflow.Get(workflowName)
+	if !ok {
+		log.Printf("Dropping request for unknown workflow '%s'", workflowName)
+		return e.JSON(http.StatusNotFound, "function workflow '"+workflowName+"' does not exist")
+	}
+
+	var clientReq client.WorkflowInvocationResumeRequest
+	err := json.NewDecoder(e.Request().Body).Decode(&clientReq)
+	if err != nil && err != io.EOF {
+		log.Printf("Could not parse invoke request - error during decoding: %v", err)
+		return e.JSON(http.StatusInternalServerError, "failed to parse workflow invocation request. Check parameters and workflow definition")
+	}
+
+	req := workflowInvocationRequestPool.Get().(*workflow.Request)
+	req.W = wflow
+	req.Params = clientReq.Params
+	req.Arrival = time.Now()
+	req.QoS = clientReq.QoS
+	req.CanDoOffloading = clientReq.CanDoOffloading
+	req.Async = clientReq.Async
+	req.Resuming = true
+	req.Id = clientReq.ReqId
+	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
+
+	return handleWorkflowInvocation(e, req)
+}
+
 // InvokeWorkflow handles a function workflow invocation request.
 func InvokeWorkflow(e echo.Context) error {
 	workflowName := e.Param("workflow")
@@ -165,9 +195,14 @@ func InvokeWorkflow(e echo.Context) error {
 	req.QoS = clientReq.QoS
 	req.CanDoOffloading = clientReq.CanDoOffloading
 	req.Async = clientReq.Async
-
+	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
+
+	return handleWorkflowInvocation(e, req)
+}
+
+func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 
 	if req.Async {
 		go func() {
@@ -194,7 +229,7 @@ func InvokeWorkflow(e echo.Context) error {
 	}
 
 	// Synchronous execution of the workflow
-	_, err = req.W.Invoke(req)
+	_, err := req.W.Invoke(req)
 
 	defer workflowInvocationRequestPool.Put(req)
 
