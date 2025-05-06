@@ -11,6 +11,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
 	u "github.com/serverledge-faas/serverledge/utils"
+	"github.com/spf13/cast"
 )
 
 func TestMarshalingFunctionWorkflow(t *testing.T) {
@@ -114,8 +115,8 @@ func TestInvokeFC(t *testing.T) {
 	u.AssertNil(t, err2)
 
 	// check result
-	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	if length != int(output.(float64)) {
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	if length != output {
 		t.FailNow()
 	}
 
@@ -169,8 +170,8 @@ func TestInvokeChoiceFC(t *testing.T) {
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
-	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	u.AssertEquals(t, input*2, output.(int))
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	u.AssertEquals(t, input*2, output)
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -223,12 +224,10 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, err2)
 
 	// check result
-	output := resultMap.Result[fInc.Signature.GetOutputs()[0].Name]
+	output := cast.ToInt(resultMap.Result[fInc.Signature.GetOutputs()[0].Name])
 	if output != 11 {
 		t.FailNow()
 	}
-
-	u.AssertEquals(t, (2*2+1)*2+1, output.(int))
 
 	// cleaning up function composition and function
 	err3 := wflow.Delete()
@@ -386,11 +385,10 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 
 	// check multiple result
 	output := resultMap.Result
-	fmt.Println(output)
 	u.AssertNonNil(t, output)
 	for i := 0; i < width; i++ {
 		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
-		u.AssertEquals(t, (i+1)*2, currOutput["result"].(int))
+		u.AssertEquals(t, (i+1)*2, cast.ToInt(currOutput["result"]))
 	}
 
 	// cleaning up function composition and functions
@@ -618,8 +616,8 @@ func TestResumeWorkflow(t *testing.T) {
 	u.AssertNil(t, err2)
 
 	// check result
-	output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
-	if length != int(output.(float64)) {
+	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	if length != output {
 		t.FailNow()
 	}
 
