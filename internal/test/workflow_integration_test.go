@@ -108,6 +108,7 @@ func TestInvokeFC(t *testing.T) {
 	params[f.Signature.GetInputs()[0].Name] = 0
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
@@ -164,6 +165,7 @@ func TestInvokeChoiceFC(t *testing.T) {
 	params[f.Signature.GetInputs()[0].Name] = input
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
@@ -212,6 +214,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 2
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	if err2 != nil {
 		log.Printf("%v\n", err2)
@@ -258,6 +261,7 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = 1
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -317,6 +321,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			params[f.Signature.GetInputs()[0].Name] = i
 
 			request := workflow.NewRequest(fmt.Sprintf("goroutine_%d", i), wflow, params)
+			request.CanDoOffloading = false
 			// wait until all goroutines are ready
 			<-start
 			// return error
@@ -375,6 +380,7 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	params := make(map[string]interface{})
 	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -437,6 +443,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	params[isPrimePy.Signature.GetInputs()[0].Name] = input
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
@@ -483,6 +490,7 @@ func TestInvokeWorkflowError(t *testing.T) {
 	params[incPy.Signature.GetInputs()[0].Name] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	_, err2 := wflow.Invoke(request)
 	u.AssertNonNil(t, err2)
 }
@@ -512,6 +520,7 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	params["value"] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the branch (succeed)")
 
@@ -524,6 +533,7 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	params2["value"] = 2
 
 	request2 := workflow.NewRequest(shortuuid.New(), wflow, params2)
+	request.CanDoOffloading = false
 	resultMap2, errInvoke2 := wflow.Invoke(request2)
 	u.AssertNilMsg(t, errInvoke2, "error while invoking the branch (fail)")
 
@@ -559,6 +569,7 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	params["input"] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
+	request.CanDoOffloading = false
 	resultMap, errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
@@ -600,6 +611,7 @@ func TestResumeWorkflow(t *testing.T) {
 	u.AssertNil(t, err)
 
 	resumedRequest := workflow.NewRequest(request.Id, wflow, params)
+	resumedRequest.CanDoOffloading = true
 	resumedRequest.Resuming = true
 
 	resultMap, err2 := wflow.Invoke(resumedRequest)
