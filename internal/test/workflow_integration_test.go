@@ -603,9 +603,9 @@ func TestResumeWorkflow(t *testing.T) {
 	progress := workflow.InitProgress(workflow.ReqId(request.Id), wflow)
 	pd := workflow.NewPartialData(workflow.ReqId(request.Id), wflow.Start.Id, request.Params)
 
-	err = workflow.SaveProgress(progress, true)
+	err = workflow.SaveProgress(progress)
 	u.AssertNil(t, err)
-	err = workflow.SavePartialData(pd, true)
+	err = workflow.SavePartialData(pd)
 	u.AssertNil(t, err)
 
 	resumedRequest := workflow.NewRequest(request.Id, wflow, params)

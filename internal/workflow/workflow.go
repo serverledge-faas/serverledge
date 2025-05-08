@@ -438,10 +438,9 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 		progress = InitProgress(requestId, workflow)
 		pd = NewPartialData(requestId, workflow.Start.Id, r.Params)
 	} else {
-		var found bool
-		progress, found = RetrieveProgress(requestId, true)
-		if !found {
-			return ExecutionReport{}, fmt.Errorf("failed to retrieve workflow progress: %v", requestId)
+		progress, err = RetrieveProgress(requestId)
+		if err != nil {
+			return ExecutionReport{}, fmt.Errorf("failed to retrieve workflow progress: %v", err)
 		}
 		if len(progress.ReadyToExecute) == 0 {
 			return ExecutionReport{}, fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
@@ -450,10 +449,14 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 			return ExecutionReport{}, fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
 		}
 
-		pd, err = RetrieveSinglePartialData(requestId, progress.ReadyToExecute[0], true)
+		pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
 		if err != nil {
 			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
 		}
+		if len(pds) != 1 {
+			return ExecutionReport{}, fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
+		}
+		pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
 	}
 
 	shouldContinue := true
@@ -478,17 +481,19 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 	}
 
+	// TODO: delete  progress if needed
+
 	// TODO: remove r.ExecReport
 	return r.ExecReport, nil
 }
 
 func offload(r *Request, hostPort string, progress *Progress, pd *PartialData) error {
 
-	err := saveProgressToEtcd(progress)
+	err := SaveProgress(progress)
 	if err != nil {
 		return fmt.Errorf("Could not save progress: %v", err)
 	}
-	err = savePartialDataToEtcd(pd)
+	err = SavePartialData(pd)
 	if err != nil {
 		return fmt.Errorf("Could not save partial data: %v", err)
 	}
