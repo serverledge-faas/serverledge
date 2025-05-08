@@ -425,7 +425,7 @@ func (workflow *Workflow) Save() error {
 }
 
 // Invoke schedules each function of the workflow and invokes them
-func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
+func (workflow *Workflow) Invoke(r *Request) error {
 
 	var err error
 	requestId := ReqId(r.Id)
@@ -433,28 +433,27 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 	var progress *Progress
 	var pd *PartialData
 
-	// TODO: move into a function?
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
 		pd = NewPartialData(requestId, workflow.Start.Id, r.Params)
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
-			return ExecutionReport{}, fmt.Errorf("failed to retrieve workflow progress: %v", err)
+			return fmt.Errorf("failed to retrieve workflow progress: %v", err)
 		}
 		if len(progress.ReadyToExecute) == 0 {
-			return ExecutionReport{}, fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
+			return fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
 		} else if len(progress.ReadyToExecute) > 1 {
 			// TODO: manage case when len is > 1 (e.g., parallel branches)
-			return ExecutionReport{}, fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
+			return fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
 		}
 
 		pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
 		if err != nil {
-			return ExecutionReport{}, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
+			return fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
 		}
 		if len(pds) != 1 {
-			return ExecutionReport{}, fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
+			return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
 		}
 		pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
 	}
@@ -465,13 +464,13 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 		if err == nil && decision.Offload {
 			err = offload(r, decision.RemoteHost, progress, pd)
 			if err != nil {
-				return ExecutionReport{}, err
+				return err
 			}
 			shouldContinue = false
 		} else {
 			pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 			if err != nil {
-				return ExecutionReport{}, fmt.Errorf("failed workflow execution: %v", err)
+				return fmt.Errorf("failed workflow execution: %v", err)
 			}
 
 			if !shouldContinue {
@@ -483,8 +482,7 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 
 	// TODO: delete  progress if needed
 
-	// TODO: remove r.ExecReport
-	return r.ExecReport, nil
+	return nil
 }
 
 func offload(r *Request, hostPort string, progress *Progress, pd *PartialData) error {
