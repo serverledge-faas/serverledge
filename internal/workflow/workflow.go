@@ -436,7 +436,7 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 	// TODO: move into a function?
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
-		pd = NewPartialData(requestId, workflow.Start.Next, "", r.Params)
+		pd = NewPartialData(requestId, workflow.Start.Id, "", r.Params)
 	} else {
 		var found bool
 		progress, found = RetrieveProgress(requestId, true)
