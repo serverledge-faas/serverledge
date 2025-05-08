@@ -3,7 +3,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
 	u "github.com/serverledge-faas/serverledge/utils"
 	"testing"
@@ -120,29 +119,29 @@ func TestProgressCache(t *testing.T) {
 	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
 		wflow := workflows[i]
-		err := workflow.SaveProgress(progress, cache.Persist)
+		err := workflow.SaveProgress(progress)
 		u.AssertNilMsg(t, err, "failed to save progress")
 
-		retrievedProgress, found := workflow.RetrieveProgress(progress.ReqId, cache.Persist)
-		u.AssertTrueMsg(t, found, "progress not found")
+		retrievedProgress, err := workflow.RetrieveProgress(progress.ReqId)
+		u.AssertNilMsg(t, err, "progress not found")
 		u.AssertTrueMsg(t, progress.Equals(retrievedProgress), "progresses don't match")
 
 		progress.Complete(wflow.Start.Id)
 		progress.Complete(wflow.Start.Next)
 
-		err = workflow.SaveProgress(progress, cache.Persist)
+		err = workflow.SaveProgress(progress)
 		u.AssertNilMsg(t, err, "failed to save after update")
 
-		retrievedProgress, found = workflow.RetrieveProgress(progress.ReqId, cache.Persist)
-		u.AssertTrueMsg(t, found, "progress not found after update")
+		retrievedProgress, err = workflow.RetrieveProgress(progress.ReqId)
+		u.AssertNilMsg(t, err, "progress not found after update")
 		u.AssertTrueMsg(t, progress.Equals(retrievedProgress), "progresses don't match after update")
 
-		err = workflow.DeleteProgress(progress.ReqId, cache.Persist)
+		err = workflow.DeleteProgress(progress.ReqId)
 		u.AssertNilMsg(t, err, "failed to delete progress")
 
 		time.Sleep(200 * time.Millisecond)
 
-		_, found = workflow.RetrieveProgress(progress.ReqId, cache.Persist)
-		u.AssertFalseMsg(t, found, "progress should have been deleted")
+		_, err = workflow.RetrieveProgress(progress.ReqId)
+		u.AssertNonNilMsg(t, err, "progress not found after delete")
 	}
 }

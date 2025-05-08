@@ -53,7 +53,6 @@ func CacheSetup() {
 	// setup cache space
 	cache.Size = config.GetInt(config.CACHE_SIZE, 100)
 
-	cache.Persist = config.GetBool(config.CACHE_PERSISTENCE, true)
 	//setup cleanup interval
 	d := config.GetInt(config.CACHE_CLEANUP, 60)
 	interval := time.Duration(d)

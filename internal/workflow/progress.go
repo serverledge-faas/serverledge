@@ -6,21 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/utils"
 )
-
-type ProgressId string
-
-var progressMutexCache = &sync.Mutex{}
-var progressMutexEtcd = &sync.Mutex{}
-var progressCache = &sync.Map{} // Map[ProgressId, *Progress]
-
-func newProgressId(reqId ReqId) ProgressId {
-	return ProgressId("progress_" + reqId)
-}
 
 // Progress tracks the progress of a Workflow, i.e. which nodes are executed, and what is the next node to run. Workflow progress is saved in ETCD and retrieved by the next node
 type Progress struct {
@@ -118,43 +107,13 @@ func printType(t TaskType) string {
 	return ""
 }
 
-func (p *Progress) PopNextReady() (TaskId, error) {
-	if len(p.ReadyToExecute) == 0 {
-		return "", errors.New("no ready tasks")
-	}
-
-	t := p.ReadyToExecute[0]
-	p.ReadyToExecute = p.ReadyToExecute[1:]
-	return t, nil
-}
-
-func (p *Progress) PopAllNextReady() ([]TaskId, error) {
-	if len(p.ReadyToExecute) == 0 {
-		return nil, errors.New("no ready tasks")
-	}
-
-	t := p.ReadyToExecute
-	p.ReadyToExecute = make([]TaskId, 0)
-	return t, nil
-}
-
-func (p *Progress) IsCompleted() bool {
-	// TODO: might be more efficient checking on ReadyToExecute
-	for _, s := range p.Status {
-		if s == Pending {
-			return false
-		}
-	}
-	return true
-
-}
-
 // Complete sets the progress status of the node with the id input to 'Completed'
 func (p *Progress) Complete(id TaskId) {
 	p.Status[id] = Executed
 
 	for i, nid := range p.ReadyToExecute {
 		if nid == id {
+			// pop from the ready queue
 			p.ReadyToExecute = append(p.ReadyToExecute[:i], p.ReadyToExecute[i+1:]...)
 			break
 		}
@@ -212,20 +171,6 @@ func InitProgress(reqId ReqId, workflow *Workflow) *Progress {
 	return p
 }
 
-func (p *Progress) Print() {
-	fmt.Printf("%s", p.PrettyString())
-}
-
-func (p *Progress) PrettyString() string {
-	str := fmt.Sprintf("\nProgress for workflow request %s - G = node group, B = node branch\n", p.ReqId)
-	str += fmt.Sprintln("(        TaskID        ) - Status")
-	str += fmt.Sprintln("-------------------------------------------------")
-	for id, s := range p.Status {
-		str += fmt.Sprintf("(%-22s) - %s\n", id, printStatus(s))
-	}
-	return str
-}
-
 func (p *Progress) String() string {
 	tasks := "["
 	for i, s := range p.Status {
@@ -258,83 +203,8 @@ func (p *Progress) IsReady(id TaskId) bool {
 	return p.Status[id] == Pending
 }
 
-// SaveProgress should be used by a completed node after its execution
-func SaveProgress(p *Progress, alsoOnEtcd bool) error {
-	// save progress to etcd and in cache
-	if alsoOnEtcd {
-		err := saveProgressToEtcd(p)
-		if err != nil {
-			return err
-		}
-	}
-	inCache := saveProgressInCache(p)
-	if !inCache {
-		return errors.New("failed to save progress in cache")
-	}
-	return nil
-}
-
-// RetrieveProgress should be used by the next node to execute
-func RetrieveProgress(reqId ReqId, tryFromEtcd bool) (*Progress, bool) {
-	var err error
-
-	// Get from cache if exists, otherwise from ETCD
-	progress, found := getProgressFromCache(newProgressId(reqId))
-	if !found && tryFromEtcd {
-		// cache miss - retrieve progress from ETCD
-		progress, err = getProgressFromEtcd(reqId)
-		if err != nil {
-			log.Printf("failed to retrieve progress from Etcd %v: %v", reqId, err)
-			return nil, false
-		}
-		// insert a new element to the cache
-		ok := saveProgressInCache(progress)
-		if !ok {
-			return nil, false
-		}
-		return progress, true
-	}
-
-	return progress, found
-}
-
-func DeleteProgress(reqId ReqId, alsoFromEtcd bool) error {
-	// Remove the progress from the local cache
-	progressMutexCache.Lock()
-	progressCache.Delete(newProgressId(reqId))
-	progressMutexCache.Unlock()
-
-	if alsoFromEtcd {
-		cli, err := utils.GetEtcdClient()
-		if err != nil {
-			return fmt.Errorf("failed to connect to etcd: %v", err)
-		}
-		ctx := context.TODO()
-		progressMutexEtcd.Lock()
-		defer progressMutexEtcd.Unlock()
-		// remove the progress from ETCD
-		dresp, err := cli.Delete(ctx, getProgressEtcdKey(reqId))
-		if err != nil || dresp.Deleted != 1 {
-			return fmt.Errorf("failed progress delete: %v", err)
-		}
-	}
-	return nil
-}
-
-func getProgressEtcdKey(reqId ReqId) string {
-	return fmt.Sprintf("/progress/%s", reqId)
-}
-
-func saveProgressInCache(p *Progress) bool {
-	progressIdType := newProgressId(p.ReqId)
-	progressMutexCache.Lock()
-	defer progressMutexCache.Unlock()
-	_, _ = progressCache.LoadOrStore(progressIdType, p) // [ProgressId, *Progress]
-	return true
-}
-
-func saveProgressToEtcd(p *Progress) error {
-	// save in ETCD
+// SaveProgress saves Progress in Etcd
+func SaveProgress(p *Progress) error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
@@ -348,8 +218,7 @@ func saveProgressToEtcd(p *Progress) error {
 	// saves the json object into etcd
 	key := getProgressEtcdKey(p.ReqId)
 	log.Printf("Saving progress with key: %s", key)
-	progressMutexEtcd.Lock()
-	defer progressMutexEtcd.Unlock()
+
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
 		return fmt.Errorf("failed etcd Put: %v", err)
@@ -357,32 +226,19 @@ func saveProgressToEtcd(p *Progress) error {
 	return nil
 }
 
-func getProgressFromCache(progressId ProgressId) (*Progress, bool) {
-	c := progressCache
-	progressMutexCache.Lock()
-	defer progressMutexCache.Unlock()
-	progress, found := c.Load(progressId)
-	if !found {
-		return nil, false
-	}
-	return progress.(*Progress), true
-}
-
-func getProgressFromEtcd(requestId ReqId) (*Progress, error) {
+// RetrieveProgress retrieves Progress from Etcd
+func RetrieveProgress(reqId ReqId) (*Progress, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	key := getProgressEtcdKey(requestId)
-	progressMutexEtcd.Lock()
+	key := getProgressEtcdKey(reqId)
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil || len(getResponse.Kvs) < 1 {
-		progressMutexEtcd.Unlock()
 		return nil, fmt.Errorf("failed to retrieve progress for requestId: %s", key)
 	}
-	progressMutexEtcd.Unlock()
 
 	var progress Progress
 	err = json.Unmarshal(getResponse.Kvs[0].Value, &progress)
@@ -391,4 +247,21 @@ func getProgressFromEtcd(requestId ReqId) (*Progress, error) {
 	}
 
 	return &progress, nil
+}
+
+func DeleteProgress(reqId ReqId) error {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return fmt.Errorf("failed to connect to etcd: %v", err)
+	}
+	ctx := context.TODO()
+	dresp, err := cli.Delete(ctx, getProgressEtcdKey(reqId))
+	if err != nil || dresp.Deleted != 1 {
+		return fmt.Errorf("failed progress delete: %v", err)
+	}
+	return nil
+}
+
+func getProgressEtcdKey(reqId ReqId) string {
+	return fmt.Sprintf("/progress/%s", reqId)
 }
