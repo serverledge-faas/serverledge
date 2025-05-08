@@ -198,6 +198,7 @@ func create(cmd *cobra.Command, args []string) {
 	if runtime != "custom" {
 		var srcContent []byte
 		u, err := url.ParseRequestURI(src)
+		fmt.Println(u)
 		if err == nil && u.Scheme != "" && u.Host != "" {
 			// src is a URL
 			srcContent = []byte(src)

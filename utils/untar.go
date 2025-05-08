@@ -2,10 +2,10 @@ package utils
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // Modified from: https://github.com/golang/build/blob/master/internal/untar/untar.go
@@ -24,15 +24,7 @@ func Untar(r io.Reader, dir string) (err error) {
 			return err
 		}
 
-		// Strip the first component from the header name
-		components := strings.SplitN(header.Name, "/", 2)
-		var target string
-
-		if len(components) > 1 {
-			target = filepath.Join(dir, components[1]) // Skip the first component
-		} else {
-			target = filepath.Join(dir, header.Name) // No components to strip
-		}
+		target := filepath.Join(dir, header.Name)
 
 		// Check the file type
 		switch header.Typeflag {
@@ -42,6 +34,14 @@ func Untar(r io.Reader, dir string) (err error) {
 				return err
 			}
 		case tar.TypeReg:
+
+			// check if parent dirs exist
+			parentDir := filepath.Dir(target)
+			err := os.MkdirAll(parentDir, os.ModePerm) // os.ModePerm = 0777
+			if err != nil {
+				return fmt.Errorf("failed to create parent directories: %w", err)
+			}
+
 			// Create file
 			file, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
 			if err != nil {

@@ -152,6 +152,7 @@ func CreateFunction(c echo.Context) error {
 	if f.Runtime != container.CUSTOM_RUNTIME && f.Runtime != container.WASI_RUNTIME {
 		_, ok := container.RuntimeToInfo[f.Runtime]
 		if !ok {
+			log.Printf("Creation request with invalid runtime: %s\n", f.Runtime)
 			return c.JSON(http.StatusNotFound, "Invalid runtime.")
 		}
 	}

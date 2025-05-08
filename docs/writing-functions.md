@@ -69,8 +69,7 @@ WASI platform in Python at the following [link](https://github.com/brettcannon/c
 
 Serverledge assumes the structure of the `python.tar` file to be the following:
 
-- `func.py`: this can also be in a sub-directory and is specified in the
-  `handler` argument of the function creation
+- `func.py`: this can also be in a sub-directory and is specified in the `handler` argument of the function creation
 - `python.wasm`
 - `lib/`
 
