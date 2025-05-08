@@ -111,11 +111,11 @@ func TestInvokeFC(t *testing.T) {
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
 
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check result
-	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	output := cast.ToInt(request.ExecReport.Result[f.Signature.GetOutputs()[0].Name])
 	if length != output {
 		t.FailNow()
 	}
@@ -167,10 +167,10 @@ func TestInvokeChoiceFC(t *testing.T) {
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 	// checking the result, should be input + 1
-	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	output := cast.ToInt(request.ExecReport.Result[f.Signature.GetOutputs()[0].Name])
 	u.AssertEquals(t, input*2, output)
 
 	// cleaning up function composition and function
@@ -216,7 +216,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	params[fDouble.Signature.GetInputs()[0].Name] = 2
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	if err2 != nil {
 		log.Printf("%v\n", err2)
 		t.FailNow()
@@ -224,7 +224,7 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, err2)
 
 	// check result
-	output := cast.ToInt(resultMap.Result[fInc.Signature.GetOutputs()[0].Name])
+	output := cast.ToInt(request.ExecReport.Result[fInc.Signature.GetOutputs()[0].Name])
 	if output != 11 {
 		t.FailNow()
 	}
@@ -261,11 +261,11 @@ func TestInvokeFC_BroadcastFanOut(t *testing.T) {
 	params[fDouble.Signature.GetInputs()[0].Name] = 1
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check multiple result
-	output := resultMap.Result
+	output := request.ExecReport.Result
 
 	u.AssertNonNil(t, output)
 	for i := 0; i < width; i++ {
@@ -324,10 +324,10 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 			// wait until all goroutines are ready
 			<-start
 			// return error
-			resultMap, err2 := wflow.Invoke(request)
+			err2 := wflow.Invoke(request)
 			errChan <- err2
 			// return result
-			output := resultMap.Result[f.Signature.GetOutputs()[0].Name]
+			output := request.ExecReport.Result[f.Signature.GetOutputs()[0].Name]
 			resultChan <- output
 		}(i, resultChan, errChan, start)
 	}
@@ -380,11 +380,11 @@ func TestInvokeFC_ScatterFanOut(t *testing.T) {
 	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// check multiple result
-	output := resultMap.Result
+	output := request.ExecReport.Result
 	u.AssertNonNil(t, output)
 	for i := 0; i < width; i++ {
 		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
@@ -442,11 +442,11 @@ func TestInvokeSieveChoice(t *testing.T) {
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNil(t, err2)
 
 	// checking the result
-	output := resultMap.Result[sieveJs.Signature.GetOutputs()[1].Name]
+	output := request.ExecReport.Result[sieveJs.Signature.GetOutputs()[1].Name]
 	slice, err := u.ConvertToSlice(output)
 	u.AssertNil(t, err)
 
@@ -489,7 +489,7 @@ func TestInvokeWorkflowError(t *testing.T) {
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	_, err2 := wflow.Invoke(request)
+	err2 := wflow.Invoke(request)
 	u.AssertNonNil(t, err2)
 }
 
@@ -519,10 +519,10 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, errInvoke1 := wflow.Invoke(request)
+	errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the branch (succeed)")
 
-	result, err := GetIntSingleResult(&resultMap)
+	result, err := GetIntSingleResult(&request.ExecReport)
 	u.AssertNilMsg(t, err, "Result not found")
 	u.AssertEquals(t, 1, result)
 
@@ -531,11 +531,11 @@ func TestInvokeWorkflowFailAndSucceed(t *testing.T) {
 	params2["value"] = 2
 
 	request2 := workflow.NewRequest(shortuuid.New(), wflow, params2)
-	request.CanDoOffloading = false
-	resultMap2, errInvoke2 := wflow.Invoke(request2)
+	request2.CanDoOffloading = false
+	errInvoke2 := wflow.Invoke(request2)
 	u.AssertNilMsg(t, errInvoke2, "error while invoking the branch (fail)")
 
-	valueError, found := resultMap2.Result["FakeError"]
+	valueError, found := request2.ExecReport.Result["FakeError"]
 	u.AssertTrueMsg(t, found, "FakeError not found")
 	causeStr, ok := valueError.(string)
 
@@ -568,10 +568,10 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 	request.CanDoOffloading = false
-	resultMap, errInvoke1 := wflow.Invoke(request)
+	errInvoke1 := wflow.Invoke(request)
 	u.AssertNilMsg(t, errInvoke1, "error while invoking the composition with pass node")
 
-	result, err := GetIntSingleResult(&resultMap)
+	result, err := GetIntSingleResult(&request.ExecReport)
 	u.AssertNilMsg(t, err, "Result not found")
 	u.AssertEquals(t, 3, result)
 }
@@ -612,11 +612,11 @@ func TestResumeWorkflow(t *testing.T) {
 	resumedRequest.CanDoOffloading = true
 	resumedRequest.Resuming = true
 
-	resultMap, err2 := wflow.Invoke(resumedRequest)
+	err2 := wflow.Invoke(resumedRequest)
 	u.AssertNil(t, err2)
 
 	// check result
-	output := cast.ToInt(resultMap.Result[f.Signature.GetOutputs()[0].Name])
+	output := cast.ToInt(resumedRequest.ExecReport.Result[f.Signature.GetOutputs()[0].Name])
 	if length != output {
 		t.FailNow()
 	}

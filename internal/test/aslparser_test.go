@@ -61,7 +61,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	params := make(map[string]interface{})
 	params["input"] = "0"
 	request := workflow.NewRequest(shortuuid.New(), comp, params)
-	_, err2 := comp.Invoke(request)
+	err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
 }
 
@@ -124,8 +124,10 @@ func TestParsingChoiceWorkflowWithDefaultFail(t *testing.T) {
 	params := make(map[string]interface{})
 	params[incFn.Signature.GetInputs()[0].Name] = 10
 	request := workflow.NewRequest(shortuuid.New(), comp, params)
-	resultMap, err2 := comp.Invoke(request)
+	err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
+
+	resultMap := request.ExecReport
 
 	expectedKey := "DefaultStateError"
 	expectedValue := "No Matches!"
@@ -167,28 +169,28 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	params1 := make(map[string]interface{})
 	params1[incFn.Signature.GetInputs()[0].Name] = 1
 	request1 := workflow.NewRequest(shortuuid.New(), comp, params1)
-	resultMap1, err1 := comp.Invoke(request1)
+	err1 := comp.Invoke(request1)
 	utils.AssertNil(t, err1)
 
 	// checks that output is (1+1)*2=4
-	output := resultMap1.Result[incFn.Signature.GetOutputs()[0].Name]
+	output := request1.ExecReport.Result[incFn.Signature.GetOutputs()[0].Name]
 	utils.AssertEquals(t, 4, output.(int))
 	// runs the workflow (2nd choice branch) test: (input == 2)
 	params2 := make(map[string]interface{})
 	params2[incFn.Signature.GetInputs()[0].Name] = 2
 	request2 := workflow.NewRequest(shortuuid.New(), comp, params2)
-	resultMap, err2 := comp.Invoke(request2)
+	err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
 	// check that output is 2*2*2 = 8
-	output2 := resultMap.Result[incFn.Signature.GetOutputs()[0].Name]
+	output2 := request2.ExecReport.Result[incFn.Signature.GetOutputs()[0].Name]
 	utils.AssertEquals(t, 8, output2.(int))
 
 	// runs the workflow (default choice branch)
 	paramsDefault := make(map[string]interface{})
 	paramsDefault[incFn.Signature.GetInputs()[0].Name] = "Giacomo"
 	requestDefault := workflow.NewRequest(shortuuid.New(), comp, paramsDefault)
-	resultMap, errDef := comp.Invoke(requestDefault)
+	errDef := comp.Invoke(requestDefault)
 	utils.AssertNil(t, errDef)
 
 	deleteApiTest(t, "inc", HOST, PORT)
@@ -217,11 +219,11 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params["value"] = 1
 	//params["input"] = 1
 	request := workflow.NewRequest(shortuuid.New(), comp, params)
-	resultMap, err1 := comp.Invoke(request)
+	err1 := comp.Invoke(request)
 	utils.AssertNil(t, err1)
 
 	// checks the result (1+1+1 = 3)
-	output, err := GetIntSingleResult(&resultMap)
+	output, err := GetIntSingleResult(&request.ExecReport)
 	utils.AssertNilMsg(t, err, "failed to get int single result")
 	utils.AssertEquals(t, 3, output)
 
@@ -230,11 +232,11 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params2["type"] = "Private"
 	params2["value"] = 20
 	request2 := workflow.NewRequest(shortuuid.New(), comp, params2)
-	resultMap2, err2 := comp.Invoke(request2)
+	err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
 	// checks the result (20*2+1 = 41)
-	output2, err := GetIntSingleResult(&resultMap2)
+	output2, err := GetIntSingleResult(&request2.ExecReport)
 	utils.AssertNilMsg(t, err, "failed to get int single result")
 	utils.AssertEquals(t, 41, output2)
 

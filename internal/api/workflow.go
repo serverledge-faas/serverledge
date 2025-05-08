@@ -206,7 +206,7 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 
 	if req.Async {
 		go func() {
-			_, errInvoke := req.W.Invoke(req)
+			errInvoke := req.W.Invoke(req)
 
 			defer workflowInvocationRequestPool.Put(req)
 
@@ -229,7 +229,7 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 	}
 
 	// Synchronous execution of the workflow
-	_, err := req.W.Invoke(req)
+	err := req.W.Invoke(req)
 
 	defer workflowInvocationRequestPool.Put(req)
 
