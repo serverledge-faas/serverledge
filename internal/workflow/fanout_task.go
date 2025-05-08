@@ -93,7 +93,8 @@ func (f *FanOutTask) execute(progress *Progress, input *PartialData, r *Request)
 	 * case with Data field which contains a map[string]interface{} with the key set
 	 * to taskId and the value which is also a map[string]interface{} containing the
 	 * effective input for the nth-parallel task */
-	outputData := NewPartialData(ReqId(r.Id), "", f.GetId(), output)
+	// TODO: fix this
+	outputData := NewPartialData(ReqId(r.Id), "", output)
 	//newOutputDataMap := make(map[string]interface{})        // TODO: consider using a map of PartialData rather than a single PartialData object
 
 	progress.Complete(f.GetId())

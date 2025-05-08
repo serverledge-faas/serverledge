@@ -44,7 +44,7 @@ func (f *FailureTask) execute(progress *Progress, r *Request) (*PartialData, *Pr
 
 	output := make(map[string]interface{})
 	output[f.Error] = f.Cause
-	outputData := NewPartialData(ReqId(r.Id), f.GetNext()[0], f.GetId(), output)
+	outputData := NewPartialData(ReqId(r.Id), f.GetNext()[0], output)
 
 	progress.Complete(f.GetId())
 

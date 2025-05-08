@@ -62,7 +62,7 @@ func (c *ChoiceTask) AddOutput(workflow *Workflow, taskId TaskId) error {
 
 func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
 
-	outputData := NewPartialData(ReqId(r.Id), "", c.GetId(), nil) // partial initialization of outputData
+	outputData := NewPartialData(ReqId(r.Id), c.GetId(), nil) // partial initialization of outputData
 
 	// NOTE: we do not call task.CheckInput() as this task has no signature to match against
 

@@ -16,10 +16,9 @@ func TestPartialDataMarshaling(t *testing.T) {
 	data["num"] = 2
 	data["list"] = []string{"uno", "due", "tre"}
 	partialData := workflow.PartialData{
-		ReqId:    workflow.ReqId("abc"),
-		ForTask:  "fai13p102",
-		FromTask: "120e8d12d",
-		Data:     data,
+		ReqId:   workflow.ReqId("abc"),
+		ForTask: "fai13p102",
+		Data:    data,
 	}
 	marshal, errMarshal := json.Marshal(partialData)
 	u.AssertNilMsg(t, errMarshal, "error during marshaling")
@@ -104,9 +103,8 @@ func TestPartialDataCache(t *testing.T) {
 
 func initPartialData(reqId workflow.ReqId, to, from workflow.TaskId, data map[string]interface{}) *workflow.PartialData {
 	return &workflow.PartialData{
-		ReqId:    reqId,
-		ForTask:  to,
-		FromTask: from,
-		Data:     data,
+		ReqId:   reqId,
+		ForTask: to,
+		Data:    data,
 	}
 }
