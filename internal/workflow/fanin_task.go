@@ -26,7 +26,7 @@ func NewFanInTask(fanInDegree int) *FanInTask {
 }
 
 func (f *FanInTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
-	outputData := NewPartialData(ReqId(r.Id), f.GetNext()[0], f.GetId(), input.Data)
+	outputData := NewPartialData(ReqId(r.Id), f.GetNext()[0], input.Data)
 	progress.Complete(f.GetId())
 	err := progress.AddReadyTask(f.GetNext()[0])
 	if err != nil {

@@ -24,10 +24,9 @@ func newPartialDataId(reqId ReqId) PartialDataId {
 
 // PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
 type PartialData struct {
-	ReqId    ReqId  // request referring to this partial data
-	ForTask  TaskId // task that should receive this partial data
-	FromTask TaskId // useful for fanIn
-	Data     map[string]interface{}
+	ReqId   ReqId  // request referring to this partial data
+	ForTask TaskId // task that should receive this partial data
+	Data    map[string]interface{}
 }
 
 var pdCache = sync.Map{}
@@ -47,24 +46,22 @@ func (pd PartialData) Equals(pd2 *PartialData) bool {
 		}
 	}
 
-	return pd.ReqId == pd2.ReqId && pd.FromTask == pd2.FromTask && pd.ForTask == pd2.ForTask
+	return pd.ReqId == pd2.ReqId && pd.ForTask == pd2.ForTask
 }
 
 func (pd PartialData) String() string {
 	return fmt.Sprintf(`PartialData{
 		Id:    %s,
 		ForTask:  %s,
-		FromTask: %s,
 		Data:     %v,
-	}`, pd.ReqId, pd.ForTask, pd.FromTask, pd.Data)
+	}`, pd.ReqId, pd.ForTask, pd.Data)
 }
 
-func NewPartialData(reqId ReqId, forTask TaskId, fromTask TaskId, data map[string]interface{}) *PartialData {
+func NewPartialData(reqId ReqId, forTask TaskId, data map[string]interface{}) *PartialData {
 	return &PartialData{
-		ReqId:    reqId,
-		ForTask:  forTask,
-		FromTask: fromTask,
-		Data:     data,
+		ReqId:   reqId,
+		ForTask: forTask,
+		Data:    data,
 	}
 }
 

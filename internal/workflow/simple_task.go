@@ -41,7 +41,7 @@ func (s *SimpleTask) execute(progress *Progress, input *PartialData, r *Request)
 	}
 
 	nextTask := s.GetNext()[0]
-	outputData := NewPartialData(ReqId(r.Id), nextTask, s.Id, output)
+	outputData := NewPartialData(ReqId(r.Id), nextTask, output)
 
 	progress.Complete(s.Id)
 	err = progress.AddReadyTask(nextTask)

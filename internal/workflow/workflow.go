@@ -232,8 +232,8 @@ func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData
 		progress.Complete(parallelTasks[i].GetId())
 	}
 
-	outputData := NewPartialData(ReqId(r.Id), "", "", outputMap) // partial initialization of outputData
-	outputData.ForTask = parallelTasks[0].GetNext()[0]           // TODO: we are assuming that the next task is unique for all the parallel tasks (i.e. a FanIn)
+	outputData := NewPartialData(ReqId(r.Id), "", outputMap) // partial initialization of outputData
+	outputData.ForTask = parallelTasks[0].GetNext()[0]       // TODO: we are assuming that the next task is unique for all the parallel tasks (i.e. a FanIn)
 	progress.AddReadyTask(parallelTasks[0].GetNext()[0])
 	return outputData, progress, nil
 }
@@ -241,7 +241,7 @@ func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData
 func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
 
 	output := input.Data
-	outputData := NewPartialData(ReqId(r.Id), task.GetNext()[0], task.GetId(), output)
+	outputData := NewPartialData(ReqId(r.Id), task.GetNext()[0], output)
 
 	progress.Complete(task.GetId())
 
@@ -436,7 +436,7 @@ func (workflow *Workflow) Invoke(r *Request) (ExecutionReport, error) {
 	// TODO: move into a function?
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
-		pd = NewPartialData(requestId, workflow.Start.Id, "", r.Params)
+		pd = NewPartialData(requestId, workflow.Start.Id, r.Params)
 	} else {
 		var found bool
 		progress, found = RetrieveProgress(requestId, true)
