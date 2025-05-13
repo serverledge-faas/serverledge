@@ -101,6 +101,7 @@ var paramsFile string
 var asyncInvocation bool
 var verbose bool
 var returnOutput bool
+var update bool
 
 func Init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
@@ -117,6 +118,7 @@ func Init() {
 	invokeCmd.Flags().BoolVarP(&returnOutput, "ret_output", "o", false, "Capture function output (if supported by used runtime)")
 
 	rootCmd.AddCommand(createCmd)
+	createCmd.Flags().BoolVarP(&update, "update", "u", false, "Overwrite any function with the same name")
 	createCmd.Flags().StringVarP(&funcName, "function", "f", "", "name of the function")
 	createCmd.Flags().StringVarP(&runtime, "runtime", "", "python38", "runtime for the function")
 	createCmd.Flags().StringVarP(&handler, "handler", "", "", "function handler (runtime specific)")
@@ -324,7 +326,12 @@ func create(cmd *cobra.Command, args []string) {
 		showHelpAndExit(cmd)
 	}
 
-	url := fmt.Sprintf("http://%s:%d/create", ServerConfig.Host, ServerConfig.Port)
+	apiName := "create"
+	if update {
+		apiName = "update"
+	}
+
+	url := fmt.Sprintf("http://%s:%d/%s", ServerConfig.Host, ServerConfig.Port, apiName)
 	resp, err := utils.PostJson(url, requestBody)
 	if err != nil {
 		// TODO: check returned error code
@@ -471,9 +478,8 @@ func invokeWorkflow(cmd *cobra.Command, args []string) {
 
 	// Prepare request // TODO: it's ok to reuse the same type that function invocation uses?
 	request := client.InvocationRequest{
-		Params:   paramsMap,
-		QoSClass: api.DecodeServiceClass(qosClass),
-		// QoSClass:        qosClass,
+		Params:          paramsMap,
+		QoSClass:        api.DecodeServiceClass(qosClass),
 		QoSMaxRespT:     qosMaxRespT,
 		CanDoOffloading: true,
 		Async:           asyncInvocation}

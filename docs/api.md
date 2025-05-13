@@ -37,6 +37,14 @@
 > | `503`         | `text/plain`              |  |    Creation failed                        |
 
 
+### Updating a function
+
+ <code>POST</code> <code><b>/update</b></code> (registers a new function or updates one)
+
+See `/create` above. The only difference is that `/update` does not return any
+error if a function with the same name already exists. 
+
+
 
 ------------------------------------------------------------------------------------------
 ### Deleting a function

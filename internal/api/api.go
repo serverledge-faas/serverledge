@@ -132,8 +132,8 @@ func PollAsyncResult(c echo.Context) error {
 	}
 }
 
-// CreateFunction handles a function creation request.
-func CreateFunction(c echo.Context) error {
+// CreateOrUpdateFunction handles a function creation/update request.
+func CreateOrUpdateFunction(c echo.Context) error {
 	var f function.Function
 	err := json.NewDecoder(c.Request().Body).Decode(&f)
 	if err != nil && err != io.EOF {
@@ -141,13 +141,17 @@ func CreateFunction(c echo.Context) error {
 		return err
 	}
 
-	_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
-	if ok {
-		log.Printf("Dropping request for already existing function '%s'\n", f.Name)
-		return c.String(http.StatusConflict, "")
-	}
+	if c.Path() != "/update" {
+		_, ok := function.GetFunction(f.Name) // TODO: we would need a system-wide lock here...
+		if ok {
+			log.Printf("Dropping request for already existing function '%s'\n", f.Name)
+			return c.String(http.StatusConflict, "")
+		}
 
-	log.Printf("New request: creation of %s\n", f.Name)
+		log.Printf("New request: creation of %s\n", f.Name)
+	} else {
+		log.Printf("New request: creation/update of %s\n", f.Name)
+	}
 
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME {
