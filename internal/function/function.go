@@ -18,6 +18,7 @@ type Function struct {
 	Runtime         string  // example: python310
 	MemoryMB        int64   // MB
 	CPUDemand       float64 // 1.0 -> 1 core
+	MaxConcurrency  int16   // intra-container maximum concurrency
 	Handler         string  // example: "module.function_name"
 	TarFunctionCode string  // input is .tar
 	CustomImage     string  // used if custom runtime is chosen

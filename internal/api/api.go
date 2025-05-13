@@ -155,10 +155,27 @@ func CreateOrUpdateFunction(c echo.Context) error {
 
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME {
-		_, ok := container.RuntimeToInfo[f.Runtime]
+		runtime, ok := container.RuntimeToInfo[f.Runtime]
 		if !ok {
 			return c.JSON(http.StatusNotFound, "Invalid runtime.")
 		}
+		if f.MaxConcurrency > 1 && !runtime.ConcurrencySupported {
+			log.Printf("Forcing max concurrency = 1 for runtime %s\n", f.Runtime)
+			f.MaxConcurrency = 1
+		}
+	} else {
+		if f.MaxConcurrency > 1 {
+			log.Printf("Forcing max concurrency = 1 for runtime %s\n", f.Runtime)
+			f.MaxConcurrency = 1
+		}
+	}
+
+	if f.MemoryMB < 1 {
+		return c.String(http.StatusUnprocessableEntity, "Invalid memory limit")
+	}
+
+	if f.MaxConcurrency <= 0 {
+		f.MaxConcurrency = 1
 	}
 
 	err = f.SaveToEtcd()

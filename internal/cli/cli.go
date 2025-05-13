@@ -102,6 +102,7 @@ var asyncInvocation bool
 var verbose bool
 var returnOutput bool
 var update bool
+var maxConcurrency int16
 
 func Init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
@@ -123,6 +124,7 @@ func Init() {
 	createCmd.Flags().StringVarP(&runtime, "runtime", "", "python38", "runtime for the function")
 	createCmd.Flags().StringVarP(&handler, "handler", "", "", "function handler (runtime specific)")
 	createCmd.Flags().Int64VarP(&memory, "memory", "", 128, "memory (in MB) for the function")
+	createCmd.Flags().Int16VarP(&maxConcurrency, "max_concurrency", "C", 1, "max concurrency for the function (if supported by the runtime)")
 	createCmd.Flags().Float64VarP(&cpuDemand, "cpu", "", 0.0, "estimated CPU demand for the function (1.0 = 1 core)")
 	createCmd.Flags().StringVarP(&src, "src", "", "", "source for the function (single file, directory or TAR archive) (not necessary for runtime==custom)")
 	createCmd.Flags().StringVarP(&customImage, "custom_image", "", "", "custom container image (only if runtime == 'custom')")
@@ -315,6 +317,7 @@ func create(cmd *cobra.Command, args []string) {
 		Name:            funcName,
 		Handler:         handler,
 		Runtime:         runtime,
+		MaxConcurrency:  maxConcurrency,
 		MemoryMB:        memory,
 		CPUDemand:       cpuDemand,
 		TarFunctionCode: encoded,
