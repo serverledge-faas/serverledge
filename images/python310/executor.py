@@ -1,4 +1,5 @@
 # Python 3 server example
+from socketserver import ThreadingMixIn
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import time
 import os
@@ -40,6 +41,10 @@ class CaptureOutput:
 
     def get_stderr(self):
         return self._stderr_output
+
+
+class ThreadingSimpleServer(ThreadingMixIn, HTTPServer):
+    pass
 
 class Executor(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -105,7 +110,7 @@ class Executor(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    webServer = HTTPServer((hostName, serverPort), Executor)
+    webServer = ThreadingSimpleServer((hostName, serverPort), Executor)
     print("Server started http://%s:%s" % (hostName, serverPort))
 
     try:
