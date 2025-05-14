@@ -54,7 +54,7 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 			// start, but also allows us to check for resource
 			// availability before dequeueing
 			go func() {
-				newContainer, err := node.NewContainerWithAcquiredResources(req.Fun)
+				newContainer, err := node.NewContainerWithAcquiredResources(req.Fun, false)
 				if err != nil {
 					dropRequest(req)
 				} else {
@@ -74,17 +74,13 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 
 // OnArrival for default policy is executed every time a function is invoked, before invoking the function
 func (p *DefaultLocalPolicy) OnArrival(r *scheduledRequest) {
-	containerID, err := node.AcquireWarmContainer(r.Fun)
+	containerID, warm, err := node.AcquireContainer(r.Fun)
 	if err == nil {
-		execLocally(r, containerID, true) // decides to execute locally
+		execLocally(r, containerID, warm) // decides to execute locally
 		return
 	}
 
-	if errors.Is(err, node.NoWarmFoundErr) {
-		if handleColdStart(r) { // initialize container and executes locally
-			return
-		}
-	} else if errors.Is(err, node.OutOfResourcesErr) {
+	if errors.Is(err, node.OutOfResourcesErr) {
 		// pass
 	} else {
 		// other error

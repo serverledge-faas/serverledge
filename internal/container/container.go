@@ -14,32 +14,37 @@ import (
 )
 
 // NewContainer creates and starts a new container.
-func NewContainer(image, codeTar string, opts *ContainerOptions) (ContainerID, error) {
+func NewContainer(image, codeTar string, opts *ContainerOptions) (*Container, error) {
 	contID, err := cf.Create(image, opts) // cf = container factory
 	if err != nil {
 		log.Printf("Failed container creation\n")
-		return "", err
+		return nil, err
 	}
 
 	if len(codeTar) > 0 {
 		decodedCode, errDecode := base64.StdEncoding.DecodeString(codeTar)
 		if errDecode != nil {
 			log.Printf("Failed code decode\n")
-			return "", errDecode
+			return nil, errDecode
 		}
 		err = cf.CopyToContainer(contID, bytes.NewReader(decodedCode), "/app/")
 		if err != nil {
 			log.Printf("Failed code copy\n")
-			return "", err
+			return nil, err
 		}
 	}
 	// Starts the container after copying the code in it
 	err = cf.Start(contID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return contID, nil
+	container := &Container{
+		ID:            contID,
+		RequestsCount: 0,
+	}
+
+	return container, nil
 }
 
 // Execute interacts with the Executor running in the container to invoke the

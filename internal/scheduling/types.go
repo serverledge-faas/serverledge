@@ -13,7 +13,7 @@ type scheduledRequest struct {
 
 type completionNotification struct {
 	fun             *function.Function
-	contID          container.ContainerID
+	cont            *container.Container
 	executionReport *function.ExecutionReport
 }
 
@@ -22,7 +22,7 @@ type completionNotification struct {
 // Node (offloading).
 type schedDecision struct {
 	action     action
-	contID     container.ContainerID
+	cont       *container.Container
 	remoteHost string
 	useWarm    bool
 }

@@ -2,8 +2,6 @@ package scheduling
 
 import (
 	"github.com/serverledge-faas/serverledge/internal/function"
-	"log"
-
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
@@ -25,11 +23,9 @@ func (p *EdgePolicy) OnArrival(r *scheduledRequest) {
 			return
 		}
 	} else {
-		containerID, err := node.AcquireWarmContainer(r.Fun)
+		containerID, warm, err := node.AcquireContainer(r.Fun)
 		if err == nil {
-			log.Printf("Using a warm container for: %v\n", r)
-			execLocally(r, containerID, true)
-		} else if handleColdStart(r) {
+			execLocally(r, containerID, warm)
 			return
 		}
 	}

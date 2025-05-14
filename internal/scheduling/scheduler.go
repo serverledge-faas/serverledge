@@ -1,7 +1,6 @@
 package scheduling
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -59,7 +58,7 @@ func Run(p Policy) {
 		case r = <-requests: // receive request
 			go p.OnArrival(r)
 		case c = <-completions:
-			node.ReleaseContainer(c.contID, c.fun)
+			node.HandleCompletion(c.cont, c.fun)
 			p.OnCompletion(c.fun, c.executionReport)
 
 			if metrics.Enabled && c.executionReport != nil {
@@ -68,6 +67,7 @@ func Run(p Policy) {
 					metrics.AddFunctionDurationValue(c.fun.Name, c.executionReport.Duration)
 				}
 			}
+
 		}
 	}
 
@@ -102,7 +102,7 @@ func SubmitRequest(r *function.Request) (function.ExecutionReport, error) {
 		//log.Printf("Offloading request")
 		return Offload(r, schedDecision.remoteHost)
 	} else {
-		return Execute(schedDecision.contID, &schedRequest, schedDecision.useWarm)
+		return Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
 	}
 }
 
@@ -130,7 +130,7 @@ func SubmitAsyncRequest(r *function.Request) {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
 		}
 	} else {
-		report, err := Execute(schedDecision.contID, &schedRequest, schedDecision.useWarm)
+		report, err := Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
 		if err != nil {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
 		}
@@ -138,31 +138,12 @@ func SubmitAsyncRequest(r *function.Request) {
 	}
 }
 
-func handleColdStart(r *scheduledRequest) (isSuccess bool) {
-	if telemetry.DefaultTracer != nil {
-		trace.SpanFromContext(r.Ctx).AddEvent("Container init start")
-	}
-	newContainer, err := node.NewContainer(r.Fun)
-	if errors.Is(err, node.OutOfResourcesErr) {
-		return false
-	} else if err != nil {
-		log.Printf("Cold start failed: %v\n", err)
-		return false
-	} else {
-		if telemetry.DefaultTracer != nil {
-			trace.SpanFromContext(r.Ctx).AddEvent("Container initialized")
-		}
-		execLocally(r, newContainer, false)
-		return true
-	}
-}
-
 func dropRequest(r *scheduledRequest) {
 	r.decisionChannel <- schedDecision{action: DROP}
 }
 
-func execLocally(r *scheduledRequest, c container.ContainerID, warmStart bool) {
-	decision := schedDecision{action: EXEC_LOCAL, contID: c, useWarm: warmStart}
+func execLocally(r *scheduledRequest, c *container.Container, warmStart bool) {
+	decision := schedDecision{action: EXEC_LOCAL, cont: c, useWarm: warmStart}
 	r.decisionChannel <- decision
 }
 
@@ -170,7 +151,7 @@ func handleOffload(r *scheduledRequest, serverHost string) {
 	r.CanDoOffloading = false // the next server can't offload this request
 	r.decisionChannel <- schedDecision{
 		action:     EXEC_REMOTE,
-		contID:     "",
+		cont:       nil,
 		remoteHost: serverHost,
 	}
 }

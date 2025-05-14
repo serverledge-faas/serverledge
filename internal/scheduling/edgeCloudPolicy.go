@@ -18,11 +18,9 @@ func (p *CloudEdgePolicy) OnCompletion(_ *function.Function, _ *function.Executi
 }
 
 func (p *CloudEdgePolicy) OnArrival(r *scheduledRequest) {
-	containerID, err := node.AcquireWarmContainer(r.Fun)
+	containerID, warm, err := node.AcquireContainer(r.Fun)
 	if err == nil {
-		execLocally(r, containerID, true)
-	} else if handleColdStart(r) {
-		return
+		execLocally(r, containerID, warm)
 	} else if r.CanDoOffloading {
 		handleCloudOffload(r)
 	} else {

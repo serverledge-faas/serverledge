@@ -13,9 +13,9 @@ import (
 const HANDLER_DIR = "/app"
 
 // Execute serves a request on the specified container.
-func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (function.ExecutionReport, error) {
+func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) (function.ExecutionReport, error) {
 
-	log.Printf("[%s] Executing on container: %v", r.Fun, contID)
+	log.Printf("[%s] Executing on container: %v", r.Fun, cont.ID)
 
 	var req executor.InvocationRequest
 	if r.Fun.Runtime == container.CUSTOM_RUNTIME {
@@ -37,10 +37,10 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	t0 := time.Now()
 	initTime := t0.Sub(r.Arrival).Seconds()
 
-	response, invocationWait, err := container.Execute(contID, &req)
+	response, invocationWait, err := container.Execute(cont.ID, &req)
 
 	if err != nil {
-		logs, errLog := container.GetLog(contID)
+		logs, errLog := container.GetLog(cont.ID)
 		if errLog == nil {
 			fmt.Println(logs)
 		} else {
@@ -48,13 +48,13 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 		}
 
 		// notify scheduler
-		completions <- &completionNotification{fun: r.Fun, contID: contID, executionReport: nil}
-		return function.ExecutionReport{}, fmt.Errorf("[%s] Execution failed on container %v: %v ", r, contID, err)
+		completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: nil}
+		return function.ExecutionReport{}, fmt.Errorf("[%s] Execution failed on container %v: %v ", r, cont.ID, err)
 	}
 
 	if !response.Success {
 		// notify scheduler
-		completions <- &completionNotification{fun: r.Fun, contID: contID, executionReport: nil}
+		completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: nil}
 		return function.ExecutionReport{}, fmt.Errorf("Function execution failed")
 	}
 
@@ -69,7 +69,7 @@ func Execute(contID container.ContainerID, r *scheduledRequest, isWarm bool) (fu
 	report.InitTime = initTime + invocationWait.Seconds()
 
 	// notify scheduler
-	completions <- &completionNotification{fun: r.Fun, contID: contID, executionReport: &report}
+	completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: &report}
 
 	return report, nil
 }

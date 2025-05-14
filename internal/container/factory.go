@@ -27,6 +27,12 @@ type ContainerOptions struct {
 
 type ContainerID = string
 
+type Container struct {
+	ID             ContainerID
+	RequestsCount  int16
+	ExpirationTime int64
+}
+
 // cf is the container factory for the node
 var cf Factory
 
