@@ -35,10 +35,3 @@ type Container struct {
 
 // cf is the container factory for the node
 var cf Factory
-
-func DownloadImage(image string, forceRefresh bool) error {
-	if forceRefresh || !cf.HasImage(image) {
-		return cf.PullImage(image)
-	}
-	return nil
-}

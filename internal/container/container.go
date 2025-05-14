@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/function"
 	"io"
 	"log"
 	"net/http"
@@ -13,8 +14,41 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/executor"
 )
 
-// NewContainer creates and starts a new container.
-func NewContainer(image, codeTar string, opts *ContainerOptions) (*Container, error) {
+// CreateContainer creates and starts a new container.
+func CreateContainer(f *function.Function, forceImagePull bool) (*Container, error) {
+	image, err := getImageForFunction(f)
+	if err != nil {
+		return nil, err
+	}
+	if forceImagePull {
+		err := cf.PullImage(image)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newContainer(image, f.TarFunctionCode, &ContainerOptions{
+		MemoryMB: f.MemoryMB,
+		CPUQuota: f.CPUDemand,
+	})
+}
+
+func getImageForFunction(fun *function.Function) (string, error) {
+	var image string
+	if fun.Runtime == CUSTOM_RUNTIME {
+		image = fun.CustomImage
+	} else {
+		runtime, ok := RuntimeToInfo[fun.Runtime]
+		if !ok {
+			log.Printf("Unknown runtime: %s\n", fun.Runtime)
+			return "", fmt.Errorf("Invalid runtime: %s", fun.Runtime)
+		}
+		image = runtime.Image
+	}
+	return image, nil
+}
+
+// CreateContainer creates and starts a new container.
+func newContainer(image, codeTar string, opts *ContainerOptions) (*Container, error) {
 	contID, err := cf.Create(image, opts) // cf = container factory
 	if err != nil {
 		log.Printf("Failed container creation\n")

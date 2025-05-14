@@ -54,7 +54,7 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 			// start, but also allows us to check for resource
 			// availability before dequeueing
 			go func() {
-				newContainer, err := node.NewContainerWithAcquiredResources(req.Fun, false)
+				newContainer, err := node.NewContainerWithAcquiredResources(req.Fun, false, false)
 				if err != nil {
 					dropRequest(req)
 				} else {

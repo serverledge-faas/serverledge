@@ -3,7 +3,6 @@ package node
 import (
 	"container/list"
 	"errors"
-	"fmt"
 	"log"
 	"time"
 
@@ -151,7 +150,7 @@ func AcquireContainer(f *function.Function) (*container.Container, bool, error) 
 	if !AcquireResources(f.CPUDemand, f.MemoryMB, true) {
 		return nil, false, OutOfResourcesErr
 	}
-	c, err = NewContainerWithAcquiredResources(f, false)
+	c, err = NewContainerWithAcquiredResources(f, false, false)
 	return c, false, err
 }
 
@@ -188,7 +187,7 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 // NewContainer creates and starts a new container for the given function.
 // The container can be directly used to schedule a request, as it is already
 // in the busy pool.
-func NewContainer(fun *function.Function, markAsIdle bool) (*container.Container, error) {
+func NewContainer(fun *function.Function, markAsIdle bool, forceImagePull bool) (*container.Container, error) {
 	Resources.Lock()
 	if !acquireResources(fun.CPUDemand, fun.MemoryMB, true) {
 		//log.Printf("Not enough resources for the new container.\n")
@@ -199,37 +198,14 @@ func NewContainer(fun *function.Function, markAsIdle bool) (*container.Container
 	//log.Printf("Acquired resources for new container. Now: %v", Resources)
 	Resources.Unlock()
 
-	return NewContainerWithAcquiredResources(fun, markAsIdle)
-}
-
-func getImageForFunction(fun *function.Function) (string, error) {
-	var image string
-	if fun.Runtime == container.CUSTOM_RUNTIME {
-		image = fun.CustomImage
-	} else {
-		runtime, ok := container.RuntimeToInfo[fun.Runtime]
-		if !ok {
-			log.Printf("Unknown runtime: %s\n", fun.Runtime)
-			return "", fmt.Errorf("Invalid runtime: %s", fun.Runtime)
-		}
-		image = runtime.Image
-	}
-	return image, nil
+	return NewContainerWithAcquiredResources(fun, markAsIdle, forceImagePull)
 }
 
 // NewContainerWithAcquiredResources spawns a new container for the given
 // function, assuming that the required CPU and memory resources have been
 // already been acquired.
-func NewContainerWithAcquiredResources(fun *function.Function, startAsIdle bool) (*container.Container, error) {
-	image, err := getImageForFunction(fun)
-	if err != nil {
-		return nil, err
-	}
-
-	cont, err := container.NewContainer(image, fun.TarFunctionCode, &container.ContainerOptions{
-		MemoryMB: fun.MemoryMB,
-		CPUQuota: fun.CPUDemand,
-	})
+func NewContainerWithAcquiredResources(fun *function.Function, startAsIdle bool, forceImagePull bool) (*container.Container, error) {
+	cont, err := container.CreateContainer(fun, false)
 
 	if err != nil {
 		log.Printf("Failed container creation: %v\n", err)
@@ -436,23 +412,15 @@ func WarmStatus() map[string]int {
 }
 
 func PrewarmInstances(f *function.Function, count int64, forcePull bool) (int64, error) {
-	image, err := getImageForFunction(f)
-	if err != nil {
-		return 0, err
-	}
-	err = container.DownloadImage(image, forcePull)
-	if err != nil {
-		return 0, err
-	}
-
 	var spawned int64 = 0
 	for spawned < count {
-		_, err = NewContainer(f, true)
+		_, err := NewContainer(f, true, forcePull)
 		if err != nil {
 			log.Printf("Prespawning failed: %v\n", err)
 			return spawned, err
 		}
 		spawned += 1
+		forcePull = false // not needed more than once
 	}
 
 	return spawned, nil
