@@ -151,7 +151,7 @@ func AcquireContainer(f *function.Function) (*container.Container, bool, error) 
 	if !AcquireResources(f.CPUDemand, f.MemoryMB, true) {
 		return nil, false, OutOfResourcesErr
 	}
-	c, err = NewContainer(f, false)
+	c, err = NewContainerWithAcquiredResources(f, false)
 	return c, false, err
 }
 

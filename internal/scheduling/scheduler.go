@@ -67,7 +67,6 @@ func Run(p Policy) {
 					metrics.AddFunctionDurationValue(c.fun.Name, c.executionReport.Duration)
 				}
 			}
-
 		}
 	}
 
