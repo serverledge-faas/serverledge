@@ -65,7 +65,7 @@ func (b *Builder) AddSimpleNode(f *function.Function) *Builder {
 	simpleNode := NewSimpleTask(f.Name)
 
 	b.workflow.add(simpleNode)
-	err := b.workflow.chain(b.prevNode, simpleNode)
+	err := b.prevNode.AddNext(simpleNode)
 	if err != nil {
 		b.appendError(err)
 		return b
@@ -88,7 +88,7 @@ func (b *Builder) AddSimpleNodeWithId(f *function.Function, id string) *Builder 
 	simpleNode.Id = TaskId(id)
 
 	b.workflow.add(simpleNode)
-	err := b.workflow.chain(b.prevNode, simpleNode)
+	err := b.prevNode.AddNext(simpleNode)
 	if err != nil {
 		b.appendError(err)
 		return b
@@ -111,14 +111,14 @@ func (b *Builder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder {
 	choiceNode := NewChoiceTask(conditions)
 	b.branches = len(conditions)
 	b.workflow.add(choiceNode)
-	err := b.workflow.chain(b.prevNode, choiceNode)
+	err := b.prevNode.AddNext(choiceNode)
 	if err != nil {
 		b.appendError(err)
 		return &ChoiceBranchBuilder{builder: b, completed: 0}
 	}
 	b.prevNode = choiceNode
 	emptyBranches := make([]TaskId, 0, b.branches)
-	choiceNode.Alternatives = emptyBranches
+	choiceNode.NextTasks = emptyBranches
 	// we construct a new slice with capacity (b.branches) and size 0
 	// Here we cannot chain directly, because we do not know which alternative to chain to which node
 	// so we return a ChoiceBranchBuilder
@@ -138,7 +138,7 @@ func (b *Builder) AddScatterFanOutNode(fanOutDegree int) *ParallelScatterBranchB
 	}
 	fanOut := NewFanOutTask(fanOutDegree, Scatter)
 	b.workflow.add(fanOut)
-	err := b.workflow.chain(b.prevNode, fanOut)
+	err := b.prevNode.AddNext(fanOut)
 	if err != nil {
 		b.appendError(err)
 		return &ParallelScatterBranchBuilder{builder: b, completed: 0, terminalNodes: make([]Task, 0)}
@@ -158,7 +158,7 @@ func (b *Builder) AddBroadcastFanOutNode(fanOutDegree int) *ParallelBroadcastBra
 	}
 	fanOut := NewFanOutTask(fanOutDegree, Broadcast)
 	b.workflow.add(fanOut)
-	err := b.workflow.chain(b.prevNode, fanOut)
+	err := b.prevNode.AddNext(fanOut)
 	if err != nil {
 		b.appendError(err)
 		return &ParallelBroadcastBranchBuilder{builder: b, completed: 0, terminalNodes: make([]Task, 0)}
@@ -187,11 +187,11 @@ func (c *ChoiceBranchBuilder) NextBranch(toMerge *Workflow, err1 error) *ChoiceB
 	if c.HasNextBranch() {
 		c.builder.BranchNumber++
 		// getting start.Next from the toMerge
-		startNext, _ := toMerge.Find(toMerge.Start.Next)
+		startNext, _ := toMerge.Find(toMerge.Start.GetNext()[0])
 		// chains the alternative to the input workflow, which is already connected to a whole series of nodes
 		if !toMerge.IsEmpty() {
 			c.builder.workflow.add(startNext)
-			err := c.builder.workflow.chain(c.builder.prevNode.(*ChoiceTask), startNext)
+			err := c.builder.prevNode.AddNext(startNext)
 			if err != nil {
 				c.builder.appendError(err)
 			}
@@ -214,7 +214,7 @@ func (c *ChoiceBranchBuilder) NextBranch(toMerge *Workflow, err1 error) *ChoiceB
 					// chain the last node(s) of the input workflow to the end node of the building workflow
 
 					if n.GetNext() != nil && len(n.GetNext()) > 0 && nextNode == toMerge.End {
-						errEnd := c.builder.workflow.ChainToEndTask(n)
+						errEnd := n.AddNext(c.builder.workflow.End)
 						if errEnd != nil {
 							c.builder.appendError(errEnd)
 							return c
@@ -250,13 +250,13 @@ func (c *ChoiceBranchBuilder) EndNextBranch() *ChoiceBranchBuilder {
 		// chain the alternative of the choice node to the end node of the building workflow
 		choice := c.builder.prevNode.(*ChoiceTask)
 		var alternative Task
-		if c.completed < len(choice.Alternatives) {
-			x := choice.Alternatives[c.completed]
+		if c.completed < len(choice.NextTasks) {
+			x := choice.NextTasks[c.completed]
 			alternative, _ = workflow.Find(x)
 		} else {
 			alternative = choice // this is when a choice branch directly goes to end node
 		}
-		err := c.builder.workflow.ChainToEndTask(alternative)
+		err := alternative.AddNext(c.builder.workflow.End)
 		if err != nil {
 			c.builder.appendError(err)
 			return c
@@ -303,9 +303,9 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 		if err != nil {
 			c.builder.appendError(err)
 		}
-		nextNode, _ := workflowCopy.Find(workflowCopy.Start.Next)
+		nextNode, _ := workflowCopy.Find(workflowCopy.Start.GetNext()[0])
 		c.builder.workflow.add(nextNode)
-		err = c.builder.workflow.chain(choiceNode, nextNode)
+		err = choiceNode.AddNext(nextNode)
 		if err != nil {
 			c.builder.appendError(err)
 		}
@@ -324,7 +324,7 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 				c.builder.workflow.add(n)
 				// chain the last node(s) of the input workflow to the end node of the building workflow
 				if n.GetNext() != nil && len(n.GetNext()) > 0 && n.GetNext()[0] == workflowCopy.End.GetId() {
-					errEnd := c.builder.workflow.ChainToEndTask(n)
+					errEnd := n.AddNext(c.builder.workflow.End)
 					if errEnd != nil {
 						c.builder.appendError(errEnd)
 						return c
@@ -352,9 +352,9 @@ func (p *ParallelBroadcastBranchBuilder) ForEachParallelBranch(dagger func() (*W
 		if err != nil {
 			p.builder.appendError(err)
 		}
-		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
+		next, _ := workflowCopy.Find(workflowCopy.Start.GetNext()[0])
 		p.builder.workflow.add(next)
-		err = p.builder.workflow.chain(fanOutNode, next)
+		err = fanOutNode.AddNext(next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
@@ -396,9 +396,9 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 		if err != nil {
 			p.builder.appendError(err)
 		}
-		next, _ := workflowCopy.Find(workflowCopy.Start.Next)
+		next, _ := workflowCopy.Find(workflowCopy.Start.GetNext()[0])
 		p.builder.workflow.add(next)
-		err = p.builder.workflow.chain(fanOutNode, next)
+		err = fanOutNode.AddNext(next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
@@ -427,15 +427,28 @@ func (p *ParallelScatterBranchBuilder) ForEachParallelBranch(dagger func() (*Wor
 	return p
 }
 
+func getWidth(t Task) int {
+	switch task := t.(type) {
+	case *ChoiceTask:
+		return len(task.Conditions)
+	case *FanOutTask:
+		return task.FanOutDegree
+	case *FanInTask:
+		return task.FanInDegree
+	}
+
+	return 1
+}
+
 func (p *ParallelScatterBranchBuilder) AddFanInNode() *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
-	workflow := &p.builder.workflow
-	fanInNode := NewFanInTask(p.builder.prevNode.Width())
+
+	fanInNode := NewFanInTask(getWidth(p.builder.prevNode))
 	p.builder.BranchNumber++
 	// TODO: set fanin inside fanout, so that we know which fanin are dealing with
 	for _, n := range p.terminalNodes {
 		// terminal nodes
-		errAdd := n.AddOutput(workflow, fanInNode.GetId())
+		errAdd := n.AddNext(fanInNode)
 		if errAdd != nil {
 			p.builder.appendError(errAdd)
 			return p.builder
@@ -455,12 +468,11 @@ func (p *ParallelScatterBranchBuilder) AddFanInNode() *Builder {
 
 func (p *ParallelBroadcastBranchBuilder) AddFanInNode() *Builder {
 	//fmt.Println("Added fan in node after fanout in Workflow")
-	workflow := &p.builder.workflow
-	fanInNode := NewFanInTask(p.builder.prevNode.Width())
+	fanInNode := NewFanInTask(getWidth(p.builder.prevNode))
 	p.builder.BranchNumber++
 	for _, n := range p.terminalNodes {
 		// terminal nodes
-		errAdd := n.AddOutput(workflow, fanInNode.GetId())
+		errAdd := n.AddNext(fanInNode)
 		if errAdd != nil {
 			p.builder.appendError(errAdd)
 			return p.builder
@@ -492,8 +504,8 @@ func (p *ParallelBroadcastBranchBuilder) NextFanOutBranch(toMerge *Workflow, err
 	if p.HasNextBranch() {
 		p.builder.BranchNumber++
 		// chains the alternative to the input workflow, which is already connected to a whole series of nodes
-		next, _ := toMerge.Find(toMerge.Start.Next)
-		err := p.builder.workflow.chain(p.builder.prevNode, next)
+		next, _ := toMerge.Find(toMerge.Start.GetNext()[0])
+		err := p.builder.prevNode.AddNext(next)
 		if err != nil {
 			p.builder.appendError(err)
 		}
@@ -540,7 +552,7 @@ func (b *Builder) AddFailNodeAndBuild(errorName, errorMessage string) (*Workflow
 	failNode := NewFailureTask(errorName, errorMessage)
 
 	b.workflow.add(failNode)
-	err := b.workflow.chain(b.prevNode, failNode)
+	err := b.prevNode.AddNext(failNode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to chain the Fail: %v", err)
 	}
@@ -557,7 +569,7 @@ func (b *Builder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
 	succeedNode := NewSuccessTask()
 
 	b.workflow.add(succeedNode)
-	err := b.workflow.chain(b.prevNode, succeedNode)
+	err := b.prevNode.AddNext(succeedNode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to chain the SuccessTask: %v", err)
 	}
@@ -575,7 +587,7 @@ func (b *Builder) AddPassNode(result string) *Builder {
 	passNode := NewPassTask(result)
 
 	b.workflow.add(passNode)
-	err := b.workflow.chain(b.prevNode, passNode)
+	err := b.prevNode.AddNext(passNode)
 	if err != nil {
 		b.appendError(err)
 		return b
@@ -593,7 +605,7 @@ func (b *Builder) Build() (*Workflow, error) {
 	case *EndTask:
 		return &b.workflow, nil
 	default:
-		err := b.workflow.ChainToEndTask(b.prevNode)
+		err := b.prevNode.AddNext(b.workflow.End)
 		if err != nil {
 			return nil, fmt.Errorf("failed to chain to end node: %v", err)
 		}

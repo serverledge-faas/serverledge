@@ -127,7 +127,7 @@ func TestProgressCache(t *testing.T) {
 		u.AssertTrueMsg(t, progress.Equals(retrievedProgress), "progresses don't match")
 
 		progress.Complete(wflow.Start.Id)
-		progress.Complete(wflow.Start.Next)
+		progress.Complete(wflow.Start.GetNext()[0])
 
 		err = workflow.SaveProgress(progress)
 		u.AssertNilMsg(t, err, "failed to save after update")
