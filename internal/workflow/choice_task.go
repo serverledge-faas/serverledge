@@ -75,7 +75,7 @@ func (c *ChoiceTask) VisitBranch(workflow *Workflow, branch int) []Task {
 		return branchTasks
 	}
 	taskId := c.NextTasks[branch]
-	return Visit(workflow, taskId, branchTasks, true)
+	return Visit(workflow, taskId, true)
 }
 
 // GetTasksToSkip skips all tasks that are in a branch that will not be executed.
