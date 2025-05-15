@@ -94,6 +94,13 @@ func TestSimpleWorkflow(t *testing.T) {
 		prevNode = currentNode
 	}
 	u.AssertEquals(t, prevNode.(*workflow.EndTask), wflow.End)
+
+	for tid, prevs := range wflow.GetAllPreviousTasks() {
+		fmt.Printf("Previous tasks of %s (%s):\n", tid, wflow.Tasks[tid].GetType())
+		for _, prev := range prevs {
+			fmt.Printf("\t%s\n", wflow.Tasks[prev].String())
+		}
+	}
 }
 
 func TestChoiceWorkflow(t *testing.T) {

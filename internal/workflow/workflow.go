@@ -28,6 +28,8 @@ type Workflow struct {
 	Start *StartTask
 	Tasks map[TaskId]Task
 	End   *EndTask
+
+	prevTasks map[TaskId][]TaskId
 }
 
 func newWorkflow() Workflow {
@@ -69,6 +71,47 @@ func isTaskPresent(task Task, infos []Task) bool {
 func isEndTask(task Task) bool {
 	_, ok := task.(*EndTask)
 	return ok
+}
+
+func (w *Workflow) GetPreviousTasks(task Task) []TaskId {
+	if w.prevTasks == nil {
+		w.computePreviousTasks()
+	}
+
+	return w.prevTasks[task.GetId()]
+}
+
+func (w *Workflow) GetAllPreviousTasks() map[TaskId][]TaskId {
+	if w.prevTasks == nil {
+		w.computePreviousTasks()
+	}
+
+	return w.prevTasks
+}
+
+func (w *Workflow) computePreviousTasks() {
+	w.prevTasks = make(map[TaskId][]TaskId)
+	visited := make(map[TaskId]bool)
+	for tid, _ := range w.Tasks {
+		w.prevTasks[tid] = make([]TaskId, 0)
+		visited[tid] = false
+	}
+
+	toVisit := []Task{w.Start}
+
+	for len(toVisit) > 0 {
+		task := toVisit[0]
+		toVisit = toVisit[1:]
+		visited[task.GetId()] = true
+
+		for _, nextTask := range task.GetNext() {
+			// task -> nextTask
+			w.prevTasks[nextTask] = append(w.prevTasks[nextTask], task.GetId())
+			if !visited[nextTask] {
+				toVisit = append(toVisit, w.Tasks[nextTask])
+			}
+		}
+	}
 }
 
 // Visit visits the workflow starting from the given task and return a list of visited tasks.
