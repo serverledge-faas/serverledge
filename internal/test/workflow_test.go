@@ -94,6 +94,13 @@ func TestSimpleWorkflow(t *testing.T) {
 		prevNode = currentNode
 	}
 	u.AssertEquals(t, prevNode.(*workflow.EndTask), wflow.End)
+
+	for tid, prevs := range wflow.GetAllPreviousTasks() {
+		fmt.Printf("Previous tasks of %s (%s):\n", tid, wflow.Tasks[tid].GetType())
+		for _, prev := range prevs {
+			fmt.Printf("\t%s\n", wflow.Tasks[prev].String())
+		}
+	}
 }
 
 func TestChoiceWorkflow(t *testing.T) {
@@ -441,17 +448,16 @@ func TestVisit(t *testing.T) {
 
 	choice := startNext.GetNext()[0]
 
-	nodeList := make([]workflow.Task, 0)
-	visitedNodes := workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, false)
+	visitedNodes := workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, false)
 	u.AssertEquals(t, len(complexWorkflow.Tasks), len(visitedNodes))
 
-	visitedNodes = workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, nodeList, true)
+	visitedNodes = workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, true)
 	u.AssertEquals(t, len(complexWorkflow.Tasks)-1, len(visitedNodes))
 
-	visitedNodes = workflow.Visit(complexWorkflow, choice, nodeList, false)
+	visitedNodes = workflow.Visit(complexWorkflow, choice, false)
 	u.AssertEquals(t, 8, len(visitedNodes))
 
-	visitedNodes = workflow.Visit(complexWorkflow, choice, nodeList, true)
+	visitedNodes = workflow.Visit(complexWorkflow, choice, true)
 	u.AssertEquals(t, 7, len(visitedNodes))
 
 }

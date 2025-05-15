@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/serverledge-faas/serverledge/internal/client"
+	"golang.org/x/exp/slices"
 	"io"
 	"net/http"
 	"sort"
@@ -28,6 +29,8 @@ type Workflow struct {
 	Start *StartTask
 	Tasks map[TaskId]Task
 	End   *EndTask
+
+	prevTasks map[TaskId][]TaskId
 }
 
 func newWorkflow() Workflow {
@@ -71,89 +74,76 @@ func isEndTask(task Task) bool {
 	return ok
 }
 
-// Visit visits the workflow starting from the given task and return a list of visited tasks.
-// If excludeEnd = true, the EndTask will not be in the output list
-func Visit(workflow *Workflow, taskId TaskId, tasks []Task, excludeEnd bool) []Task {
+func (w *Workflow) GetPreviousTasks(task Task) []TaskId {
+	if w.prevTasks == nil {
+		w.computePreviousTasks()
+	}
+
+	return w.prevTasks[task.GetId()]
+}
+
+func (w *Workflow) GetAllPreviousTasks() map[TaskId][]TaskId {
+	if w.prevTasks == nil {
+		w.computePreviousTasks()
+	}
+
+	return w.prevTasks
+}
+
+func (w *Workflow) computePreviousTasks() {
+	w.prevTasks = make(map[TaskId][]TaskId)
+	visited := make(map[TaskId]bool)
+	for tid, _ := range w.Tasks {
+		w.prevTasks[tid] = make([]TaskId, 0)
+		visited[tid] = false
+	}
+
+	toVisit := []Task{w.Start}
+
+	for len(toVisit) > 0 {
+		task := toVisit[0]
+		toVisit = toVisit[1:]
+		visited[task.GetId()] = true
+
+		for _, nextTask := range task.GetNext() {
+			// task -> nextTask
+			w.prevTasks[nextTask] = append(w.prevTasks[nextTask], task.GetId())
+			if !visited[nextTask] {
+				toVisit = append(toVisit, w.Tasks[nextTask])
+			}
+		}
+	}
+}
+
+func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
+
 	task, ok := workflow.Find(taskId)
 	if !ok {
 		return []Task{}
 	}
-	if !isTaskPresent(task, tasks) {
+
+	tasks := make([]Task, 0)
+	visited := make(map[TaskId]bool)
+	toVisit := []Task{task}
+
+	for len(toVisit) > 0 {
+		task := toVisit[0]
 		tasks = append(tasks, task)
-	}
-	switch n := task.(type) {
-	case *StartTask:
-		toAdd := Visit(workflow, n.GetNext()[0], tasks, excludeEnd)
-		for _, add := range toAdd {
-			if !isTaskPresent(add, tasks) {
-				// only when isEndTask = true, excludeEnd = true -> we don't add the task
-				if !isEndTask(add) || !excludeEnd {
-					tasks = append(tasks, add)
-				}
-			}
-		}
-		return tasks
-	case *SimpleTask, *PassTask, *SuccessTask, *FailureTask:
-		toAdd := Visit(workflow, n.GetNext()[0], tasks, excludeEnd)
-		for _, add := range toAdd {
-			if !isTaskPresent(add, tasks) {
-				if !isEndTask(add) || !excludeEnd {
-					tasks = append(tasks, add)
-				}
-			}
-		}
-		return tasks
-	case *EndTask:
-		if !excludeEnd { // move end task to the end of the visit list
-			endTask := n
-			// get index of end task to remove\
-			indexToRemove := -1
-			for i, task := range tasks {
-				if isEndTask(task) {
-					indexToRemove = i
-					break
-				}
-			}
-			// remove end task
-			tasks = append(tasks[:indexToRemove], tasks[indexToRemove+1:]...)
-			// append at the end of the visited task list
-			tasks = append(tasks, endTask)
-		}
-		return tasks
-	case *ChoiceTask:
-		for _, alternative := range n.GetNext() {
-			toAdd := Visit(workflow, alternative, tasks, excludeEnd)
-			for _, add := range toAdd {
-				if !isTaskPresent(add, tasks) {
-					if !isEndTask(add) || !excludeEnd {
-						tasks = append(tasks, add)
+		toVisit = toVisit[1:]
+		visited[task.GetId()] = true
+
+		for _, nextTask := range task.GetNext() {
+			if _, ok := visited[nextTask]; !ok {
+				nt := workflow.Tasks[nextTask]
+				if !excludeEnd || nt.GetType() != End {
+					if !slices.Contains(toVisit, nt) {
+						toVisit = append(toVisit, nt)
 					}
 				}
 			}
 		}
-		return tasks
-	case *FanOutTask:
-		for _, parallelBranch := range n.GetNext() {
-			toAdd := Visit(workflow, parallelBranch, tasks, excludeEnd)
-			for _, add := range toAdd {
-				if !isTaskPresent(add, tasks) {
-					if !isEndTask(add) || !excludeEnd {
-						tasks = append(tasks, add)
-					}
-				}
-			}
-		}
-		return tasks
-	case *FanInTask:
-		toAdd := Visit(workflow, n.GetNext()[0], tasks, excludeEnd)
-		for _, add := range toAdd {
-			if !isTaskPresent(add, tasks) {
-				if !isEndTask(add) || !excludeEnd {
-					tasks = append(tasks, add)
-				}
-			}
-		}
 	}
+
 	return tasks
 }
 
