@@ -121,7 +121,7 @@ func Visit(workflow *Workflow, taskId TaskId, tasks []Task, excludeEnd bool) []T
 		}
 		return tasks
 	case *ChoiceTask:
-		for _, alternative := range n.Alternatives {
+		for _, alternative := range n.GetNext() {
 			toAdd := Visit(workflow, alternative, tasks, excludeEnd)
 			for _, add := range toAdd {
 				if !isTaskPresent(add, tasks) {
@@ -155,16 +155,6 @@ func Visit(workflow *Workflow, taskId TaskId, tasks []Task, excludeEnd bool) []T
 		}
 	}
 	return tasks
-}
-
-// chain can be used to connect the output of t1 to t2
-func (workflow *Workflow) chain(t1 Task, t2 Task) error {
-	return t1.AddOutput(workflow, t2.GetId())
-}
-
-// ChainToEndTask (task, i) can be used as a shorthand to chain(task, workflow.end[i]) to chain a task to a specific end task
-func (workflow *Workflow) ChainToEndTask(task1 Task) error {
-	return workflow.chain(task1, workflow.End)
 }
 
 func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData, tasks []TaskId, r *Request) (*PartialData, *Progress, error) {
@@ -699,7 +689,7 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 	case Start:
 		task := &StartTask{}
 		err = json.Unmarshal(value, task)
-		if err == nil && task.Id != "" && task.Next != "" {
+		if err == nil && task.Id != "" && task.NextTasks != nil {
 			workflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
@@ -713,7 +703,7 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 	case Choice:
 		task := &ChoiceTask{}
 		err = json.Unmarshal(value, task)
-		if err == nil && task.Id != "" && task.Alternatives != nil && len(task.Alternatives) == len(task.Conditions) {
+		if err == nil && task.Id != "" && task.NextTasks != nil && len(task.NextTasks) == len(task.Conditions) {
 			workflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}

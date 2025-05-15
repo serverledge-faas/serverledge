@@ -10,22 +10,18 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
-	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
 // SimpleTask is a Task that receives one input and sends one result
 type SimpleTask struct {
-	Id       TaskId
-	Type     TaskType
-	OutputTo TaskId
-	Func     string
+	baseTask
+	Func string
 }
 
 func NewSimpleTask(f string) *SimpleTask {
 	return &SimpleTask{
-		Id:   TaskId(shortuuid.New()),
-		Type: Simple,
-		Func: f,
+		baseTask: baseTask{Id: TaskId(shortuuid.New()), Type: Simple},
+		Func:     f,
 	}
 }
 
@@ -111,24 +107,8 @@ func (s *SimpleTask) exec(compRequest *Request, params ...map[string]interface{}
 	return outputData, nil
 }
 
-func (s *SimpleTask) Equals(cmp types.Comparable) bool {
-	switch cmp.(type) {
-	case *SimpleTask:
-		s2 := cmp.(*SimpleTask)
-		idOk := s.Id == s2.Id
-		// inputOk := s.InputFrom == s2.InputFrom
-		funcOk := s.Func == s2.Func
-		outputOk := s.OutputTo == s2.OutputTo
-		return idOk && funcOk && outputOk // && inputOk
-	default:
-		return false
-	}
-}
-
-// AddOutput connects the output of the SimpleTask to another Task
-func (s *SimpleTask) AddOutput(workflow *Workflow, taskId TaskId) error {
-	s.OutputTo = taskId
-	return nil
+func (s *SimpleTask) AddNext(nextTask Task) error {
+	return s.addNext(nextTask, true)
 }
 
 func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
@@ -144,26 +124,6 @@ func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
 	return funct.Signature.CheckOrMatchInputs(input)
 }
 
-func (s *SimpleTask) GetNext() []TaskId {
-	// we only have one output
-	return []TaskId{s.OutputTo}
-}
-
-func (s *SimpleTask) Width() int {
-	return 1
-}
-func (s *SimpleTask) Name() string {
-	return "Simple"
-}
-
 func (s *SimpleTask) String() string {
-	return fmt.Sprintf("[SimpleTask (%s) func %s()]->%s", s.Id, s.Func, s.OutputTo)
-}
-
-func (s *SimpleTask) GetId() TaskId {
-	return s.Id
-}
-
-func (s *SimpleTask) GetType() TaskType {
-	return s.Type
+	return fmt.Sprintf("[SimpleTask (%s) func %s()]->%v", s.Id, s.Func, s.NextTasks)
 }

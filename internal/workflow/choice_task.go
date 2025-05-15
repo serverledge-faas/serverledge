@@ -4,60 +4,26 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lithammer/shortuuid"
-	"github.com/serverledge-faas/serverledge/internal/types"
-	"math"
-
-	"strings"
 )
 
 // ChoiceTask receives one input and produces one result to one of alternative tasks, based on condition
 type ChoiceTask struct {
-	Id           TaskId
-	Type         TaskType
-	Alternatives []TaskId
-	Conditions   []Condition
+	baseTask
+	Conditions []Condition
 }
 
 func NewChoiceTask(conds []Condition) *ChoiceTask {
 	return &ChoiceTask{
-		Id:           TaskId(shortuuid.New()),
-		Type:         Choice,
-		Conditions:   conds,
-		Alternatives: make([]TaskId, len(conds)),
+		baseTask:   baseTask{Id: TaskId(shortuuid.New()), Type: Choice},
+		Conditions: conds,
 	}
 }
 
-func (c *ChoiceTask) Equals(cmp types.Comparable) bool {
-	switch cmp.(type) {
-	case *ChoiceTask:
-		c2 := cmp.(*ChoiceTask)
-		if len(c.Conditions) != len(c2.Conditions) || len(c.Alternatives) != len(c2.Alternatives) {
-			return false
-		}
-		for i := 0; i < len(c.Alternatives); i++ {
-			if c.Alternatives[i] != c2.Alternatives[i] {
-				return false
-			}
-			if !c.Conditions[i].Equals(c2.Conditions[i]) {
-				return false
-			}
-		}
-		return true
-	default:
-		return false
+func (c *ChoiceTask) AddNext(nextTask Task) error {
+	if len(c.NextTasks) >= len(c.Conditions) {
+		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.NextTasks), len(c.Conditions)))
 	}
-}
-
-func (c *ChoiceTask) AddOutput(workflow *Workflow, taskId TaskId) error {
-
-	if len(c.Alternatives) > len(c.Conditions) {
-		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
-	}
-	c.Alternatives = append(c.Alternatives, taskId)
-	if len(c.Alternatives) > len(c.Conditions) {
-		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.Alternatives), len(c.Conditions)))
-	}
-	return nil
+	return c.addNext(nextTask, false)
 }
 
 func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
@@ -83,7 +49,7 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 		return nil, progress, false, fmt.Errorf("no condition is met")
 	}
 
-	nextTaskId := c.Alternatives[matchedCondition]
+	nextTaskId := c.NextTasks[matchedCondition]
 	outputData.ForTask = nextTaskId
 	outputData.Data = input.Data
 
@@ -104,11 +70,11 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 // VisitBranch returns all tasks of a branch under a choice task; branch number starts from 0
 func (c *ChoiceTask) VisitBranch(workflow *Workflow, branch int) []Task {
 	branchTasks := make([]Task, 0)
-	if len(c.Alternatives) <= branch {
+	if len(c.NextTasks) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
 		return branchTasks
 	}
-	taskId := c.Alternatives[branch]
+	taskId := c.NextTasks[branch]
 	return Visit(workflow, taskId, branchTasks, true)
 }
 
@@ -119,7 +85,7 @@ func (c *ChoiceTask) GetTasksToSkip(workflow *Workflow, matchedCondition int) []
 	toSkip := make([]Task, 0)
 
 	toNotSkip := c.VisitBranch(workflow, matchedCondition)
-	for i := 0; i < len(c.Alternatives); i++ {
+	for i := 0; i < len(c.NextTasks); i++ {
 		if i == matchedCondition {
 			continue
 		}
@@ -140,31 +106,6 @@ func (c *ChoiceTask) GetTasksToSkip(workflow *Workflow, matchedCondition int) []
 	return toSkip
 }
 
-func (c *ChoiceTask) GetNext() []TaskId {
-	panic("cannot know the next task of a ChoiceTask in advance!")
-}
-
-func (c *ChoiceTask) Width() int {
-	return len(c.Alternatives)
-}
-
-func (c *ChoiceTask) Name() string {
-	n := len(c.Conditions)
-
-	if n%2 == 0 {
-		// se n =10 : -9 ---------
-		// se n = 8 : -7 -------
-		// se n = 6 : -5
-		// se n = 4 : -3
-		// se n = 2 : -1
-		// [Simple|Simple|Simple|Simple|Simple|Simple|Simple|Simple|Simple|Simple]
-		return strings.Repeat("-", 4*(n-1)-n/2) + "Choice" + strings.Repeat("-", 3*(n-1)+n/2)
-	} else {
-		pad := "-------"
-		return strings.Repeat(pad, int(math.Max(float64(n/2), 0.))) + "Choice" + strings.Repeat(pad, int(math.Max(float64(n/2), 0.)))
-	}
-}
-
 func (c *ChoiceTask) String() string {
 	conditions := "<"
 	for i, condFn := range c.Conditions {
@@ -174,13 +115,5 @@ func (c *ChoiceTask) String() string {
 		}
 	}
 	conditions += ">"
-	return fmt.Sprintf("[ChoiceTask(%d): %s] ", len(c.Alternatives), conditions)
-}
-
-func (c *ChoiceTask) GetId() TaskId {
-	return c.Id
-}
-
-func (c *ChoiceTask) GetType() TaskType {
-	return c.Type
+	return fmt.Sprintf("[ChoiceTask(%d): %s] ", len(c.NextTasks), conditions)
 }

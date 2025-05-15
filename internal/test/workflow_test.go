@@ -48,7 +48,7 @@ func TestEmptyWorkflow(t *testing.T) {
 	u.AssertNonNil(t, wflow.Start)
 	u.AssertNonNil(t, wflow.End)
 	u.AssertNonNil(t, wflow.Tasks)
-	u.AssertEquals(t, wflow.Start.Next, wflow.End.GetId())
+	u.AssertEquals(t, wflow.Start.GetNext()[0], wflow.End.GetId())
 }
 
 // TestSimpleWorkflow creates a simple Workflow with one StartTask, two SimpleTask and one EndTask, executes it and gets the result.
@@ -72,7 +72,7 @@ func TestSimpleWorkflow(t *testing.T) {
 	u.AssertEquals(t, len(wflow.Tasks)-2, length)
 
 	// tasks := workflow.NewNodeSetFrom(workflow.Tasks)
-	_, found := wflow.Find(wflow.Start.Next)
+	_, found := wflow.Find(wflow.Start.GetNext()[0])
 	u.AssertTrue(t, found)
 	end := false
 	var prevNode workflow.Task = wflow.Start
@@ -82,13 +82,13 @@ func TestSimpleWorkflow(t *testing.T) {
 		case *workflow.StartTask:
 			nextNodeId := prevNode.GetNext()[0]
 			currentNode, _ = wflow.Find(nextNodeId)
-			u.AssertEquals(t, prevNode.(*workflow.StartTask).Next, currentNode.GetId())
+			u.AssertEquals(t, prevNode.GetNext()[0], currentNode.GetId())
 		case *workflow.EndTask:
 			end = true
 		default: // currentNode = simple node
 			nextNodeId := prevNode.GetNext()[0]
 			currentNode, _ = wflow.Find(nextNodeId)
-			u.AssertEquals(t, prevNode.(*workflow.SimpleTask).OutputTo, currentNode.GetId())
+			u.AssertEquals(t, prevNode.GetNext()[0], currentNode.GetId())
 			u.AssertTrue(t, prevNode.(*workflow.SimpleTask).Func == f.Name)
 		}
 		prevNode = currentNode
@@ -118,17 +118,17 @@ func TestChoiceWorkflow(t *testing.T) {
 	// u.AssertEquals(t, width+1, len(workflow.Tasks))
 
 	//tasks := workflow.NewNodeSetFrom(workflow.Tasks)
-	choiceWorkflow, found := wflow.Find(wflow.Start.Next)
+	choiceWorkflow, found := wflow.Find(wflow.Start.GetNext()[0])
 	choice := choiceWorkflow.(*workflow.ChoiceTask)
 	u.AssertTrue(t, found)
 	for _, n := range wflow.Tasks {
 		switch n.(type) {
 		case *workflow.ChoiceTask:
-			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
-			for _, s := range choice.Alternatives {
+			u.AssertEquals(t, len(choice.Conditions), len(choice.NextTasks))
+			for _, s := range choice.NextTasks {
 				simple, foundS := wflow.Find(s)
 				u.AssertTrue(t, foundS)
-				u.AssertEquals(t, simple.(*workflow.SimpleTask).OutputTo, wflow.End.GetId())
+				u.AssertEquals(t, simple.GetNext()[0], wflow.End.GetId())
 			}
 		case *workflow.SimpleTask:
 			u.AssertTrue(t, n.(*workflow.SimpleTask).Func == f.Name)
@@ -156,7 +156,12 @@ func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 		NextBranch(CreateSequenceWorkflow(fArr...)).
 		EndChoiceAndBuild()
 
-	choiceWorkflow, foundStartNext := wflow.Find(wflow.Start.Next)
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+
+	choiceWorkflow, foundStartNext := wflow.Find(wflow.Start.GetNext()[0])
 	choice := choiceWorkflow.(*workflow.ChoiceTask)
 
 	u.AssertNil(t, err)
@@ -171,12 +176,12 @@ func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 	for _, n := range wflow.Tasks {
 		switch node := n.(type) {
 		case *workflow.ChoiceTask:
-			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
-			for _, s := range choice.Alternatives {
+			u.AssertEquals(t, len(choice.Conditions), len(choice.NextTasks))
+			for _, s := range choice.NextTasks {
 				simple, foundS := wflow.Find(s)
 				u.AssertTrue(t, foundS)
 				if length == 1 {
-					u.AssertEquals(t, simple.(*workflow.SimpleTask).OutputTo, wflow.End.GetId())
+					u.AssertEquals(t, simple.GetNext()[0], wflow.End.GetId())
 				}
 			}
 		case *workflow.SimpleTask:
@@ -206,23 +211,23 @@ func TestBroadcastWorkflow(t *testing.T) {
 	u.AssertEquals(t, length*width+4, len(wflow.Tasks)) // 1 (fanOut) + 1 (fanIn) + width * length (simpleNodes) + 1 start + 1 end
 
 	// tasks := workflow.NewNodeSetFrom(workflow.Tasks)
-	_, foundStartNext := wflow.Find(wflow.Start.Next)
+	_, foundStartNext := wflow.Find(wflow.Start.GetNext()[0])
 	u.AssertTrue(t, foundStartNext)
 
 	for _, n := range wflow.Tasks {
 		switch n.(type) {
 		case *workflow.FanOutTask:
 			fanOut := n.(*workflow.FanOutTask)
-			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
+			u.AssertEquals(t, len(fanOut.NextTasks), fanOut.FanOutDegree)
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
-			for _, s := range fanOut.OutputTo {
+			for _, s := range fanOut.NextTasks {
 				_, found := wflow.Find(s)
 				u.AssertTrue(t, found)
 			}
 		case *workflow.FanInTask:
 			fanIn := n.(*workflow.FanInTask)
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, wflow.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, wflow.End.GetId(), fanIn.NextTasks[0])
 		case *workflow.SimpleTask:
 			u.AssertTrue(t, n.(*workflow.SimpleTask).Func == f.Name)
 		default:
@@ -246,7 +251,7 @@ func TestScatterWorkflow(t *testing.T) {
 	u.AssertEquals(t, width+4, len(wflow.Tasks)) // 1 (fanOut) + 1 (fanIn) + width (simpleNodes) + 1 start + 1 end
 
 	// tasks := workflow.NewNodeSetFrom(workflow.Tasks)
-	startNext, startNextFound := wflow.Find(wflow.Start.Next)
+	startNext, startNextFound := wflow.Find(wflow.Start.GetNext()[0])
 	u.AssertTrue(t, startNextFound)
 	_, ok := startNext.(*workflow.FanOutTask)
 	u.AssertTrue(t, ok)
@@ -255,19 +260,19 @@ func TestScatterWorkflow(t *testing.T) {
 		switch node := n.(type) {
 		case *workflow.FanOutTask:
 			fanOut := node
-			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
+			u.AssertEquals(t, len(fanOut.NextTasks), fanOut.FanOutDegree)
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
-			for _, s := range fanOut.OutputTo {
+			for _, s := range fanOut.NextTasks {
 				_, foundSimple := wflow.Find(s)
 				u.AssertTrue(t, foundSimple)
 			}
 		case *workflow.FanInTask:
 			fanIn := node
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, wflow.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, wflow.End.GetId(), fanIn.NextTasks[0])
 		case *workflow.SimpleTask:
 			u.AssertTrue(t, n.(*workflow.SimpleTask).Func == f.Name)
-			outputTo, _ := wflow.Find(node.OutputTo)
+			outputTo, _ := wflow.Find(node.NextTasks[0])
 			_, chainedToFanIn := outputTo.(*workflow.FanInTask)
 			u.AssertTrue(t, chainedToFanIn)
 			simpleNodeChainedToFanIn++
@@ -292,7 +297,7 @@ func TestCreateBroadcastMultiFunctionWorkflow(t *testing.T) {
 		func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fArrJs...) },
 	)
 	u.AssertNil(t, errWorkflow)
-	startNext, startNextFound := wflow.Find(wflow.Start.Next)
+	startNext, startNextFound := wflow.Find(wflow.Start.GetNext()[0])
 
 	u.AssertNonNil(t, wflow.Start)
 	u.AssertNonNil(t, wflow.End)
@@ -309,20 +314,20 @@ func TestCreateBroadcastMultiFunctionWorkflow(t *testing.T) {
 		switch node := n.(type) {
 		case *workflow.FanOutTask:
 			fanOut := node
-			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
+			u.AssertEquals(t, len(fanOut.NextTasks), fanOut.FanOutDegree)
 			// test that there are simple nodes chained to fan out
-			for _, s := range fanOut.OutputTo {
+			for _, s := range fanOut.NextTasks {
 				_, foundSimple := wflow.Find(s)
 				u.AssertTrue(t, foundSimple)
 			}
 		case *workflow.FanInTask:
 			fanIn := node
-			u.AssertEquals(t, wflow.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, wflow.End.GetId(), fanIn.NextTasks[0])
 		default:
 			continue
 		case *workflow.SimpleTask:
 			u.AssertTrue(t, node.Func == f.Name)
-			outputTo, _ := wflow.Find(node.OutputTo)
+			outputTo, _ := wflow.Find(node.NextTasks[0])
 			if _, ok := outputTo.(*workflow.FanInTask); ok {
 				simpleNodeChainedToFanIn++
 			}
@@ -371,16 +376,16 @@ func TestWorkflowBuilder(t *testing.T) {
 		switch node := n.(type) {
 		case *workflow.FanOutTask:
 			fanOut := node
-			u.AssertEquals(t, len(fanOut.OutputTo), fanOut.FanOutDegree)
+			u.AssertEquals(t, len(fanOut.NextTasks), fanOut.FanOutDegree)
 			u.AssertEquals(t, width, fanOut.FanOutDegree)
-			for _, s := range fanOut.OutputTo {
+			for _, s := range fanOut.NextTasks {
 				_, found := wflow.Find(s)
 				u.AssertTrue(t, found)
 			}
 		case *workflow.FanInTask:
 			fanIn := node
 			u.AssertEquals(t, width, fanIn.FanInDegree)
-			u.AssertEquals(t, wflow.End.GetId(), fanIn.OutputTo)
+			u.AssertEquals(t, wflow.End.GetId(), fanIn.NextTasks[0])
 		case *workflow.SimpleTask:
 			u.AssertTrue(t, node.Func == f.Name)
 			nextNode, _ := wflow.Find(node.GetNext()[0])
@@ -389,23 +394,23 @@ func TestWorkflowBuilder(t *testing.T) {
 			}
 		case *workflow.ChoiceTask:
 			choice := node
-			u.AssertEquals(t, len(choice.Conditions), len(choice.Alternatives))
+			u.AssertEquals(t, len(choice.Conditions), len(choice.NextTasks))
 
 			// specific for this test
-			alt0, foundAlt0 := wflow.Find(choice.Alternatives[0])
-			alt1, foundAlt1 := wflow.Find(choice.Alternatives[1])
+			alt0, foundAlt0 := wflow.Find(choice.NextTasks[0])
+			alt1, foundAlt1 := wflow.Find(choice.NextTasks[1])
 			firstAlternative := alt0.(*workflow.SimpleTask)
 			secondAlternative := alt1.(*workflow.FanOutTask)
 
 			u.AssertTrue(t, foundAlt0)
 			u.AssertTrue(t, foundAlt1)
-			u.AssertEquals(t, firstAlternative.OutputTo, wflow.End.GetId())
+			u.AssertEquals(t, firstAlternative.NextTasks[0], wflow.End.GetId())
 			// checking fan out - simples - fan in
-			for i := range secondAlternative.OutputTo {
-				secondAltOutput, _ := wflow.Find(secondAlternative.OutputTo[i])
+			for i := range secondAlternative.NextTasks {
+				secondAltOutput, _ := wflow.Find(secondAlternative.NextTasks[i])
 				simple, ok := secondAltOutput.(*workflow.SimpleTask)
 				u.AssertTrue(t, ok)
-				simpleNext, _ := wflow.Find(simple.OutputTo)
+				simpleNext, _ := wflow.Find(simple.NextTasks[0])
 				_, okFanIn := simpleNext.(*workflow.FanInTask)
 				u.AssertTrue(t, okFanIn)
 			}
@@ -432,7 +437,7 @@ func TestVisit(t *testing.T) {
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.Next)
+	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.GetNext()[0])
 
 	choice := startNext.GetNext()[0]
 
