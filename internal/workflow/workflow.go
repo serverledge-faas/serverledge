@@ -12,16 +12,26 @@ import (
 	"sort"
 	"time"
 
-	"github.com/labstack/gommon/log"
 	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/utils"
+	"log"
 
 	"github.com/serverledge-faas/serverledge/internal/asl"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{} // TODO: handle initialization elsewhere
+// WorkflowInvocationResumeRequest is a request to resume the execution of a workflow (typically on a remote node)
+// TODO: move in another file?
+type WorkflowInvocationResumeRequest struct {
+	ReqId string
+	client.WorkflowInvocationRequest
+	Plan ExecutionPlan
+}
+
+var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{}
+
+//&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
 // Workflow is a Workflow to drive the execution of the workflow
 type Workflow struct {
@@ -56,22 +66,6 @@ func (workflow *Workflow) Find(taskId TaskId) (Task, bool) {
 // add can be used to add a new task to the Workflow. Does not chain anything, but updates Workflow width
 func (workflow *Workflow) add(task Task) {
 	workflow.Tasks[task.GetId()] = task // if already exists, overwrites!
-}
-
-func isTaskPresent(task Task, infos []Task) bool {
-	isPresent := false
-	for _, taskInfo := range infos {
-		if taskInfo == task {
-			isPresent = true
-			break
-		}
-	}
-	return isPresent
-}
-
-func isEndTask(task Task) bool {
-	_, ok := task.(*EndTask)
-	return ok
 }
 
 func (w *Workflow) GetPreviousTasks(task Task) []TaskId {
@@ -242,8 +236,21 @@ func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, 
 func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
 	var output *PartialData
 	var err error
-	nextTasks := progress.ReadyToExecute
 	shouldContinue := true
+
+	var nextTasks []TaskId
+
+	if r.Plan == nil {
+		nextTasks = progress.ReadyToExecute
+	} else {
+		for _, t := range progress.ReadyToExecute {
+			for _, other := range r.Plan.ToExecute {
+				if t == other {
+					nextTasks = append(nextTasks, t)
+				}
+			}
+		}
+	}
 
 	if len(nextTasks) > 1 {
 		// TODO: revise this whole function to pop next tasks one at a time
@@ -282,7 +289,14 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 			return output, progress, false, err
 		}
 	} else {
-		// should never happen
+		err = SaveProgress(progress)
+		if err != nil {
+			return nil, progress, false, err
+		}
+		err = SavePartialData(input)
+		if err != nil {
+			return nil, progress, false, err
+		}
 		return nil, progress, false, nil
 	}
 
@@ -442,18 +456,47 @@ func (workflow *Workflow) Invoke(r *Request) error {
 	for shouldContinue {
 		decision, err := offloadingPolicy.Evaluate(r, progress)
 		if err == nil && decision.Offload {
-			err = offload(r, decision.RemoteHost, progress, pd)
+
+			err := SaveProgress(progress)
+			if err != nil {
+				return fmt.Errorf("Could not save progress: %v", err)
+			}
+			err = SavePartialData(pd)
+			if err != nil {
+				return fmt.Errorf("Could not save partial data: %v", err)
+			}
+
+			log.Printf("Offloading request: %v", requestId)
+
+			shouldContinue, err = offload(r, &decision)
 			if err != nil {
 				return err
 			}
-			shouldContinue = false
+
+			log.Printf("Offloading done. Should continue: %v", shouldContinue)
+
+			if shouldContinue {
+				progress, err = RetrieveProgress(requestId)
+				if err != nil {
+					return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
+				}
+				pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
+				if err != nil {
+					return fmt.Errorf("Could not retrieve partial data: %v", err)
+				}
+				if len(pds) != 1 {
+					return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
+				}
+				pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
+				log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
+			}
 		} else {
 			pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
 			if err != nil {
 				return fmt.Errorf("failed workflow execution: %v", err)
 			}
 
-			if !shouldContinue {
+			if !shouldContinue && pd != nil {
 				r.ExecReport.Result = pd.Data
 			}
 		}
@@ -465,64 +508,60 @@ func (workflow *Workflow) Invoke(r *Request) error {
 	return nil
 }
 
-func offload(r *Request, hostPort string, progress *Progress, pd *PartialData) error {
+func offload(r *Request, policyDecision *OffloadingDecision) (bool, error) {
 
-	err := SaveProgress(progress)
-	if err != nil {
-		return fmt.Errorf("Could not save progress: %v", err)
-	}
-	err = SavePartialData(pd)
-	if err != nil {
-		return fmt.Errorf("Could not save partial data: %v", err)
-	}
+	shouldContinue := false
 
-	request := client.WorkflowInvocationResumeRequest{
+	log.Printf("Offloading decision: %v", policyDecision)
+
+	request := WorkflowInvocationResumeRequest{
 		ReqId: r.Id,
 		WorkflowInvocationRequest: client.WorkflowInvocationRequest{
 			Params:          r.Params,
 			CanDoOffloading: false,
-			Async:           r.Async,
+			Async:           false, // we force a synchronous request
 		},
+		Plan: policyDecision.ExecutionPlan,
 	}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("JSON marshaling failed: %v", err)
+		return shouldContinue, fmt.Errorf("JSON marshaling failed: %v", err)
 	}
 
 	// Send invocation request
-	url := fmt.Sprintf("http://%s/workflow/resume/%s", hostPort, r.W.Name)
+	url := fmt.Sprintf("http://%s/workflow/resume/%s", policyDecision.RemoteHost, r.W.Name)
 	resp, err := utils.PostJson(url, invocationBody)
 	if err != nil {
-		return fmt.Errorf("HTTP request for offloading failed: %v", err)
+		return shouldContinue, fmt.Errorf("HTTP request for offloading failed: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed offloaded workflow: %v", err)
-	}
-
-	if r.Async {
-		// no need to parse and return response
-		return nil
+		return shouldContinue, fmt.Errorf("failed offloaded workflow: %v", err)
 	}
 
 	var response InvocationResponse
 	body, _ := io.ReadAll(resp.Body)
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return fmt.Errorf("Failed InvocationResponse unmarshaling: %v", err)
+		return shouldContinue, fmt.Errorf("Failed InvocationResponse unmarshaling: %v", err)
 	}
 
 	if !response.Success {
-		return fmt.Errorf("failed offloaded workflow: %v", err)
+		return shouldContinue, fmt.Errorf("failed offloaded workflow: %v", err)
 	}
-
-	r.ExecReport.Result = response.Result
 
 	for k, v := range response.Reports {
 		r.ExecReport.Reports[k] = v
 	}
 
-	return nil
+	if response.Result == nil {
+		// workflow execution is not complete after offloading
+		shouldContinue = true
+	} else {
+		r.ExecReport.Result = response.Result
+	}
+
+	return shouldContinue, nil
 }
 
 // Delete removes the Workflow from cache and from etcd, so it cannot be invoked anymore
@@ -554,7 +593,7 @@ func (workflow *Workflow) Exists() bool {
 			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(workflow.Name)) {
 				return false
 			} else {
-				log.Error(err.Error())
+				log.Printf("ERROR: %v", err.Error())
 				return false
 			}
 		}

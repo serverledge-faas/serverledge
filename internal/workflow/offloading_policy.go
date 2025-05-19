@@ -3,10 +3,15 @@ package workflow
 type OffloadingDecision struct {
 	Offload    bool   `json:"offload"`
 	RemoteHost string `json:"remote_host"`
+	ExecutionPlan
 }
 
 type OffloadingPolicy interface {
 	Evaluate(r *Request, p *Progress) (OffloadingDecision, error)
+}
+
+type ExecutionPlan struct {
+	ToExecute []TaskId
 }
 
 type NoOffloadingPolicy struct{}
@@ -32,8 +37,9 @@ func (policy *SimpleOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offload
 		}
 	}
 
-	if completed >= 2 {
-		return OffloadingDecision{true, "127.0.0.1:1323"}, nil
+	if completed >= 2 && completed < 4 {
+		plan := ExecutionPlan{ToExecute: p.ReadyToExecute} // TODO
+		return OffloadingDecision{true, "127.0.0.1:1323", plan}, nil
 	}
 
 	return OffloadingDecision{Offload: false}, nil

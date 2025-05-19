@@ -28,12 +28,6 @@ type WorkflowInvocationRequest struct {
 	Async           bool
 }
 
-// WorkflowInvocationResumeRequest is a request to resume the execution of a workflow (typically on a remote node)
-type WorkflowInvocationResumeRequest struct {
-	ReqId string
-	WorkflowInvocationRequest
-}
-
 type WorkflowCreationRequest struct {
 	Name   string // Name of the new workflow
 	ASLSrc string // Specification source in Amazon State Language (encoded in Base64)

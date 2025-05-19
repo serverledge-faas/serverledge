@@ -151,7 +151,7 @@ func ResumeWorkflow(e echo.Context) error {
 		return e.JSON(http.StatusNotFound, "function workflow '"+workflowName+"' does not exist")
 	}
 
-	var clientReq client.WorkflowInvocationResumeRequest
+	var clientReq workflow.WorkflowInvocationResumeRequest
 	err := json.NewDecoder(e.Request().Body).Decode(&clientReq)
 	if err != nil && err != io.EOF {
 		log.Printf("Could not parse invoke request - error during decoding: %v", err)
@@ -168,6 +168,14 @@ func ResumeWorkflow(e echo.Context) error {
 	req.Resuming = true
 	req.Id = clientReq.ReqId
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
+
+	if clientReq.Plan.ToExecute != nil {
+		req.Plan = &workflow.ExecutionPlan{ToExecute: clientReq.Plan.ToExecute}
+	} else {
+		req.Plan = nil
+	}
+
+	log.Printf("Resuming workflow '%s'", workflowName)
 
 	return handleWorkflowInvocation(e, req)
 }
@@ -195,6 +203,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.QoS = clientReq.QoS
 	req.CanDoOffloading = clientReq.CanDoOffloading
 	req.Async = clientReq.Async
+	req.Plan = nil
 	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
@@ -216,6 +225,7 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 				return
 			}
 
+			log.Printf("Invocation succeeded. Publishing: %v", req.ExecReport)
 			req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 			workflow.PublishAsyncInvocationResponse(req.Id, workflow.InvocationResponse{
 				Success:      true,
