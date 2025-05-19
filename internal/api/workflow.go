@@ -151,7 +151,7 @@ func ResumeWorkflow(e echo.Context) error {
 		return e.JSON(http.StatusNotFound, "function workflow '"+workflowName+"' does not exist")
 	}
 
-	var clientReq client.WorkflowInvocationResumeRequest
+	var clientReq workflow.WorkflowInvocationResumeRequest
 	err := json.NewDecoder(e.Request().Body).Decode(&clientReq)
 	if err != nil && err != io.EOF {
 		log.Printf("Could not parse invoke request - error during decoding: %v", err)
@@ -168,6 +168,12 @@ func ResumeWorkflow(e echo.Context) error {
 	req.Resuming = true
 	req.Id = clientReq.ReqId
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
+
+	if clientReq.Plan.ToExecute != nil {
+		req.Plan = &workflow.ExecutionPlan{ToExecute: clientReq.Plan.ToExecute}
+	}
+
+	log.Printf("Resuming workflow '%s'", workflowName)
 
 	return handleWorkflowInvocation(e, req)
 }

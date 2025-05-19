@@ -18,7 +18,8 @@ type Request struct {
 	QoS             function.RequestQoS // every function should have its QoS
 	CanDoOffloading bool                // every function inherits this flag
 	Async           bool
-	Resuming        bool // indicating whether the function is resuming from a previous (partial) execution
+	Resuming        bool           // indicating whether the function is resuming from a previous (partial) execution
+	Plan            *ExecutionPlan // optional; execution plan
 }
 
 func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
