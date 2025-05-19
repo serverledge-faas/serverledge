@@ -171,6 +171,8 @@ func ResumeWorkflow(e echo.Context) error {
 
 	if clientReq.Plan.ToExecute != nil {
 		req.Plan = &workflow.ExecutionPlan{ToExecute: clientReq.Plan.ToExecute}
+	} else {
+		req.Plan = nil
 	}
 
 	log.Printf("Resuming workflow '%s'", workflowName)
@@ -201,6 +203,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.QoS = clientReq.QoS
 	req.CanDoOffloading = clientReq.CanDoOffloading
 	req.Async = clientReq.Async
+	req.Plan = nil
 	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
@@ -222,6 +225,7 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 				return
 			}
 
+			log.Printf("Invocation succeeded. Publishing: %v", req.ExecReport)
 			req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 			workflow.PublishAsyncInvocationResponse(req.Id, workflow.InvocationResponse{
 				Success:      true,

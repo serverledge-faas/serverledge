@@ -29,7 +29,7 @@ type WorkflowInvocationResumeRequest struct {
 	Plan ExecutionPlan
 }
 
-var offloadingPolicy OffloadingPolicy = &SimpleOffloadingPolicy{}
+var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{}
 
 //&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
@@ -465,6 +465,8 @@ func (workflow *Workflow) Invoke(r *Request) error {
 			if err != nil {
 				return fmt.Errorf("Could not save partial data: %v", err)
 			}
+
+			log.Printf("Offloading request: %v", requestId)
 
 			shouldContinue, err = offload(r, &decision)
 			if err != nil {

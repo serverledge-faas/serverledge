@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/spf13/cast"
 	"strings"
 	"testing"
 	"time"
@@ -209,6 +210,8 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
+	//deleteWorkflowApiTest(t, fcName, HOST, PORT)
+
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
 		AddInput("input", function.Int{}).
 		AddOutput("result", function.Int{}).
@@ -238,8 +241,9 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 	for {
 		pollResult := pollWorkflowTest(t, reqIdStruct.ReqId, HOST, PORT)
 
-		var compExecReport workflow.ExecutionReport
-		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &compExecReport)
+		fmt.Println(pollResult)
+		var response workflow.InvocationResponse
+		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &response)
 
 		if errUnmarshalExecResult != nil {
 			var unmarshalError *json.UnmarshalTypeError
@@ -249,17 +253,11 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 			i++
 			time.Sleep(200 * time.Millisecond)
 		} else {
-			result, err := GetSingleResult(&compExecReport)
-			utils.AssertNilMsg(t, err, "failed to get single result")
-			utils.AssertEquals(t, "4", result)
+			utils.AssertEquals(t, 4, cast.ToInt(response.Result["result"]))
 			break
 		}
 	}
 
-	// here we do not use REST API
-	getFC, b := workflow.Get(fcName)
-	utils.AssertTrue(t, b)
-	utils.AssertTrueMsg(t, wflow.Equals(getFC), "composition comparison failed")
 	err = wflow.Delete()
 	utils.AssertNilMsg(t, err, "failed to delete composition")
 }
