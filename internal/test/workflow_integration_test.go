@@ -234,50 +234,6 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, err3)
 }
 
-// TestInvokeFC_BroadcastFanOut executes a Parallel Workflow with N parallel branches
-func TestInvokeFC_BroadcastFanOut(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	workflowName := "testBrFO"
-	// CREATE - we create a test function composition
-	fDouble, errF1 := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
-		Build())
-	u.AssertNil(t, errF1)
-
-	width := 3
-	wflow, err := CreateBroadcastWorkflow(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fDouble) }, width)
-	wflow.Name = workflowName
-	u.AssertNil(t, err)
-
-	err1 := wflow.Save()
-	u.AssertNil(t, err1)
-
-	// INVOKE - we call the function composition
-	params := make(map[string]interface{})
-	params[fDouble.Signature.GetInputs()[0].Name] = 1
-	request := workflow.NewRequest(shortuuid.New(), wflow, params)
-	request.CanDoOffloading = false
-	err2 := wflow.Invoke(request)
-	u.AssertNil(t, err2)
-
-	// check multiple result
-	output := request.ExecReport.Result
-
-	u.AssertNonNil(t, output)
-	for i := 0; i < width; i++ {
-		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
-		u.AssertEquals(t, 2, currOutput["result"])
-	}
-
-	// cleaning up function composition and functions
-	//err3 := workflow.Delete()
-	//u.AssertNil(t, err3)
-}
-
 // TestInvokeFC_Concurrent executes concurrently m times a Sequential Workflow of length N, where each node executes a simple increment function.
 func TestInvokeFC_Concurrent(t *testing.T) {
 
@@ -348,50 +304,6 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	}
 
 	// cleaning up function composition and function
-	err3 := wflow.Delete()
-	u.AssertNil(t, err3)
-}
-
-// TestInvokeFC_ScatterFanOut executes a Parallel Workflow with N parallel branches
-func TestInvokeFC_ScatterFanOut(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-	//for i := 0; i < 1; i++ {
-
-	workflowName := "test"
-	// CREATE - we create a test function composition
-	fDouble, errF1 := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
-		Build())
-	u.AssertNil(t, errF1)
-
-	width := 3
-	wflow, err := CreateScatterSingleFunctionWorkflow(fDouble, width)
-	wflow.Name = workflowName
-	u.AssertNil(t, err)
-
-	err1 := wflow.Save()
-	u.AssertNil(t, err1)
-
-	// INVOKE - we call the function composition
-	params := make(map[string]interface{})
-	params[fDouble.Signature.GetInputs()[0].Name] = []int{1, 2, 3}
-	request := workflow.NewRequest(shortuuid.New(), wflow, params)
-	request.CanDoOffloading = false
-	err2 := wflow.Invoke(request)
-	u.AssertNil(t, err2)
-
-	// check multiple result
-	output := request.ExecReport.Result
-	u.AssertNonNil(t, output)
-	for i := 0; i < width; i++ {
-		currOutput := output[fmt.Sprintf("%d", i)].(map[string]interface{})
-		u.AssertEquals(t, (i+1)*2, cast.ToInt(currOutput["result"]))
-	}
-
-	// cleaning up function composition and functions
 	err3 := wflow.Delete()
 	u.AssertNil(t, err3)
 }

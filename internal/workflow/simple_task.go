@@ -25,6 +25,11 @@ func NewSimpleTask(f string) *SimpleTask {
 	}
 }
 
+func (s *SimpleTask) SetNext(nextTask Task) error {
+	s.NextTask = nextTask.GetId()
+	return nil
+}
+
 func (s *SimpleTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
 
 	err := s.CheckInput(input.Data)
@@ -36,7 +41,7 @@ func (s *SimpleTask) execute(progress *Progress, input *PartialData, r *Request)
 		return nil, progress, false, err
 	}
 
-	nextTask := s.GetNext()[0]
+	nextTask := s.GetNext()
 	outputData := NewPartialData(ReqId(r.Id), nextTask, output)
 
 	progress.Complete(s.Id)
@@ -107,10 +112,6 @@ func (s *SimpleTask) exec(compRequest *Request, params ...map[string]interface{}
 	return outputData, nil
 }
 
-func (s *SimpleTask) AddNext(nextTask Task) error {
-	return s.addNext(nextTask, true)
-}
-
 func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func)
 	if !exists {
@@ -125,5 +126,5 @@ func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
 }
 
 func (s *SimpleTask) String() string {
-	return fmt.Sprintf("[SimpleTask (%s) func %s()]->%v", s.Id, s.Func, s.NextTasks)
+	return fmt.Sprintf("[SimpleTask (%s) func %s()]->%v", s.Id, s.Func, s.NextTask)
 }

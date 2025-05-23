@@ -19,14 +19,15 @@ func NewStartTask() *StartTask {
 	}
 }
 
-func (s *StartTask) AddNext(nextTask Task) error {
-	return s.addNext(nextTask, true)
+func (s *StartTask) SetNext(nextTask Task) error {
+	s.NextTask = nextTask.GetId()
+	return nil
 }
 
 func (s *StartTask) execute(progress *Progress, partialData *PartialData) (*PartialData, *Progress, bool, error) {
 
 	progress.Complete(s.GetId())
-	err := progress.AddReadyTask(s.GetNext()[0])
+	err := progress.AddReadyTask(s.GetNext())
 	if err != nil {
 		return nil, progress, false, err
 	}

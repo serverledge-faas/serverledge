@@ -22,7 +22,7 @@ func (e *EndTask) execute(progress *Progress, partialData *PartialData) (*Partia
 	return partialData, progress, false, nil // false because we want to stop when reaching the end
 }
 
-func (e *EndTask) AddNext(nextTask Task) error {
+func (e *EndTask) SetNext(nextTask Task) error {
 	return fmt.Errorf("End node cannot be chained to anything")
 }
 

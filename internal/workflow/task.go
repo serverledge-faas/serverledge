@@ -12,25 +12,25 @@ type TaskId string
 type Task interface {
 	GetId() TaskId
 
-	// AddNext connects the output of this task to another Task
-	AddNext(nextTask Task) error
+	// SetNext connects the output of this task to another Task
+	SetNext(nextTask Task) error
 
 	GetType() TaskType
 
-	GetNext() []TaskId
+	GetNext() TaskId
 
 	fmt.Stringer
 	types.Comparable
 }
 
 type baseTask struct {
-	Id        TaskId
-	Type      TaskType
-	NextTasks []TaskId
+	Id       TaskId
+	Type     TaskType
+	NextTask TaskId
 }
 
-func (s *baseTask) GetNext() []TaskId {
-	return s.NextTasks
+func (s *baseTask) GetNext() TaskId {
+	return s.NextTask
 }
 
 func (s *baseTask) GetId() TaskId {
@@ -41,21 +41,11 @@ func (s *baseTask) GetType() TaskType {
 	return s.Type
 }
 
-func (e *baseTask) Equals(cmp types.Comparable) bool {
+func (s *baseTask) Equals(cmp types.Comparable) bool {
 	e2, ok := cmp.(Task)
 	if !ok {
 		return false
 	}
 
-	return e.Id == e2.GetId() && e.Type == e2.GetType()
-}
-
-func (b *baseTask) addNext(nextTask Task, mustBeUnique bool) error {
-	if mustBeUnique && b.NextTasks != nil && len(b.NextTasks) > 0 && nextTask.GetId() != b.NextTasks[0] {
-		//log.Printf("task %s already has a next task (overwriting): %s - %s\n", b.Id, b.NextTasks[0], nextTask.GetId())
-		b.NextTasks[0] = nextTask.GetId()
-	} else {
-		b.NextTasks = append(b.NextTasks, nextTask.GetId())
-	}
-	return nil
+	return s.Id == e2.GetId() && s.Type == e2.GetType()
 }
