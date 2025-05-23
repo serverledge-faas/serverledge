@@ -24,7 +24,7 @@ func (f *FailureTask) execute(progress *Progress, r *Request) (*PartialData, *Pr
 
 	output := make(map[string]interface{})
 	output[f.Error] = f.Cause
-	outputData := NewPartialData(ReqId(r.Id), f.GetNext()[0], output)
+	outputData := NewPartialData(ReqId(r.Id), f.GetNext(), output)
 
 	progress.Complete(f.GetId())
 
@@ -32,11 +32,12 @@ func (f *FailureTask) execute(progress *Progress, r *Request) (*PartialData, *Pr
 	return outputData, progress, shouldContinueExecution, nil
 }
 
-func (f *FailureTask) AddNext(nextTask Task) error {
+func (f *FailureTask) SetNext(nextTask Task) error {
 	if nextTask.GetType() != End {
 		return fmt.Errorf("the Fail can only be chained to an end task")
 	}
-	return f.addNext(nextTask, true)
+	f.NextTask = nextTask.GetId()
+	return nil
 }
 
 func (f *FailureTask) String() string {

@@ -31,7 +31,6 @@ func FromASL(name string, aslSrc []byte) (*Workflow, error) {
 func buildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName string) (*Workflow, error) {
 	builder := NewBuilder()
 	isTerminal := false
-	// forse questo va messo in un metodo a parte e riutilizzato per navigare i branch dei choice
 	for !isTerminal {
 
 		switch nextState.GetType() {

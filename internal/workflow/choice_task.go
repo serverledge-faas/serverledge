@@ -9,7 +9,8 @@ import (
 // ChoiceTask receives one input and produces one result to one of alternative tasks, based on condition
 type ChoiceTask struct {
 	baseTask
-	Conditions []Condition
+	Conditions           []Condition
+	AlternativeNextTasks []TaskId
 }
 
 func NewChoiceTask(conds []Condition) *ChoiceTask {
@@ -20,10 +21,15 @@ func NewChoiceTask(conds []Condition) *ChoiceTask {
 }
 
 func (c *ChoiceTask) AddNext(nextTask Task) error {
-	if len(c.NextTasks) >= len(c.Conditions) {
-		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.NextTasks), len(c.Conditions)))
+	if len(c.AlternativeNextTasks) >= len(c.Conditions) {
+		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.AlternativeNextTasks), len(c.Conditions)))
 	}
-	return c.addNext(nextTask, false)
+	c.AlternativeNextTasks = append(c.AlternativeNextTasks, nextTask.GetId())
+	return nil
+}
+
+func (c *ChoiceTask) SetNext(nextTask Task) error {
+	panic("Cannot set a single next task for ChoiceTask: use AddNext() instead")
 }
 
 func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
@@ -49,8 +55,8 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 		return nil, progress, false, fmt.Errorf("no condition is met")
 	}
 
-	nextTaskId := c.NextTasks[matchedCondition]
-	outputData.ForTask = nextTaskId
+	c.NextTask = c.AlternativeNextTasks[matchedCondition]
+	outputData.ForTask = c.NextTask
 	outputData.Data = input.Data
 
 	// we skip all branch that will not be executed
@@ -60,7 +66,7 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 	}
 
 	progress.Complete(c.GetId())
-	err := progress.AddReadyTask(nextTaskId)
+	err := progress.AddReadyTask(c.NextTask)
 	if err != nil {
 		return nil, progress, false, err
 	}
@@ -70,11 +76,11 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 // VisitBranch returns all tasks of a branch under a choice task; branch number starts from 0
 func (c *ChoiceTask) VisitBranch(workflow *Workflow, branch int) []Task {
 	branchTasks := make([]Task, 0)
-	if len(c.NextTasks) <= branch {
+	if len(c.AlternativeNextTasks) <= branch {
 		fmt.Printf("fail to get branch %d\n", branch)
 		return branchTasks
 	}
-	taskId := c.NextTasks[branch]
+	taskId := c.AlternativeNextTasks[branch]
 	return Visit(workflow, taskId, true)
 }
 
@@ -85,7 +91,7 @@ func (c *ChoiceTask) GetTasksToSkip(workflow *Workflow, matchedCondition int) []
 	toSkip := make([]Task, 0)
 
 	toNotSkip := c.VisitBranch(workflow, matchedCondition)
-	for i := 0; i < len(c.NextTasks); i++ {
+	for i := 0; i < len(c.AlternativeNextTasks); i++ {
 		if i == matchedCondition {
 			continue
 		}
@@ -115,5 +121,5 @@ func (c *ChoiceTask) String() string {
 		}
 	}
 	conditions += ">"
-	return fmt.Sprintf("[ChoiceTask(%d): %s] ", len(c.NextTasks), conditions)
+	return fmt.Sprintf("[ChoiceTask(%d): %s] ", len(c.AlternativeNextTasks), conditions)
 }

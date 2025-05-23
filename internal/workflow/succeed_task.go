@@ -15,11 +15,12 @@ func NewSuccessTask() *SuccessTask {
 	}
 }
 
-func (s *SuccessTask) AddNext(nextTask Task) error {
+func (s *SuccessTask) SetNext(nextTask Task) error {
 	if nextTask.GetType() != End {
 		return fmt.Errorf("the SuccessTask can only be chained to an end task")
 	}
-	return s.addNext(nextTask, true)
+	s.NextTask = nextTask.GetId()
+	return nil
 }
 
 func (s *SuccessTask) String() string {

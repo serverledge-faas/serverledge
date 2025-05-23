@@ -210,7 +210,6 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 	fcName := "sequence"
-	//deleteWorkflowApiTest(t, fcName, HOST, PORT)
 
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
 		AddInput("input", function.Int{}).
@@ -241,7 +240,6 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 	for {
 		pollResult := pollWorkflowTest(t, reqIdStruct.ReqId, HOST, PORT)
 
-		fmt.Println(pollResult)
 		var response workflow.InvocationResponse
 		errUnmarshalExecResult := json.Unmarshal([]byte(pollResult), &response)
 

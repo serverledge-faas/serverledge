@@ -36,46 +36,6 @@ func choiceProgress(t *testing.T, condition workflow.Condition) (*workflow.Progr
 	return workflow.InitProgress("abc", wflow), wflow
 }
 
-func parallelProgress(t *testing.T) (*workflow.Progress, *workflow.Workflow) {
-	py, err := initializeExamplePyFunction()
-	u.AssertNil(t, err)
-
-	wflow, err := workflow.NewBuilder().
-		AddBroadcastFanOutNode(3).
-		NextFanOutBranch(CreateSequenceWorkflow(py)).
-		NextFanOutBranch(CreateSequenceWorkflow(py, py)).
-		NextFanOutBranch(CreateSequenceWorkflow(py, py, py)).
-		AddFanInNode().
-		Build()
-	u.AssertNil(t, err)
-
-	return workflow.InitProgress("abc", wflow), wflow
-}
-
-func complexProgress(t *testing.T, condition workflow.Condition) (*workflow.Progress, *workflow.Workflow) {
-	py, err := initializeExamplePyFunction()
-	u.AssertNil(t, err)
-
-	notCondition := workflow.NewPredicate().Not(condition).Build()
-
-	wflow, err := workflow.NewBuilder().
-		AddSimpleNode(py).
-		AddChoiceNode(
-			notCondition,
-			condition,
-		).
-		NextBranch(CreateSequenceWorkflow(py)).
-		NextBranch(workflow.NewBuilder().
-			AddBroadcastFanOutNode(3).
-			ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(py, py) }).
-			AddFanInNode().
-			Build()).
-		EndChoiceAndBuild()
-	u.AssertNil(t, err)
-
-	return workflow.InitProgress("abc", wflow), wflow
-}
-
 func TestProgressMarshaling(t *testing.T) {
 	condition := workflow.NewPredicate().And(
 		workflow.NewEqCondition(1, 3),
@@ -84,9 +44,7 @@ func TestProgressMarshaling(t *testing.T) {
 
 	progress1, _ := simpleProgress(t)
 	progress2, _ := choiceProgress(t, condition)
-	progress3, _ := parallelProgress(t)
-	progress4, _ := complexProgress(t, condition)
-	progresses := []*workflow.Progress{progress1, progress2, progress3, progress4}
+	progresses := []*workflow.Progress{progress1, progress2}
 
 	for i, progress := range progresses {
 		marshal, errMarshal := json.Marshal(progress)
@@ -111,10 +69,8 @@ func TestProgressCache(t *testing.T) {
 
 	progress1, workflow1 := simpleProgress(t)
 	progress2, workflow2 := choiceProgress(t, condition)
-	progress3, workflow3 := parallelProgress(t)
-	progress4, workflow4 := complexProgress(t, condition)
-	progresses := []*workflow.Progress{progress1, progress2, progress3, progress4}
-	workflows := []*workflow.Workflow{workflow1, workflow2, workflow3, workflow4}
+	progresses := []*workflow.Progress{progress1, progress2}
+	workflows := []*workflow.Workflow{workflow1, workflow2}
 
 	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
@@ -127,7 +83,7 @@ func TestProgressCache(t *testing.T) {
 		u.AssertTrueMsg(t, progress.Equals(retrievedProgress), "progresses don't match")
 
 		progress.Complete(wflow.Start.Id)
-		progress.Complete(wflow.Start.GetNext()[0])
+		progress.Complete(wflow.Start.GetNext())
 
 		err = workflow.SaveProgress(progress)
 		u.AssertNilMsg(t, err, "failed to save after update")

@@ -324,48 +324,6 @@ func CreateChoiceWorkflow(dagger func() (*workflow.Workflow, error), condArr ...
 		EndChoiceAndBuild()
 }
 
-// CreateScatterSingleFunctionWorkflow if successful, returns a workflow with one fan out, N simple node with the same function
-// and then a fan in node that merges all the result in an array.
-func CreateScatterSingleFunctionWorkflow(fun *function.Function, fanOutDegree int) (*workflow.Workflow, error) {
-	return workflow.NewBuilder().
-		AddScatterFanOutNode(fanOutDegree).
-		ForEachParallelBranch(func() (*workflow.Workflow, error) { return CreateSequenceWorkflow(fun) }).
-		AddFanInNode().
-		Build()
-}
-
-// CreateBroadcastWorkflow if successful, returns a workflow with one fan out node, N simple nodes with different functions and a fan in node
-// The number of branches is defined by the number of given functions
-func CreateBroadcastWorkflow(dagger func() (*workflow.Workflow, error), fanOutDegree int) (*workflow.Workflow, error) {
-	return workflow.NewBuilder().
-		AddBroadcastFanOutNode(fanOutDegree).
-		ForEachParallelBranch(dagger).
-		AddFanInNode().
-		Build()
-}
-
-// CreateBroadcastMultiFunctionWorkflow if successful, returns a workflow with one fan out node, each branch chained with a different workflow that run in parallel, and a fan in node.
-// The number of branch is defined as the number of dagger functions.
-func CreateBroadcastMultiFunctionWorkflow(dagger ...func() (*workflow.Workflow, error)) (*workflow.Workflow, error) {
-	builder := workflow.NewBuilder().
-		AddBroadcastFanOutNode(len(dagger))
-	for _, dagFn := range dagger {
-		builder = builder.NextFanOutBranch(dagFn())
-	}
-	return builder.
-		AddFanInNode().
-		Build()
-}
-
-func GetSingleResult(cer *workflow.ExecutionReport) (string, error) {
-	if len(cer.Result) == 1 {
-		for _, value := range cer.Result {
-			return fmt.Sprintf("%v", value), nil
-		}
-	}
-	return "", fmt.Errorf("there is not exactly one result: there are %d result(s)", len(cer.Result))
-}
-
 func GetIntSingleResult(cer *workflow.ExecutionReport) (int, error) {
 	if len(cer.Result) == 1 {
 		for _, value := range cer.Result {

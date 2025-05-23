@@ -48,8 +48,6 @@ const (
 	End     TaskType = "EndTask"
 	Simple  TaskType = "SimpleTask"
 	Choice  TaskType = "ChoiceTask"
-	FanOut  TaskType = "FanOutTask"
-	FanIn   TaskType = "FanInTask"
 	Fail    TaskType = "Fail"
 	Succeed TaskType = "SuccessTask"
 	Pass    TaskType = "PassTask"
@@ -66,10 +64,6 @@ func TaskFromType(nodeType TaskType) Task {
 		return &SimpleTask{}
 	case Choice:
 		return &ChoiceTask{}
-	case FanOut:
-		return &FanOutTask{}
-	case FanIn:
-		return &FanInTask{}
 	case Fail:
 		return &FailureTask{}
 	case Succeed:
@@ -91,10 +85,6 @@ func printType(t TaskType) string {
 		return "Simple"
 	case Choice:
 		return "Choice"
-	case FanOut:
-		return "FanOut"
-	case FanIn:
-		return "FanIn"
 	case Fail:
 		return "Fail"
 	case Succeed:

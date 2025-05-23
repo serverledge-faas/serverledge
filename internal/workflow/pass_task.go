@@ -18,8 +18,9 @@ func NewPassTask(result string) *PassTask {
 	return &passTask
 }
 
-func (p *PassTask) AddNext(nextTask Task) error {
-	return p.addNext(nextTask, true)
+func (p *PassTask) SetNext(nextTask Task) error {
+	p.NextTask = nextTask.GetId()
+	return nil
 }
 
 func (p *PassTask) String() string {

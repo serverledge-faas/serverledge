@@ -99,11 +99,21 @@ func (w *Workflow) computePreviousTasks() {
 		toVisit = toVisit[1:]
 		visited[task.GetId()] = true
 
-		for _, nextTask := range task.GetNext() {
-			// task -> nextTask
-			w.prevTasks[nextTask] = append(w.prevTasks[nextTask], task.GetId())
-			if !visited[nextTask] {
-				toVisit = append(toVisit, w.Tasks[nextTask])
+		// task -> nextTask
+		var nextTasks []TaskId
+		if task.GetType() == Choice {
+			nextTasks = task.(*ChoiceTask).AlternativeNextTasks
+		} else {
+			nextTasks = append(nextTasks, task.GetNext())
+		}
+		for _, nextTask := range nextTasks {
+			if nextTask != "" {
+				if !slices.Contains(w.prevTasks[nextTask], task.GetId()) {
+					w.prevTasks[nextTask] = append(w.prevTasks[nextTask], task.GetId())
+				}
+				if !visited[nextTask] {
+					toVisit = append(toVisit, w.Tasks[nextTask])
+				}
 			}
 		}
 	}
@@ -126,12 +136,18 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 		toVisit = toVisit[1:]
 		visited[task.GetId()] = true
 
-		for _, nextTask := range task.GetNext() {
-			if _, ok := visited[nextTask]; !ok {
-				nt := workflow.Tasks[nextTask]
-				if !excludeEnd || nt.GetType() != End {
-					if !slices.Contains(toVisit, nt) {
-						toVisit = append(toVisit, nt)
+		var nextTasks []TaskId
+		if task.GetType() == Choice {
+			nextTasks = task.(*ChoiceTask).AlternativeNextTasks
+		} else {
+			nextTasks = append(nextTasks, task.GetNext())
+		}
+		for _, nt := range nextTasks {
+			if _, ok := visited[nt]; !ok {
+				nextTask, ok := workflow.Tasks[nt]
+				if ok && (!excludeEnd || nextTask.GetType() != End) {
+					if !slices.Contains(toVisit, nextTask) {
+						toVisit = append(toVisit, nextTask)
 					}
 				}
 			}
@@ -141,92 +157,18 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 	return tasks
 }
 
-func (workflow *Workflow) executeParallel(progress *Progress, input *PartialData, tasks []TaskId, r *Request) (*PartialData, *Progress, error) {
-	// preparing workflow tasks and channels for parallel execution
-	parallelTasks := make([]Task, len(tasks))
-	inputs := make([]map[string]interface{}, len(tasks))
-	outputChannels := make([]chan map[string]interface{}, len(tasks))
-	errorChannels := make([]chan error, len(tasks))
-	outputMap := make(map[string]interface{})
-	// TODO: it would be enough to have a single channel, where each task sends a struct (comprising error/output and task id)
-
-	// Populate slices of inputs and channels
-	for i, taskId := range tasks {
-		parallelTasks[i], _ = workflow.Find(taskId)
-		outputChannels[i] = make(chan map[string]interface{})
-		errorChannels[i] = make(chan error)
-		inputs[i] = input.Data[fmt.Sprintf("%s", taskId)].(map[string]interface{})
-	}
-
-	// executing all tasks in parallel
-	for i, task := range parallelTasks {
-		go func(i int, params map[string]interface{}, currTask Task) {
-			// TODO: only SimpleTask supported here!
-			if simpleTask, isSimple := currTask.(*SimpleTask); isSimple {
-
-				err := simpleTask.CheckInput(params)
-				if err != nil {
-					errorChannels[i] <- err
-					outputChannels[i] <- nil
-					return
-				}
-				output, err := simpleTask.exec(r, params)
-				if err != nil {
-					errorChannels[i] <- err
-					outputChannels[i] <- nil
-					return
-				}
-
-				errorChannels[i] <- nil
-				outputChannels[i] <- output
-			} else {
-				errorChannels[i] <- fmt.Errorf("we do not support task of type %v in parallel regions", currTask.GetType())
-				outputChannels[i] <- nil
-				return
-			}
-		}(i, inputs[i], task)
-	}
-
-	parallelErrors := make([]error, 0)
-	for _, errChan := range errorChannels {
-		err := <-errChan
-		if err != nil {
-			parallelErrors = append(parallelErrors, err)
-			// we do not return now, because we want to quit the goroutines
-			// we also need to check the outputs.
-		}
-	}
-	if len(parallelErrors) > 0 {
-		return nil, progress, fmt.Errorf("errors in parallel execution: %v", parallelErrors)
-	}
-
-	for i, outChan := range outputChannels {
-		out := <-outChan
-		outputMap[fmt.Sprintf("%d", i)] = out
-		progress.Complete(parallelTasks[i].GetId())
-	}
-
-	outputData := NewPartialData(ReqId(r.Id), "", outputMap) // partial initialization of outputData
-	outputData.ForTask = parallelTasks[0].GetNext()[0]       // TODO: we are assuming that the next task is unique for all the parallel tasks (i.e. a FanIn)
-	progress.AddReadyTask(parallelTasks[0].GetNext()[0])
-	return outputData, progress, nil
-}
-
 func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
 
 	output := input.Data
-	outputData := NewPartialData(ReqId(r.Id), task.GetNext()[0], output)
+	outputData := NewPartialData(ReqId(r.Id), task.GetNext(), output)
 
 	progress.Complete(task.GetId())
 
 	shouldContinueExecution := task.GetType() != Fail && task.GetType() != Succeed
 	if shouldContinueExecution {
-		nextTasks := task.GetNext()
-		for _, task := range nextTasks {
-			err := progress.AddReadyTask(task)
-			if err != nil {
-				return nil, progress, false, nil
-			}
+		err := progress.AddReadyTask(task.GetNext())
+		if err != nil {
+			return nil, progress, false, nil
 		}
 	}
 
@@ -252,13 +194,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		}
 	}
 
-	if len(nextTasks) > 1 {
-		// TODO: revise this whole function to pop next tasks one at a time
-		output, progress, err = workflow.executeParallel(progress, input, nextTasks, r)
-		if err != nil {
-			return nil, progress, false, err
-		}
-	} else if len(nextTasks) == 1 {
+	if len(nextTasks) >= 1 {
 		n, ok := workflow.Find(nextTasks[0])
 		if !ok {
 			return nil, progress, true, fmt.Errorf("failed to find task %s", n.GetId())
@@ -269,12 +205,8 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 			output, progress, shouldContinue, err = task.execute(progress, input, r)
 		case *ChoiceTask:
 			output, progress, shouldContinue, err = task.execute(progress, input, r)
-		case *FanInTask:
-			output, progress, shouldContinue, err = task.execute(progress, input, r)
 		case *StartTask:
 			output, progress, shouldContinue, err = task.execute(progress, input)
-		case *FanOutTask:
-			output, progress, shouldContinue, err = task.execute(progress, input, r)
 		case *PassTask:
 			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, task, r)
 		case *FailureTask:
@@ -718,7 +650,7 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 	case Start:
 		task := &StartTask{}
 		err = json.Unmarshal(value, task)
-		if err == nil && task.Id != "" && task.NextTasks != nil {
+		if err == nil && task.Id != "" {
 			workflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
@@ -732,7 +664,7 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 	case Choice:
 		task := &ChoiceTask{}
 		err = json.Unmarshal(value, task)
-		if err == nil && task.Id != "" && task.NextTasks != nil && len(task.NextTasks) == len(task.Conditions) {
+		if err == nil && task.Id != "" && len(task.AlternativeNextTasks) == len(task.Conditions) {
 			workflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
