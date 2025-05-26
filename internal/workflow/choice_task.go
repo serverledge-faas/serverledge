@@ -32,18 +32,14 @@ func (c *ChoiceTask) GetAlternatives() []TaskId {
 	return c.AlternativeNextTasks
 }
 
-func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
-
-	outputData := NewPartialData(ReqId(r.Id), c.GetId(), nil) // partial initialization of outputData
-
-	// NOTE: we do not call task.CheckInput() as this task has no signature to match against
+func (c *ChoiceTask) Evaluate(input *PartialData, r *Request) (TaskId, error) {
 
 	// simply evaluate the Conditions and set the matching one
 	matchedCondition := -1
 	for i, condition := range c.Conditions {
 		ok, err := condition.Evaluate(input.Data)
 		if err != nil {
-			return nil, progress, false, fmt.Errorf("error while testing condition: %v", err)
+			return "", fmt.Errorf("error while testing condition: %v", err)
 		}
 		if ok {
 			matchedCondition = i
@@ -52,64 +48,10 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 	}
 
 	if matchedCondition < 0 {
-		return nil, progress, false, fmt.Errorf("no condition is met")
+		return "", fmt.Errorf("no condition is met")
 	}
 
-	nextTask := c.AlternativeNextTasks[matchedCondition]
-	outputData.ForTask = nextTask
-	outputData.Data = input.Data
-
-	// we skip all branch that will not be executed
-	tasksToSkip := c.GetTasksToSkip(r.W, matchedCondition)
-	for _, t := range tasksToSkip {
-		progress.Skip(t.GetId())
-	}
-
-	progress.Complete(c.GetId())
-	err := progress.AddReadyTask(nextTask)
-	if err != nil {
-		return nil, progress, false, err
-	}
-	return outputData, progress, true, nil
-}
-
-// VisitBranch returns all tasks of a branch under a choice task; branch number starts from 0
-func (c *ChoiceTask) VisitBranch(workflow *Workflow, branch int) []Task {
-	branchTasks := make([]Task, 0)
-	if len(c.AlternativeNextTasks) <= branch {
-		fmt.Printf("fail to get branch %d\n", branch)
-		return branchTasks
-	}
-	taskId := c.AlternativeNextTasks[branch]
-	return Visit(workflow, taskId, true)
-}
-
-// GetTasksToSkip skips all tasks that are in a branch that will not be executed.
-// If a skipped branch contains one or more tasks that in use by the current branch, the task
-// should NOT be skipped (Tested in TestParsingChoiceDagWithDataTestExpr)
-func (c *ChoiceTask) GetTasksToSkip(workflow *Workflow, matchedCondition int) []Task {
-	toSkip := make([]Task, 0)
-
-	toNotSkip := c.VisitBranch(workflow, matchedCondition)
-	for i := 0; i < len(c.AlternativeNextTasks); i++ {
-		if i == matchedCondition {
-			continue
-		}
-		branchTasks := c.VisitBranch(workflow, i)
-		for _, task := range branchTasks {
-			shouldBeSkipped := true
-			for _, taskNotSkipped := range toNotSkip {
-				if task.Equals(taskNotSkipped) {
-					shouldBeSkipped = false
-					break
-				}
-			}
-			if shouldBeSkipped {
-				toSkip = append(toSkip, task)
-			}
-		}
-	}
-	return toSkip
+	return c.AlternativeNextTasks[matchedCondition], nil
 }
 
 func (c *ChoiceTask) String() string {

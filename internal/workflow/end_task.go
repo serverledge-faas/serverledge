@@ -17,11 +17,6 @@ func NewEndTask() *EndTask {
 	}
 }
 
-func (e *EndTask) execute(progress *Progress, partialData *PartialData) (*PartialData, *Progress, bool, error) {
-	progress.Complete(e.Id)
-	return partialData, progress, false, nil // false because we want to stop when reaching the end
-}
-
 func (e *EndTask) String() string {
 	return fmt.Sprintf("[EndTask]")
 }

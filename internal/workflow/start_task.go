@@ -29,16 +29,8 @@ func (s *StartTask) SetNext(nextTask Task) error {
 	return nil
 }
 
-func (s *StartTask) execute(progress *Progress, partialData *PartialData) (*PartialData, *Progress, bool, error) {
-
-	// TODO: move this logic into workflow "handleCompletion(output)"
-	progress.Complete(s.GetId())
-
-	err := progress.AddReadyTask(s.GetNext())
-	if err != nil {
-		return nil, progress, false, err
-	}
-	return partialData, progress, true, nil
+func (s *StartTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+	return input.Data, nil
 }
 
 func (s *StartTask) String() string {

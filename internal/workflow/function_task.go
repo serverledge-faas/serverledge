@@ -35,26 +35,18 @@ func (s *FunctionTask) SetNext(nextTask Task) error {
 	return nil
 }
 
-func (s *FunctionTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
+func (s *FunctionTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
 
 	err := s.CheckInput(input.Data)
 	if err != nil {
-		return nil, progress, false, err
+		return nil, err
 	}
 	output, err := s.exec(r, input.Data)
 	if err != nil {
-		return nil, progress, false, err
+		return nil, err
 	}
 
-	nextTask := s.GetNext()
-	outputData := NewPartialData(ReqId(r.Id), nextTask, output)
-
-	progress.Complete(s.Id)
-	err = progress.AddReadyTask(nextTask)
-	if err != nil {
-		return nil, progress, false, err
-	}
-	return outputData, progress, true, nil
+	return output, nil
 }
 
 func (s *FunctionTask) exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
