@@ -103,7 +103,7 @@ func BuildFromTaskState(builder *Builder, t *asl.TaskState, name string) (*Build
 	if !found {
 		return nil, fmt.Errorf("non existing function in workflow: %s", t.Resource)
 	}
-	builder = builder.AddSimpleNodeWithId(f, name)
+	builder = builder.AddFunctionTaskWithId(f, name)
 	return builder, nil
 }
 

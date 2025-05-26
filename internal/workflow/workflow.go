@@ -101,11 +101,17 @@ func (w *Workflow) computePreviousTasks() {
 
 		// task -> nextTask
 		var nextTasks []TaskId
-		if task.GetType() == Choice {
-			nextTasks = task.(*ChoiceTask).AlternativeNextTasks
-		} else {
-			nextTasks = append(nextTasks, task.GetNext())
+		switch typedTask := task.(type) {
+		case ConditionalTask:
+			nextTasks = typedTask.GetAlternatives()
+		case UnaryTask:
+			nextTasks = append(nextTasks, typedTask.GetNext())
+		case *EndTask:
+			continue
+		default:
+			panic("unknown task type")
 		}
+
 		for _, nextTask := range nextTasks {
 			if nextTask != "" {
 				if !slices.Contains(w.prevTasks[nextTask], task.GetId()) {
@@ -137,11 +143,17 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 		visited[task.GetId()] = true
 
 		var nextTasks []TaskId
-		if task.GetType() == Choice {
-			nextTasks = task.(*ChoiceTask).AlternativeNextTasks
-		} else {
-			nextTasks = append(nextTasks, task.GetNext())
+		switch typedTask := task.(type) {
+		case ConditionalTask:
+			nextTasks = typedTask.GetAlternatives()
+		case UnaryTask:
+			nextTasks = append(nextTasks, typedTask.GetNext())
+		case *EndTask:
+			continue
+		default:
+			panic("unknown task type: " + task.GetType())
 		}
+
 		for _, nt := range nextTasks {
 			if _, ok := visited[nt]; !ok {
 				nextTask, ok := workflow.Tasks[nt]
@@ -157,7 +169,7 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 	return tasks
 }
 
-func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task Task, r *Request) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task UnaryTask, r *Request) (*PartialData, *Progress, bool, error) {
 
 	output := input.Data
 	outputData := NewPartialData(ReqId(r.Id), task.GetNext(), output)

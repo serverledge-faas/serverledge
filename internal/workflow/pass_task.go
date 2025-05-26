@@ -8,6 +8,7 @@ type PassTask struct {
 	baseTask
 	Result     string
 	ResultPath string
+	NextTask   TaskId
 }
 
 func NewPassTask(result string) *PassTask {
@@ -16,6 +17,10 @@ func NewPassTask(result string) *PassTask {
 		Result:   result,
 	}
 	return &passTask
+}
+
+func (p *PassTask) GetNext() TaskId {
+	return p.NextTask
 }
 
 func (p *PassTask) SetNext(nextTask Task) error {

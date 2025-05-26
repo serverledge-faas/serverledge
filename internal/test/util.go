@@ -311,7 +311,7 @@ func IsWindows() bool {
 func CreateSequenceWorkflow(funcs ...*function.Function) (*workflow.Workflow, error) {
 	builder := workflow.NewBuilder()
 	for _, f := range funcs {
-		builder = builder.AddSimpleNode(f)
+		builder = builder.AddFunctionTask(f)
 	}
 	return builder.Build()
 }

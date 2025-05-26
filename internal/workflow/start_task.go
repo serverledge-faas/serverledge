@@ -8,6 +8,7 @@ import (
 // StartTask is a Task from which the execution of the Workflow starts. Invokes the first Task
 type StartTask struct {
 	baseTask
+	NextTask TaskId
 }
 
 func NewStartTask() *StartTask {
@@ -17,6 +18,10 @@ func NewStartTask() *StartTask {
 			Type: Start,
 		},
 	}
+}
+
+func (s *StartTask) GetNext() TaskId {
+	return s.NextTask
 }
 
 func (s *StartTask) SetNext(nextTask Task) error {
