@@ -169,28 +169,9 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 	return tasks
 }
 
-func (workflow *Workflow) doNothingExec(progress *Progress, input *PartialData, task UnaryTask, r *Request) (*PartialData, *Progress, bool, error) {
-
-	output := input.Data
-	outputData := NewPartialData(ReqId(r.Id), task.GetNext(), output)
-
-	progress.Complete(task.GetId())
-
-	shouldContinueExecution := task.GetType() != Fail && task.GetType() != Succeed
-	if shouldContinueExecution {
-		err := progress.AddReadyTask(task.GetNext())
-		if err != nil {
-			return nil, progress, false, nil
-		}
-	}
-
-	return outputData, progress, shouldContinueExecution, nil
-}
-
 func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
-	var output *PartialData
 	var err error
-	shouldContinue := true
+	var outputData *PartialData
 
 	var nextTasks []TaskId
 
@@ -213,24 +194,57 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		}
 
 		switch task := n.(type) {
-		case *FunctionTask:
-			output, progress, shouldContinue, err = task.execute(progress, input, r)
-		case *ChoiceTask:
-			output, progress, shouldContinue, err = task.execute(progress, input, r)
-		case *StartTask:
-			output, progress, shouldContinue, err = task.execute(progress, input)
-		case *PassTask:
-			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, task, r)
-		case *FailureTask:
-			output, progress, shouldContinue, err = task.execute(progress, r)
-		case *SuccessTask:
-			output, progress, shouldContinue, err = workflow.doNothingExec(progress, input, task, r)
+		case UnaryTask:
+			output, err := task.execute(input, r)
+			if err != nil {
+				progress.Fail(n.GetId())
+				return nil, progress, false, err
+			}
+			progress.Complete(task.GetId())
+
+			nextTask := task.GetNext()
+			outputData = NewPartialData(ReqId(r.Id), nextTask, output)
+			if progress.IsReady(nextTask) {
+				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
+			}
+
+		case ConditionalTask:
+			nextTaskId, err := task.Evaluate(input, r)
+			if err != nil {
+				progress.Fail(n.GetId())
+				return nil, progress, false, err
+			}
+
+			// we skip all tasks that will not be executed
+			toSkip := make([]Task, 0)
+			toNotSkip := Visit(workflow, nextTaskId, false)
+			for _, a := range task.GetAlternatives() {
+				if a == nextTaskId {
+					continue
+				}
+				branchTasks := Visit(workflow, a, false)
+				for _, otherTask := range branchTasks {
+					if !slices.Contains(toNotSkip, otherTask) {
+						toSkip = append(toSkip, otherTask)
+					}
+				}
+			}
+			for _, t := range toSkip {
+				progress.Skip(t.GetId())
+			}
+			progress.Complete(task.GetId())
+
+			outputData = NewPartialData(ReqId(r.Id), nextTaskId, input.Data)
+			if progress.IsReady(nextTaskId) {
+				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
+			}
 		case *EndTask:
-			output, progress, shouldContinue, err = task.execute(progress, input)
+			progress.Complete(task.GetId())
+			outputData = input
 		}
 		if err != nil {
 			progress.Fail(n.GetId())
-			return output, progress, false, err
+			return nil, progress, false, err
 		}
 	} else {
 		err = SaveProgress(progress)
@@ -244,7 +258,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		return nil, progress, false, nil
 	}
 
-	return output, progress, shouldContinue, nil
+	return outputData, progress, true, nil
 }
 
 // GetUniqueFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
@@ -440,7 +454,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 				return fmt.Errorf("failed workflow execution: %v", err)
 			}
 
-			if !shouldContinue && pd != nil {
+			if len(progress.ReadyToExecute) == 0 && pd != nil {
 				r.ExecReport.Result = pd.Data
 			}
 		}

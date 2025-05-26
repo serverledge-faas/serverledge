@@ -110,14 +110,6 @@ func (p *Progress) Complete(id TaskId) {
 	}
 }
 
-func (p *Progress) AddReadyTask(id TaskId) error {
-	if !p.IsReady(id) {
-		return fmt.Errorf("the task is not ready")
-	}
-	p.ReadyToExecute = append(p.ReadyToExecute, id)
-	return nil
-}
-
 // TODO: skip on cascade next nodes
 func (p *Progress) Skip(id TaskId) {
 	p.Status[id] = Skipped

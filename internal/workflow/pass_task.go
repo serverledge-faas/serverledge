@@ -31,3 +31,7 @@ func (p *PassTask) SetNext(nextTask Task) error {
 func (p *PassTask) String() string {
 	return "[ Pass ]"
 }
+
+func (p *PassTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+	return input.Data, nil
+}

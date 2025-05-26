@@ -21,18 +21,6 @@ func NewFailureTask(error, cause string) *FailureTask {
 	return &fail
 }
 
-func (f *FailureTask) execute(progress *Progress, r *Request) (*PartialData, *Progress, bool, error) {
-
-	output := make(map[string]interface{})
-	output[f.Error] = f.Cause
-	outputData := NewPartialData(ReqId(r.Id), f.GetNext(), output)
-
-	progress.Complete(f.GetId())
-
-	shouldContinueExecution := f.GetType() != Fail && f.GetType() != Succeed
-	return outputData, progress, shouldContinueExecution, nil
-}
-
 func (f *FailureTask) GetNext() TaskId {
 	return f.NextTask
 }
@@ -47,4 +35,10 @@ func (f *FailureTask) SetNext(nextTask Task) error {
 
 func (f *FailureTask) String() string {
 	return fmt.Sprintf("[Fail: %s]", f.Error)
+}
+
+func (f *FailureTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+	output := make(map[string]interface{})
+	output[f.Error] = f.Cause
+	return output, nil
 }
