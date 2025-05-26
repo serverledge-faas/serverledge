@@ -38,48 +38,37 @@ func NewBuilder() *Builder {
 	return &db
 }
 
-// AddSimpleNode connects a simple node to the previous node
-func (b *Builder) AddSimpleNode(f *function.Function) *Builder {
-	nErrors := len(b.errors)
-	if nErrors > 0 {
-		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in builder\n", nErrors)
-		return b
-	}
-
-	simpleNode := NewFunctionTask(f.Name)
-
-	b.workflow.add(simpleNode)
-	err := b.prevNode.SetNext(simpleNode)
-	if err != nil {
-		b.appendError(err)
-		return b
-	}
-
-	b.prevNode = simpleNode
-	// log.Println("Added simple node to Workflow")
-	return b
+// AddFunctionTask connects a simple node to the previous node
+func (b *Builder) AddFunctionTask(f *function.Function) *Builder {
+	return b.AddFunctionTaskWithId(f, "")
 }
 
-// AddSimpleNodeWithId connects a simple node with the specified id to the previous node
-func (b *Builder) AddSimpleNodeWithId(f *function.Function, id string) *Builder {
+// AddFunctionTaskWithId connects a simple node with the specified id to the previous node
+func (b *Builder) AddFunctionTaskWithId(f *function.Function, id string) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
-		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in builder\n", nErrors)
+		fmt.Printf("AddFunctionTask skipped, because of %d error(s) in builder\n", nErrors)
 		return b
 	}
 
 	simpleNode := NewFunctionTask(f.Name)
-	simpleNode.Id = TaskId(id)
-
+	if id != "" {
+		simpleNode.Id = TaskId(id)
+	}
 	b.workflow.add(simpleNode)
-	err := b.prevNode.SetNext(simpleNode)
-	if err != nil {
-		b.appendError(err)
-		return b
+
+	switch prevTask := b.prevNode.(type) {
+	case UnaryTask:
+		err := prevTask.SetNext(simpleNode)
+		if err != nil {
+			b.appendError(err)
+			return b
+		}
+	default:
+		panic("Unsupported previous task:" + prevTask.String())
 	}
 
 	b.prevNode = simpleNode
-	//fmt.Printf("Added simple node to Workflow with id %s\n", id)
 	return b
 }
 
@@ -95,11 +84,17 @@ func (b *Builder) AddChoiceNode(conditions ...Condition) *ChoiceBranchBuilder {
 	choiceNode := NewChoiceTask(conditions)
 	b.branches = len(conditions)
 	b.workflow.add(choiceNode)
-	err := b.prevNode.SetNext(choiceNode)
-	if err != nil {
-		b.appendError(err)
-		return &ChoiceBranchBuilder{builder: b, completed: 0}
+	switch prevTask := b.prevNode.(type) {
+	case UnaryTask:
+		err := prevTask.SetNext(choiceNode)
+		if err != nil {
+			b.appendError(err)
+			return &ChoiceBranchBuilder{builder: b, completed: 0}
+		}
+	default:
+		panic("Unsupported previous task:" + prevTask.String())
 	}
+
 	b.prevNode = choiceNode
 	emptyBranches := make([]TaskId, 0, b.branches)
 	choiceNode.AlternativeNextTasks = emptyBranches
@@ -132,21 +127,24 @@ func (c *ChoiceBranchBuilder) NextBranch(toMerge *Workflow, err1 error) *ChoiceB
 		// chains the alternative to the input workflow, which is already connected to a whole series of nodes
 		if !toMerge.IsEmpty() {
 			c.builder.workflow.add(startNext)
-			if c.builder.prevNode.GetType() == Choice {
-				ct := c.builder.prevNode.(*ChoiceTask)
-				err := ct.AddNext(startNext)
+			switch prev := c.builder.prevNode.(type) {
+			case UnaryTask:
+				err := prev.SetNext(startNext)
 				if err != nil {
 					c.builder.appendError(err)
 				}
-			} else {
-				err := c.builder.prevNode.SetNext(startNext)
+			case ConditionalTask:
+				err := prev.AddAlternative(startNext)
 				if err != nil {
 					c.builder.appendError(err)
 				}
+			default:
+				panic("Unsupported previous task:" + prev.String())
 			}
+
 			// adds the nodes to the building workflow
 			for _, n := range toMerge.Tasks {
-				switch n.(type) {
+				switch typedTask := n.(type) {
 				case *StartTask:
 					continue
 				case *EndTask:
@@ -154,18 +152,20 @@ func (c *ChoiceBranchBuilder) NextBranch(toMerge *Workflow, err1 error) *ChoiceB
 				case *ChoiceTask:
 					c.builder.workflow.add(n)
 					continue
-				default:
+				case UnaryTask:
 					c.builder.workflow.add(n)
-					nextNode, _ := toMerge.Find(n.GetNext())
+					nextNode, _ := toMerge.Find(typedTask.GetNext())
 					// chain the last node(s) of the input workflow to the end node of the building workflow
 
 					if nextNode == toMerge.End {
-						errEnd := n.SetNext(c.builder.workflow.End)
+						errEnd := typedTask.SetNext(c.builder.workflow.End)
 						if errEnd != nil {
 							c.builder.appendError(errEnd)
 							return c
 						}
 					}
+				default:
+					panic("Unsupported previous task:" + n.String())
 				}
 			}
 			// so we completed a branch
@@ -199,14 +199,19 @@ func (c *ChoiceBranchBuilder) EndNextBranch() *ChoiceBranchBuilder {
 		if c.completed < len(choice.AlternativeNextTasks) {
 			x := choice.AlternativeNextTasks[c.completed]
 			alternative, _ = workflow.Find(x)
-			err := alternative.SetNext(c.builder.workflow.End)
-			if err != nil {
-				c.builder.appendError(err)
-				return c
+			switch typedTask := alternative.(type) {
+			case UnaryTask:
+				err := typedTask.SetNext(c.builder.workflow.End)
+				if err != nil {
+					c.builder.appendError(err)
+					return c
+				}
+			default:
+				panic("Unsupported previous task:" + alternative.String())
 			}
 		} else {
 			alternative = choice // this is when a choice branch directly goes to end node
-			err := alternative.(*ChoiceTask).AddNext(c.builder.workflow.End)
+			err := alternative.(*ChoiceTask).AddAlternative(c.builder.workflow.End)
 			if err != nil {
 				c.builder.appendError(err)
 				return c
@@ -256,27 +261,29 @@ func (c *ChoiceBranchBuilder) ForEachBranch(dagger func() (*Workflow, error)) *C
 		}
 		nextNode, _ := workflowCopy.Find(workflowCopy.Start.GetNext())
 		c.builder.workflow.add(nextNode)
-		err = choiceNode.AddNext(nextNode)
+		err = choiceNode.AddAlternative(nextNode)
 		if err != nil {
 			c.builder.appendError(err)
 		}
 		// adds the nodes to the building workflow, but only once!
 		for _, n := range workflowCopy.Tasks {
-			switch n.(type) {
+			switch typedTask := n.(type) {
 			case *StartTask:
 				continue
 			case *EndTask:
 				continue
-			default:
+			case UnaryTask:
 				c.builder.workflow.add(n)
 				// chain the last node(s) of the input workflow to the end node of the building workflow
-				if n.GetNext() == workflowCopy.End.GetId() {
-					errEnd := n.SetNext(c.builder.workflow.End)
+				if typedTask.GetNext() == workflowCopy.End.GetId() {
+					errEnd := typedTask.SetNext(c.builder.workflow.End)
 					if errEnd != nil {
 						c.builder.appendError(errEnd)
 						return c
 					}
 				}
+			default:
+				panic("Unsupported previous task:" + n.String())
 			}
 
 		}
@@ -296,9 +303,14 @@ func (b *Builder) AddFailNodeAndBuild(errorName, errorMessage string) (*Workflow
 	failNode := NewFailureTask(errorName, errorMessage)
 
 	b.workflow.add(failNode)
-	err := b.prevNode.SetNext(failNode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to chain the Fail: %v", err)
+	switch prevTask := b.prevNode.(type) {
+	case UnaryTask:
+		err := prevTask.SetNext(failNode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to chain the Fail: %v", err)
+		}
+	default:
+		panic("Unsupported previous task:" + prevTask.String())
 	}
 	b.prevNode = failNode
 	return b.Build()
@@ -313,9 +325,14 @@ func (b *Builder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
 	succeedNode := NewSuccessTask()
 
 	b.workflow.add(succeedNode)
-	err := b.prevNode.SetNext(succeedNode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to chain the SuccessTask: %v", err)
+	switch prevTask := b.prevNode.(type) {
+	case UnaryTask:
+		err := prevTask.SetNext(succeedNode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to chain the SuccessTask: %v", err)
+		}
+	default:
+		panic("Unsupported previous task:" + prevTask.String())
 	}
 	b.prevNode = succeedNode
 	return b.Build()
@@ -324,17 +341,22 @@ func (b *Builder) AddSucceedNodeAndBuild(message string) (*Workflow, error) {
 func (b *Builder) AddPassNode(result string) *Builder {
 	nErrors := len(b.errors)
 	if nErrors > 0 {
-		fmt.Printf("AddSimpleNode skipped, because of %d error(s) in builder\n", nErrors)
+		fmt.Printf("AddFunctionTask skipped, because of %d error(s) in builder\n", nErrors)
 		return b
 	}
 
 	passNode := NewPassTask(result)
 
 	b.workflow.add(passNode)
-	err := b.prevNode.SetNext(passNode)
-	if err != nil {
-		b.appendError(err)
-		return b
+	switch prevTask := b.prevNode.(type) {
+	case UnaryTask:
+		err := prevTask.SetNext(passNode)
+		if err != nil {
+			b.appendError(err)
+			return b
+		}
+	default:
+		panic("Unsupported previous task:" + prevTask.String())
 	}
 
 	b.prevNode = passNode
@@ -343,16 +365,18 @@ func (b *Builder) AddPassNode(result string) *Builder {
 
 // Build ends the single branch with an EndTask. If there is more than one branch, it panics!
 func (b *Builder) Build() (*Workflow, error) {
-	switch b.prevNode.(type) {
+	switch typedTask := b.prevNode.(type) {
 	case nil:
 		return &b.workflow, nil
 	case *EndTask:
 		return &b.workflow, nil
-	default:
-		err := b.prevNode.SetNext(b.workflow.End)
+	case UnaryTask:
+		err := typedTask.SetNext(b.workflow.End)
 		if err != nil {
 			return nil, fmt.Errorf("failed to chain to end node: %v", err)
 		}
+	default:
+		panic("Unsupported previous task:" + b.prevNode.String())
 	}
 	return &b.workflow, nil
 }

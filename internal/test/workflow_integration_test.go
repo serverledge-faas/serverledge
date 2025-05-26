@@ -199,10 +199,10 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	u.AssertNil(t, errF2)
 
 	wflow, err := workflow.NewBuilder().
-		AddSimpleNode(fDouble).
-		AddSimpleNode(fInc).
-		AddSimpleNode(fDouble).
-		AddSimpleNode(fInc).
+		AddFunctionTask(fDouble).
+		AddFunctionTask(fInc).
+		AddFunctionTask(fDouble).
+		AddFunctionTask(fInc).
 		Build()
 	wflow.Name = workflowName
 
@@ -248,7 +248,7 @@ func TestInvokeFC_Concurrent(t *testing.T) {
 	u.AssertNil(t, err)
 	builder := workflow.NewBuilder()
 	for i := 0; i < length; i++ {
-		builder.AddSimpleNodeWithId(f, fmt.Sprintf("simple %d", i))
+		builder.AddFunctionTaskWithId(f, fmt.Sprintf("simple %d", i))
 	}
 	wflow, err := builder.Build()
 	wflow.Name = workflowName
@@ -334,7 +334,7 @@ func TestInvokeSieveChoice(t *testing.T) {
 	u.AssertNil(t, errDp)
 
 	wflow, err := workflow.NewBuilder().
-		AddSimpleNode(isPrimePy).
+		AddFunctionTask(isPrimePy).
 		AddChoiceNode(
 			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(true)),
 			workflow.NewEqParamCondition(workflow.NewParam("IsPrime"), workflow.NewValue(false)),
@@ -465,9 +465,9 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 		AddOutput("result", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 	wflow, err := workflow.NewBuilder().
-		AddSimpleNode(incPy).
+		AddFunctionTask(incPy).
 		AddPassNode(""). // this should not do nothing
-		AddSimpleNode(incPy).
+		AddFunctionTask(incPy).
 		Build()
 	wflow.Name = "pass_do_nothing"
 	u.AssertNil(t, err)

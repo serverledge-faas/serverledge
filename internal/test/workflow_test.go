@@ -71,18 +71,20 @@ func TestSimpleWorkflow(t *testing.T) {
 	var prevNode workflow.Task = wflow.Start
 	var currentNode workflow.Task
 	for !end {
-		switch prevNode.(type) {
+		switch pn := prevNode.(type) {
 		case *workflow.StartTask:
-			nextNodeId := prevNode.GetNext()
+			nextNodeId := pn.GetNext()
 			currentNode, _ = wflow.Find(nextNodeId)
-			u.AssertEquals(t, prevNode.GetNext(), currentNode.GetId())
+			u.AssertEquals(t, pn.GetNext(), currentNode.GetId())
 		case *workflow.EndTask:
 			end = true
-		default: // currentNode = simple node
-			nextNodeId := prevNode.GetNext()
+		case workflow.UnaryTask:
+			nextNodeId := pn.GetNext()
 			currentNode, _ = wflow.Find(nextNodeId)
-			u.AssertEquals(t, prevNode.GetNext(), currentNode.GetId())
+			u.AssertEquals(t, pn.GetNext(), currentNode.GetId())
 			u.AssertTrue(t, prevNode.(*workflow.FunctionTask).Func == f.Name)
+		default:
+			t.Fatalf("unknown type %T", pn)
 		}
 		prevNode = currentNode
 	}
@@ -124,11 +126,15 @@ func TestChoiceWorkflow(t *testing.T) {
 	for _, n := range wflow.Tasks {
 		switch n.(type) {
 		case *workflow.ChoiceTask:
-			u.AssertEquals(t, len(choice.Conditions), len(choice.AlternativeNextTasks))
-			for _, s := range choice.AlternativeNextTasks {
+			u.AssertEquals(t, len(choice.Conditions), len(choice.GetAlternatives()))
+			for _, s := range choice.GetAlternatives() {
 				simple, foundS := wflow.Find(s)
+				unary := simple.(*workflow.FunctionTask)
+				if unary == nil {
+					t.Fail()
+				}
 				u.AssertTrue(t, foundS)
-				u.AssertEquals(t, simple.GetNext(), wflow.End.GetId())
+				u.AssertEquals(t, unary.GetNext(), wflow.End.GetId())
 			}
 		case *workflow.FunctionTask:
 			u.AssertTrue(t, n.(*workflow.FunctionTask).Func == f.Name)
@@ -204,7 +210,7 @@ func TestWorkflowBuilder(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	wflow, err := workflow.NewBuilder().
-		AddSimpleNode(f).
+		AddFunctionTask(f).
 		AddChoiceNode(workflow.NewEqCondition(1, 4), workflow.NewDiffCondition(1, 4)).
 		NextBranch(CreateSequenceWorkflow(f)).
 		NextBranch(CreateSequenceWorkflow(f)).
@@ -241,22 +247,21 @@ func TestVisit(t *testing.T) {
 	f, err := initializeExamplePyFunction()
 	u.AssertNil(t, err)
 	complexWorkflow, err := workflow.NewBuilder().
-		AddSimpleNode(f).
+		AddFunctionTask(f).
 		AddChoiceNode(workflow.NewEqCondition(1, 4), workflow.NewDiffCondition(1, 4)).
 		NextBranch(CreateSequenceWorkflow(f)).
 		NextBranch(CreateSequenceWorkflow(f, f)).
 		EndChoiceAndBuild()
 	u.AssertNil(t, err)
 
-	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.GetNext())
-
-	choice := startNext.GetNext()
-
 	visitedNodes := workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, false)
 	u.AssertEquals(t, len(complexWorkflow.Tasks), len(visitedNodes))
 
 	visitedNodes = workflow.Visit(complexWorkflow, complexWorkflow.Start.Id, true)
 	u.AssertEquals(t, len(complexWorkflow.Tasks)-1, len(visitedNodes))
+
+	startNext, _ := complexWorkflow.Find(complexWorkflow.Start.GetNext())
+	choice := startNext.(workflow.UnaryTask).GetNext()
 
 	visitedNodes = workflow.Visit(complexWorkflow, choice, false)
 	u.AssertEquals(t, 5, len(visitedNodes))

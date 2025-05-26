@@ -12,25 +12,30 @@ type TaskId string
 type Task interface {
 	GetId() TaskId
 
-	// SetNext connects the output of this task to another Task
-	SetNext(nextTask Task) error
-
 	GetType() TaskType
-
-	GetNext() TaskId
 
 	fmt.Stringer
 	types.Comparable
 }
 
-type baseTask struct {
-	Id       TaskId
-	Type     TaskType
-	NextTask TaskId
+type UnaryTask interface {
+	Task
+
+	GetNext() TaskId
+
+	// SetNext connects the output of this task to another Task
+	SetNext(nextTask Task) error
 }
 
-func (s *baseTask) GetNext() TaskId {
-	return s.NextTask
+type ConditionalTask interface {
+	Task
+	AddAlternative(nextTask Task) error
+	GetAlternatives() []TaskId
+}
+
+type baseTask struct {
+	Id   TaskId
+	Type TaskType
 }
 
 func (s *baseTask) GetId() TaskId {

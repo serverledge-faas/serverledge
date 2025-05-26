@@ -20,7 +20,7 @@ func NewChoiceTask(conds []Condition) *ChoiceTask {
 	}
 }
 
-func (c *ChoiceTask) AddNext(nextTask Task) error {
+func (c *ChoiceTask) AddAlternative(nextTask Task) error {
 	if len(c.AlternativeNextTasks) >= len(c.Conditions) {
 		return errors.New(fmt.Sprintf("there are %d alternatives but %d Conditions", len(c.AlternativeNextTasks), len(c.Conditions)))
 	}
@@ -28,8 +28,8 @@ func (c *ChoiceTask) AddNext(nextTask Task) error {
 	return nil
 }
 
-func (c *ChoiceTask) SetNext(nextTask Task) error {
-	panic("Cannot set a single next task for ChoiceTask: use AddNext() instead")
+func (c *ChoiceTask) GetAlternatives() []TaskId {
+	return c.AlternativeNextTasks
 }
 
 func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
@@ -55,8 +55,8 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 		return nil, progress, false, fmt.Errorf("no condition is met")
 	}
 
-	c.NextTask = c.AlternativeNextTasks[matchedCondition]
-	outputData.ForTask = c.NextTask
+	nextTask := c.AlternativeNextTasks[matchedCondition]
+	outputData.ForTask = nextTask
 	outputData.Data = input.Data
 
 	// we skip all branch that will not be executed
@@ -66,7 +66,7 @@ func (c *ChoiceTask) execute(progress *Progress, input *PartialData, r *Request)
 	}
 
 	progress.Complete(c.GetId())
-	err := progress.AddReadyTask(c.NextTask)
+	err := progress.AddReadyTask(nextTask)
 	if err != nil {
 		return nil, progress, false, err
 	}

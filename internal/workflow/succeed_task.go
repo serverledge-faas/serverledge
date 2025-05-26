@@ -7,6 +7,7 @@ import (
 
 type SuccessTask struct {
 	baseTask
+	NextTask TaskId
 }
 
 func NewSuccessTask() *SuccessTask {
@@ -21,6 +22,10 @@ func (s *SuccessTask) SetNext(nextTask Task) error {
 	}
 	s.NextTask = nextTask.GetId()
 	return nil
+}
+
+func (s *SuccessTask) GetNext() TaskId {
+	return s.NextTask
 }
 
 func (s *SuccessTask) String() string {

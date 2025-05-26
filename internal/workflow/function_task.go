@@ -15,7 +15,8 @@ import (
 // FunctionTask is a Task that receives one input and sends one result
 type FunctionTask struct {
 	baseTask
-	Func string
+	Func     string
+	NextTask TaskId
 }
 
 func NewFunctionTask(f string) *FunctionTask {
@@ -23,6 +24,10 @@ func NewFunctionTask(f string) *FunctionTask {
 		baseTask: baseTask{Id: TaskId(shortuuid.New()), Type: Function},
 		Func:     f,
 	}
+}
+
+func (s *FunctionTask) GetNext() TaskId {
+	return s.NextTask
 }
 
 func (s *FunctionTask) SetNext(nextTask Task) error {

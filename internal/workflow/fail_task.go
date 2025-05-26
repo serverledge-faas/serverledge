@@ -7,8 +7,9 @@ import (
 
 type FailureTask struct {
 	baseTask
-	Error string
-	Cause string
+	Error    string
+	Cause    string
+	NextTask TaskId
 }
 
 func NewFailureTask(error, cause string) *FailureTask {
@@ -30,6 +31,10 @@ func (f *FailureTask) execute(progress *Progress, r *Request) (*PartialData, *Pr
 
 	shouldContinueExecution := f.GetType() != Fail && f.GetType() != Succeed
 	return outputData, progress, shouldContinueExecution, nil
+}
+
+func (f *FailureTask) GetNext() TaskId {
+	return f.NextTask
 }
 
 func (f *FailureTask) SetNext(nextTask Task) error {
