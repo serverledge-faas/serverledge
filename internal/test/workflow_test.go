@@ -44,7 +44,7 @@ func TestEmptyWorkflow(t *testing.T) {
 	u.AssertEquals(t, wflow.Start.GetNext(), wflow.End.GetId())
 }
 
-// TestSimpleWorkflow creates a simple Workflow with one StartTask, two SimpleTask and one EndTask, executes it and gets the result.
+// TestSimpleWorkflow creates a simple Workflow with one StartTask, two FunctionTask and one EndTask, executes it and gets the result.
 func TestSimpleWorkflow(t *testing.T) {
 	//workflow.BranchNumber = 0
 
@@ -82,7 +82,7 @@ func TestSimpleWorkflow(t *testing.T) {
 			nextNodeId := prevNode.GetNext()
 			currentNode, _ = wflow.Find(nextNodeId)
 			u.AssertEquals(t, prevNode.GetNext(), currentNode.GetId())
-			u.AssertTrue(t, prevNode.(*workflow.SimpleTask).Func == f.Name)
+			u.AssertTrue(t, prevNode.(*workflow.FunctionTask).Func == f.Name)
 		}
 		prevNode = currentNode
 	}
@@ -130,8 +130,8 @@ func TestChoiceWorkflow(t *testing.T) {
 				u.AssertTrue(t, foundS)
 				u.AssertEquals(t, simple.GetNext(), wflow.End.GetId())
 			}
-		case *workflow.SimpleTask:
-			u.AssertTrue(t, n.(*workflow.SimpleTask).Func == f.Name)
+		case *workflow.FunctionTask:
+			u.AssertTrue(t, n.(*workflow.FunctionTask).Func == f.Name)
 		}
 	}
 }
@@ -179,7 +179,7 @@ func TestChoiceWorkflow_BuiltWithNextBranch(t *testing.T) {
 				_, foundS := wflow.Find(s)
 				u.AssertTrue(t, foundS)
 			}
-		case *workflow.SimpleTask:
+		case *workflow.FunctionTask:
 			u.AssertTrue(t, node.Func == f.Name)
 		}
 	}
@@ -214,7 +214,7 @@ func TestWorkflowBuilder(t *testing.T) {
 	// tasks := workflow.NewNodeSetFrom(workflow.Tasks)
 	for _, n := range wflow.Tasks {
 		switch node := n.(type) {
-		case *workflow.SimpleTask:
+		case *workflow.FunctionTask:
 			u.AssertTrue(t, node.Func == f.Name)
 		case *workflow.ChoiceTask:
 			choice := node
@@ -223,8 +223,8 @@ func TestWorkflowBuilder(t *testing.T) {
 			// specific for this test
 			alt0, foundAlt0 := wflow.Find(choice.AlternativeNextTasks[0])
 			alt1, foundAlt1 := wflow.Find(choice.AlternativeNextTasks[1])
-			firstAlternative := alt0.(*workflow.SimpleTask)
-			secondAlternative := alt1.(*workflow.SimpleTask)
+			firstAlternative := alt0.(*workflow.FunctionTask)
+			secondAlternative := alt1.(*workflow.FunctionTask)
 
 			u.AssertTrue(t, foundAlt0)
 			u.AssertTrue(t, foundAlt1)

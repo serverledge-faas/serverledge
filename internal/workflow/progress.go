@@ -44,14 +44,14 @@ func printStatus(s TaskStatus) string {
 type TaskType string
 
 const (
-	Start   TaskType = "StartTask"
-	End     TaskType = "EndTask"
-	Simple  TaskType = "SimpleTask"
-	Choice  TaskType = "ChoiceTask"
-	Fail    TaskType = "Fail"
-	Succeed TaskType = "SuccessTask"
-	Pass    TaskType = "PassTask"
-	Wait    TaskType = "WaitNode"
+	Start    TaskType = "StartTask"
+	End      TaskType = "EndTask"
+	Function TaskType = "FunctionTask"
+	Choice   TaskType = "ChoiceTask"
+	Fail     TaskType = "Fail"
+	Succeed  TaskType = "SuccessTask"
+	Pass     TaskType = "PassTask"
+	Wait     TaskType = "WaitNode"
 )
 
 func TaskFromType(nodeType TaskType) Task {
@@ -60,8 +60,8 @@ func TaskFromType(nodeType TaskType) Task {
 		return &StartTask{}
 	case End:
 		return &EndTask{}
-	case Simple:
-		return &SimpleTask{}
+	case Function:
+		return &FunctionTask{}
 	case Choice:
 		return &ChoiceTask{}
 	case Fail:
@@ -71,7 +71,7 @@ func TaskFromType(nodeType TaskType) Task {
 	case Pass:
 		return &PassTask{}
 	default:
-		return &SimpleTask{}
+		return &FunctionTask{}
 	}
 }
 
@@ -81,8 +81,8 @@ func printType(t TaskType) string {
 		return "Start"
 	case End:
 		return "End"
-	case Simple:
-		return "Simple"
+	case Function:
+		return "Function"
 	case Choice:
 		return "Choice"
 	case Fail:
