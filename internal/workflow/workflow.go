@@ -169,6 +169,17 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 	return tasks
 }
 
+func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) bool {
+	for _, prev := range workflow.prevTasks[id] {
+		if p.Status[prev] != Executed {
+			return false
+		}
+	}
+
+	return true
+}
+
+// TODO: this function should get a single taskId and only executes it
 func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
 	var err error
 	var outputData *PartialData
@@ -204,7 +215,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 
 			nextTask := task.GetNext()
 			outputData = NewPartialData(ReqId(r.Id), nextTask, output)
-			if progress.IsReady(nextTask) {
+			if workflow.IsTaskEligibleForExecution(nextTask, progress) {
 				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
 			}
 
@@ -235,7 +246,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 			progress.Complete(task.GetId())
 
 			outputData = NewPartialData(ReqId(r.Id), nextTaskId, input.Data)
-			if progress.IsReady(nextTaskId) {
+			if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
 				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
 			}
 		case *EndTask:

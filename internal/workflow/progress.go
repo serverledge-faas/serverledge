@@ -101,6 +101,7 @@ func printType(t TaskType) string {
 func (p *Progress) Complete(id TaskId) {
 	p.Status[id] = Executed
 
+	// TODO: check for concurrent execution and pop()
 	for i, nid := range p.ReadyToExecute {
 		if nid == id {
 			// pop from the ready queue
@@ -110,7 +111,6 @@ func (p *Progress) Complete(id TaskId) {
 	}
 }
 
-// TODO: skip on cascade next nodes
 func (p *Progress) Skip(id TaskId) {
 	p.Status[id] = Skipped
 
@@ -122,7 +122,6 @@ func (p *Progress) Skip(id TaskId) {
 	}
 }
 
-// TODO: skip on cascade next nodes
 // FailureTask marks a node progress to failed
 func (p *Progress) Fail(id TaskId) {
 	p.Status[id] = Failed
@@ -178,11 +177,6 @@ func (p *Progress) Equals(p2 *Progress) bool {
 	}
 
 	return p.ReqId == p2.ReqId
-}
-
-func (p *Progress) IsReady(id TaskId) bool {
-	// TODO: check also that all previous tasks are complete!
-	return p.Status[id] == Pending
 }
 
 // SaveProgress saves Progress in Etcd
