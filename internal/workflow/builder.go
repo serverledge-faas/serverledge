@@ -46,7 +46,7 @@ func (b *Builder) AddSimpleNode(f *function.Function) *Builder {
 		return b
 	}
 
-	simpleNode := NewSimpleTask(f.Name)
+	simpleNode := NewFunctionTask(f.Name)
 
 	b.workflow.add(simpleNode)
 	err := b.prevNode.SetNext(simpleNode)
@@ -68,7 +68,7 @@ func (b *Builder) AddSimpleNodeWithId(f *function.Function, id string) *Builder 
 		return b
 	}
 
-	simpleNode := NewSimpleTask(f.Name)
+	simpleNode := NewFunctionTask(f.Name)
 	simpleNode.Id = TaskId(id)
 
 	b.workflow.add(simpleNode)

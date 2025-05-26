@@ -39,7 +39,7 @@ func buildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName strin
 			taskState := nextState.(*asl.TaskState)
 			b, err := BuildFromTaskState(builder, taskState, nextStateName)
 			if err != nil {
-				return nil, fmt.Errorf("failed building SimpleTask from task state: %v", err)
+				return nil, fmt.Errorf("failed building FunctionTask from task state: %v", err)
 			}
 			builder = b
 			nextState, nextStateName, isTerminal = findNextOrTerminate(taskState, sm)
@@ -75,7 +75,7 @@ func buildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName strin
 			waitState := nextState.(*asl.WaitState)
 			b, err := BuildFromWaitState(builder, waitState, nextStateName)
 			if err != nil {
-				return nil, fmt.Errorf("failed building SimpleTask with function 'wait' from Wait state: %v", err)
+				return nil, fmt.Errorf("failed building FunctionTask with function 'wait' from Wait state: %v", err)
 			}
 			builder = b
 			nextState, nextStateName, isTerminal = findNextOrTerminate(waitState, sm)
@@ -97,7 +97,7 @@ func buildingLoop(sm *asl.StateMachine, nextState asl.State, nextStateName strin
 	return builder.Build()
 }
 
-// BuildFromTaskState adds a SimpleTask to the previous Node. The simple node will have id as specified by the name parameter
+// BuildFromTaskState adds a FunctionTask to the previous Node. The simple node will have id as specified by the name parameter
 func BuildFromTaskState(builder *Builder, t *asl.TaskState, name string) (*Builder, error) {
 	f, found := function.GetFunction(t.Resource) // Could have been used t.GetResources()[0], but it is better to avoid the array dereference
 	if !found {
@@ -327,7 +327,7 @@ func BuildFromMapState(builder *Builder, c *asl.MapState, name string) (*Builder
 	// return builder, nil
 }
 
-// BuildFromPassState adds a SimpleTask with an identity function
+// BuildFromPassState adds a FunctionTask with an identity function
 func BuildFromPassState(builder *Builder, p *asl.PassState, name string) (*Builder, error) {
 	// TODO: implement me
 	return builder, nil

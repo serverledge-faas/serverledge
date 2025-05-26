@@ -12,25 +12,25 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
 )
 
-// SimpleTask is a Task that receives one input and sends one result
-type SimpleTask struct {
+// FunctionTask is a Task that receives one input and sends one result
+type FunctionTask struct {
 	baseTask
 	Func string
 }
 
-func NewSimpleTask(f string) *SimpleTask {
-	return &SimpleTask{
-		baseTask: baseTask{Id: TaskId(shortuuid.New()), Type: Simple},
+func NewFunctionTask(f string) *FunctionTask {
+	return &FunctionTask{
+		baseTask: baseTask{Id: TaskId(shortuuid.New()), Type: Function},
 		Func:     f,
 	}
 }
 
-func (s *SimpleTask) SetNext(nextTask Task) error {
+func (s *FunctionTask) SetNext(nextTask Task) error {
 	s.NextTask = nextTask.GetId()
 	return nil
 }
 
-func (s *SimpleTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
+func (s *FunctionTask) execute(progress *Progress, input *PartialData, r *Request) (*PartialData, *Progress, bool, error) {
 
 	err := s.CheckInput(input.Data)
 	if err != nil {
@@ -52,10 +52,10 @@ func (s *SimpleTask) execute(progress *Progress, input *PartialData, r *Request)
 	return outputData, progress, true, nil
 }
 
-func (s *SimpleTask) exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
+func (s *FunctionTask) exec(compRequest *Request, params ...map[string]interface{}) (map[string]interface{}, error) {
 	funct, ok := function.GetFunction(s.Func)
 	if !ok {
-		return nil, fmt.Errorf("SimpleTask.function is null: you must initialize SimpleTask's function to execute it")
+		return nil, fmt.Errorf("FunctionTask.function is null: you must initialize FunctionTask's function to execute it")
 	}
 
 	// the rest of the code is similar to a single function execution
@@ -112,7 +112,7 @@ func (s *SimpleTask) exec(compRequest *Request, params ...map[string]interface{}
 	return outputData, nil
 }
 
-func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
+func (s *FunctionTask) CheckInput(input map[string]interface{}) error {
 	funct, exists := function.GetFunction(s.Func)
 	if !exists {
 		return fmt.Errorf("funtion %s doesn't exists", s.Func)
@@ -125,6 +125,6 @@ func (s *SimpleTask) CheckInput(input map[string]interface{}) error {
 	return funct.Signature.CheckOrMatchInputs(input)
 }
 
-func (s *SimpleTask) String() string {
-	return fmt.Sprintf("[SimpleTask (%s) func %s()]->%v", s.Id, s.Func, s.NextTask)
+func (s *FunctionTask) String() string {
+	return fmt.Sprintf("[FunctionTask (%s) func %s()]->%v", s.Id, s.Func, s.NextTask)
 }

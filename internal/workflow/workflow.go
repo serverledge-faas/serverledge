@@ -201,7 +201,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		}
 
 		switch task := n.(type) {
-		case *SimpleTask:
+		case *FunctionTask:
 			output, progress, shouldContinue, err = task.execute(progress, input, r)
 		case *ChoiceTask:
 			output, progress, shouldContinue, err = task.execute(progress, input, r)
@@ -240,7 +240,7 @@ func (workflow *Workflow) GetUniqueFunctions() []string {
 	allFunctionsMap := make(map[string]interface{})
 	for _, task := range workflow.Tasks {
 		switch n := task.(type) {
-		case *SimpleTask:
+		case *FunctionTask:
 			allFunctionsMap[n.Func] = nil
 		default:
 			continue
@@ -654,8 +654,8 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 			workflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
-	case Simple:
-		task := &SimpleTask{}
+	case Function:
+		task := &FunctionTask{}
 		err = json.Unmarshal(value, task)
 		if err == nil && task.Id != "" && task.Func != "" {
 			workflow.Tasks[TaskId(taskId)] = task
