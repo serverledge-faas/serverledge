@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/serverledge-faas/serverledge/internal/client"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -46,4 +47,11 @@ type InvocationResponse struct {
 
 type AsyncInvocationResponse struct {
 	ReqId string
+}
+
+// WorkflowInvocationResumeRequest is a request to resume the execution of a workflow (typically on a remote node)
+type WorkflowInvocationResumeRequest struct {
+	ReqId string
+	client.WorkflowInvocationRequest
+	Plan ExecutionPlan
 }

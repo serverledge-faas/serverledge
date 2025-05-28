@@ -21,14 +21,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-// WorkflowInvocationResumeRequest is a request to resume the execution of a workflow (typically on a remote node)
-// TODO: move in another file?
-type WorkflowInvocationResumeRequest struct {
-	ReqId string
-	client.WorkflowInvocationRequest
-	Plan ExecutionPlan
-}
-
 var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{}
 
 //&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
@@ -381,13 +373,18 @@ func (workflow *Workflow) getProgress(r *Request) (*Progress, error) {
 }
 
 func (workflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *Progress, data map[TaskId]*TaskData) error {
-	// TODO: check that each TaskData is saved at most once
+	saved := make(map[TaskId]bool)
+
 	for _, task := range progress.ReadyToExecute {
 		for _, prev := range workflow.GetPreviousTasks(task) {
+			if _, found := saved[prev]; found {
+				continue
+			}
 			err := data[prev].Save(requestId, prev)
 			if err != nil {
 				return fmt.Errorf("Could not save partial data: %v", err)
 			}
+			saved[prev] = true
 		}
 	}
 
@@ -491,7 +488,16 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 			if len(progress.ReadyToExecute) == 0 && output != nil {
 				r.ExecReport.Result = output.Data
-				// TODO: delete  progress if needed
+
+				err = DeleteProgress(requestId)
+				if err != nil {
+					log.Printf("Failed to delete progress: %v", err)
+				}
+				err = DeleteAllTaskData(requestId)
+				if err != nil {
+					log.Printf("Failed to delete task data: %v", err)
+				}
+
 				return nil
 			}
 		}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"log"
 	"time"
 
@@ -46,8 +47,12 @@ func NewTaskData(data map[string]interface{}) *TaskData {
 	}
 }
 
-func getTaskDataEtcdKey(reqId ReqId, nodeId TaskId) string {
-	return fmt.Sprintf("/partialData/%s/%s", reqId, nodeId)
+func getTaskDataEtcdDir(reqId ReqId) string {
+	return fmt.Sprintf("/data/%s", reqId)
+}
+
+func getTaskDataEtcdKey(reqId ReqId, task TaskId) string {
+	return fmt.Sprintf("%s/%s", getTaskDataEtcdDir(reqId), task)
 }
 
 func (td *TaskData) Save(reqId ReqId, task TaskId) error {
@@ -97,4 +102,18 @@ func RetrievePartialData(reqId ReqId, task TaskId) (*TaskData, error) {
 	}
 
 	return nil, fmt.Errorf("failed to retrieve partialDatas for requestId: %s", key)
+}
+func DeleteAllTaskData(reqId ReqId) error {
+	cli, err := utils.GetEtcdClient()
+	if err != nil {
+		return errors.New("failed to connect to ETCD")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	key := getTaskDataEtcdDir(reqId)
+	_, err = cli.Delete(ctx, key, clientv3.WithPrefix())
+	if err != nil {
+		return fmt.Errorf("failed to delete task data for requestId: %s", key)
+	}
+	return nil
 }
