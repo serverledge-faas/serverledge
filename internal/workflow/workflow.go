@@ -214,7 +214,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 			progress.Complete(task.GetId())
 
 			nextTask := task.GetNext()
-			outputData = NewPartialData(ReqId(r.Id), nextTask, output)
+			outputData = NewPartialData(nextTask, output)
 			if workflow.IsTaskEligibleForExecution(nextTask, progress) {
 				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
 			}
@@ -245,7 +245,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 			}
 			progress.Complete(task.GetId())
 
-			outputData = NewPartialData(ReqId(r.Id), nextTaskId, input.Data)
+			outputData = NewPartialData(nextTaskId, input.Data)
 			if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
 				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
 			}
@@ -262,7 +262,7 @@ func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Prog
 		if err != nil {
 			return nil, progress, false, err
 		}
-		err = SavePartialData(input)
+		err = SavePartialData(input, ReqId(r.Id))
 		if err != nil {
 			return nil, progress, false, err
 		}
@@ -398,7 +398,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
-		pd = NewPartialData(requestId, workflow.Start.Id, r.Params)
+		pd = NewPartialData(workflow.Start.Id, r.Params)
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
@@ -430,7 +430,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 			if err != nil {
 				return fmt.Errorf("Could not save progress: %v", err)
 			}
-			err = SavePartialData(pd)
+			err = SavePartialData(pd, ReqId(r.Id))
 			if err != nil {
 				return fmt.Errorf("Could not save partial data: %v", err)
 			}
