@@ -179,97 +179,70 @@ func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) boo
 	return true
 }
 
-// TODO: this function should get a single taskId and only executes it
-func (workflow *Workflow) Execute(r *Request, input *PartialData, progress *Progress) (*PartialData, *Progress, bool, error) {
+func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *PartialData, progress *Progress) (*PartialData, error) {
 	var err error
 	var outputData *PartialData
 
-	var nextTasks []TaskId
-
-	if r.Plan == nil {
-		nextTasks = progress.ReadyToExecute
-	} else {
-		for _, t := range progress.ReadyToExecute {
-			for _, other := range r.Plan.ToExecute {
-				if t == other {
-					nextTasks = append(nextTasks, t)
-				}
-			}
-		}
+	n, ok := workflow.Find(taskToExecute)
+	if !ok {
+		return nil, fmt.Errorf("failed to find task %s", n.GetId())
 	}
 
-	if len(nextTasks) >= 1 {
-		n, ok := workflow.Find(nextTasks[0])
-		if !ok {
-			return nil, progress, true, fmt.Errorf("failed to find task %s", n.GetId())
-		}
-
-		switch task := n.(type) {
-		case UnaryTask:
-			output, err := task.execute(input, r)
-			if err != nil {
-				progress.Fail(n.GetId())
-				return nil, progress, false, err
-			}
-			progress.Complete(task.GetId())
-
-			nextTask := task.GetNext()
-			outputData = NewPartialData(nextTask, output)
-			if workflow.IsTaskEligibleForExecution(nextTask, progress) {
-				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
-			}
-
-		case ConditionalTask:
-			nextTaskId, err := task.Evaluate(input, r)
-			if err != nil {
-				progress.Fail(n.GetId())
-				return nil, progress, false, err
-			}
-
-			// we skip all tasks that will not be executed
-			toSkip := make([]Task, 0)
-			toNotSkip := Visit(workflow, nextTaskId, false)
-			for _, a := range task.GetAlternatives() {
-				if a == nextTaskId {
-					continue
-				}
-				branchTasks := Visit(workflow, a, false)
-				for _, otherTask := range branchTasks {
-					if !slices.Contains(toNotSkip, otherTask) {
-						toSkip = append(toSkip, otherTask)
-					}
-				}
-			}
-			for _, t := range toSkip {
-				progress.Skip(t.GetId())
-			}
-			progress.Complete(task.GetId())
-
-			outputData = NewPartialData(nextTaskId, input.Data)
-			if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
-				progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
-			}
-		case *EndTask:
-			progress.Complete(task.GetId())
-			outputData = input
-		}
+	switch task := n.(type) {
+	case UnaryTask:
+		output, err := task.execute(input, r)
 		if err != nil {
 			progress.Fail(n.GetId())
-			return nil, progress, false, err
+			return nil, err
 		}
-	} else {
-		err = SaveProgress(progress)
+		progress.Complete(task.GetId())
+
+		nextTask := task.GetNext()
+		outputData = NewPartialData(nextTask, output)
+		if workflow.IsTaskEligibleForExecution(nextTask, progress) {
+			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
+		}
+
+	case ConditionalTask:
+		nextTaskId, err := task.Evaluate(input, r)
 		if err != nil {
-			return nil, progress, false, err
+			progress.Fail(n.GetId())
+			return nil, err
 		}
-		err = SavePartialData(input, ReqId(r.Id))
-		if err != nil {
-			return nil, progress, false, err
+
+		// we skip all tasks that will not be executed
+		toSkip := make([]Task, 0)
+		toNotSkip := Visit(workflow, nextTaskId, false)
+		for _, a := range task.GetAlternatives() {
+			if a == nextTaskId {
+				continue
+			}
+			branchTasks := Visit(workflow, a, false)
+			for _, otherTask := range branchTasks {
+				if !slices.Contains(toNotSkip, otherTask) {
+					toSkip = append(toSkip, otherTask)
+				}
+			}
 		}
-		return nil, progress, false, nil
+		for _, t := range toSkip {
+			progress.Skip(t.GetId())
+		}
+		progress.Complete(task.GetId())
+
+		outputData = NewPartialData(nextTaskId, input.Data)
+		if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
+			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
+		}
+	case *EndTask:
+		progress.Complete(task.GetId())
+		outputData = input
+	}
+	if err != nil {
+		progress.Fail(n.GetId())
+		return nil, err
 	}
 
-	return outputData, progress, true, nil
+	return outputData, nil
 }
 
 // GetUniqueFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
@@ -387,14 +360,11 @@ func (workflow *Workflow) Save() error {
 	return nil
 }
 
-// Invoke schedules each function of the workflow and invokes them
-func (workflow *Workflow) Invoke(r *Request) error {
-
-	var err error
-	requestId := ReqId(r.Id)
-
+func (workflow *Workflow) getProgressAndData(r *Request) (*Progress, *PartialData, error) {
 	var progress *Progress
 	var pd *PartialData
+	var err error
+	requestId := ReqId(r.Id)
 
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
@@ -402,27 +372,40 @@ func (workflow *Workflow) Invoke(r *Request) error {
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
-			return fmt.Errorf("failed to retrieve workflow progress: %v", err)
+			return nil, nil, fmt.Errorf("failed to retrieve workflow progress: %v", err)
 		}
-		if len(progress.ReadyToExecute) == 0 {
-			return fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
-		} else if len(progress.ReadyToExecute) > 1 {
-			// TODO: manage case when len is > 1 (e.g., parallel branches)
-			return fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
-		}
-
 		pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
 		if err != nil {
-			return fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
+			return nil, nil, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
 		}
 		if len(pds) != 1 {
-			return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
+			return nil, nil, fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
 		}
 		pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
 	}
 
-	shouldContinue := true
-	for shouldContinue {
+	return progress, pd, nil
+}
+
+// Invoke schedules each function of the workflow and invokes them
+func (workflow *Workflow) Invoke(r *Request) error {
+
+	var err error
+	requestId := ReqId(r.Id)
+
+	progress, pd, err := workflow.getProgressAndData(r)
+	if err != nil {
+		return err
+	}
+
+	if len(progress.ReadyToExecute) == 0 {
+		return fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
+	} else if len(progress.ReadyToExecute) > 1 {
+		// TODO: manage case when len is > 1 (e.g., parallel branches)
+		return fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
+	}
+
+	for len(progress.ReadyToExecute) > 0 {
 		decision, err := offloadingPolicy.Evaluate(r, progress)
 		if err == nil && decision.Offload {
 
@@ -437,49 +420,68 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 			log.Printf("Offloading request: %v", requestId)
 
-			shouldContinue, err = offload(r, &decision)
+			err = offload(r, &decision)
 			if err != nil {
 				return err
 			}
 
-			log.Printf("Offloading done. Should continue: %v", shouldContinue)
-
-			if shouldContinue {
-				progress, err = RetrieveProgress(requestId)
-				if err != nil {
-					return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
-				}
-				pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
-				if err != nil {
-					return fmt.Errorf("Could not retrieve partial data: %v", err)
-				}
-				if len(pds) != 1 {
-					return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
-				}
-				pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
-				log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
+			if r.ExecReport.Result != nil {
+				// Workflow execution has completed on remote node
+				break
 			}
+
+			progress, err = RetrieveProgress(requestId)
+			if err != nil {
+				return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
+			}
+			pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
+			if err != nil {
+				return fmt.Errorf("Could not retrieve partial data: %v", err)
+			}
+			if len(pds) != 1 {
+				return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
+			}
+			pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
+			log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
 		} else {
-			pd, progress, shouldContinue, err = workflow.Execute(r, pd, progress)
+			// pick next executable task
+			var taskToExecute TaskId = ""
+			for _, task := range progress.ReadyToExecute {
+				if r.Plan == nil || slices.Contains(r.Plan.ToExecute, task) {
+					taskToExecute = task
+				}
+			}
+			if taskToExecute == "" {
+				break
+			}
+
+			pd, err = workflow.ExecuteTask(r, taskToExecute, pd, progress)
 			if err != nil {
 				return fmt.Errorf("failed workflow execution: %v", err)
 			}
 
 			if len(progress.ReadyToExecute) == 0 && pd != nil {
 				r.ExecReport.Result = pd.Data
+				// TODO: delete  progress if needed
+				return nil
 			}
 		}
 
 	}
 
-	// TODO: delete  progress if needed
+	err = SaveProgress(progress)
+	if err != nil {
+		return err
+	}
+	err = SavePartialData(pd, ReqId(r.Id))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func offload(r *Request, policyDecision *OffloadingDecision) (bool, error) {
-
-	shouldContinue := false
+func offload(r *Request, policyDecision *OffloadingDecision) error {
 
 	log.Printf("Offloading decision: %v", policyDecision)
 
@@ -494,29 +496,29 @@ func offload(r *Request, policyDecision *OffloadingDecision) (bool, error) {
 	}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
-		return shouldContinue, fmt.Errorf("JSON marshaling failed: %v", err)
+		return fmt.Errorf("JSON marshaling failed: %v", err)
 	}
 
 	// Send invocation request
 	url := fmt.Sprintf("http://%s/workflow/resume/%s", policyDecision.RemoteHost, r.W.Name)
 	resp, err := utils.PostJson(url, invocationBody)
 	if err != nil {
-		return shouldContinue, fmt.Errorf("HTTP request for offloading failed: %v", err)
+		return fmt.Errorf("HTTP request for offloading failed: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return shouldContinue, fmt.Errorf("failed offloaded workflow: %v", err)
+		return fmt.Errorf("failed offloaded workflow: %v", err)
 	}
 
 	var response InvocationResponse
 	body, _ := io.ReadAll(resp.Body)
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return shouldContinue, fmt.Errorf("Failed InvocationResponse unmarshaling: %v", err)
+		return fmt.Errorf("Failed InvocationResponse unmarshaling: %v", err)
 	}
 
 	if !response.Success {
-		return shouldContinue, fmt.Errorf("failed offloaded workflow: %v", err)
+		return fmt.Errorf("failed offloaded workflow: %v", err)
 	}
 
 	for k, v := range response.Reports {
@@ -525,12 +527,12 @@ func offload(r *Request, policyDecision *OffloadingDecision) (bool, error) {
 
 	if response.Result == nil {
 		// workflow execution is not complete after offloading
-		shouldContinue = true
+		r.ExecReport.Result = nil
 	} else {
 		r.ExecReport.Result = response.Result
 	}
 
-	return shouldContinue, nil
+	return nil
 }
 
 // Delete removes the Workflow from cache and from etcd, so it cannot be invoked anymore
