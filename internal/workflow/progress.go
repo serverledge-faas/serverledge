@@ -179,8 +179,8 @@ func (p *Progress) Equals(p2 *Progress) bool {
 	return p.ReqId == p2.ReqId
 }
 
-// SaveProgress saves Progress in Etcd
-func SaveProgress(p *Progress) error {
+// Save saves Progress in Etcd
+func (p *Progress) Save() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err

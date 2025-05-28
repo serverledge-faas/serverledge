@@ -513,11 +513,11 @@ func TestResumeWorkflow(t *testing.T) {
 	request := workflow.NewRequest(shortuuid.New(), wflow, params)
 
 	progress := workflow.InitProgress(workflow.ReqId(request.Id), wflow)
-	pd := workflow.NewPartialData(wflow.Start.Id, request.Params)
+	pd := workflow.NewTaskData(request.Params)
 
-	err = workflow.SaveProgress(progress)
+	err = progress.Save()
 	u.AssertNil(t, err)
-	err = workflow.SavePartialData(pd, workflow.ReqId(request.Id))
+	err = pd.Save(workflow.ReqId(request.Id), wflow.Start.Id)
 	u.AssertNil(t, err)
 
 	resumedRequest := workflow.NewRequest(request.Id, wflow, params)

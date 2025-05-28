@@ -11,61 +11,58 @@ import (
 	"github.com/serverledge-faas/serverledge/utils"
 )
 
-// PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
-type PartialData struct {
-	Task TaskId
+// TaskData stores input/output data of a Task
+type TaskData struct {
 	Data map[string]interface{}
 }
 
-func (pd PartialData) Equals(pd2 *PartialData) bool {
+func (td TaskData) Equals(other *TaskData) bool {
 
-	if len(pd.Data) != len(pd2.Data) {
+	if len(td.Data) != len(other.Data) {
 		return false
 	}
 
-	for s := range pd.Data {
+	for s := range td.Data {
 		// we convert the type to string to avoid checking all possible types!!!
-		value1 := fmt.Sprintf("%v", pd.Data[s])
-		value2 := fmt.Sprintf("%v", pd2.Data[s])
+		value1 := fmt.Sprintf("%v", td.Data[s])
+		value2 := fmt.Sprintf("%v", other.Data[s])
 		if value1 != value2 {
 			return false
 		}
 	}
 
-	return pd.Task == pd2.Task
+	return true
 }
 
-func (pd PartialData) String() string {
-	return fmt.Sprintf(`PartialData{
-		Task:  %s,
+func (td TaskData) String() string {
+	return fmt.Sprintf(`TaskData{
 		Data:     %v,
-	}`, pd.Task, pd.Data)
+	}`, td.Data)
 }
 
-func NewPartialData(task TaskId, data map[string]interface{}) *PartialData {
-	return &PartialData{
-		Task: task,
+func NewTaskData(data map[string]interface{}) *TaskData {
+	return &TaskData{
 		Data: data,
 	}
 }
 
-func getPartialDataEtcdKey(reqId ReqId, nodeId TaskId) string {
+func getTaskDataEtcdKey(reqId ReqId, nodeId TaskId) string {
 	return fmt.Sprintf("/partialData/%s/%s", reqId, nodeId)
 }
 
-func SavePartialData(pd *PartialData, reqId ReqId) error {
+func (td *TaskData) Save(reqId ReqId, task TaskId) error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
 	}
 	ctx := context.TODO()
 	// marshal the progress object into json
-	payload, err := json.Marshal(pd)
+	payload, err := json.Marshal(td)
 	if err != nil {
 		return fmt.Errorf("could not marshal progress: %v", err)
 	}
 	// saves the json object into etcd
-	key := getPartialDataEtcdKey(reqId, pd.Task)
+	key := getTaskDataEtcdKey(reqId, task)
 	log.Printf("Saving PD on etcd with key: %s\n", key)
 
 	_, err = cli.Put(ctx, key, string(payload))
@@ -75,31 +72,29 @@ func SavePartialData(pd *PartialData, reqId ReqId) error {
 	return nil
 }
 
-func RetrievePartialData(reqId ReqId, nodeId TaskId) ([]*PartialData, error) {
+func RetrievePartialData(reqId ReqId, task TaskId) (*TaskData, error) {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return nil, errors.New("failed to connect to ETCD")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	key := getPartialDataEtcdKey(reqId, nodeId)
+	key := getTaskDataEtcdKey(reqId, task)
 	getResponse, err := cli.Get(ctx, key)
-	if err != nil || len(getResponse.Kvs) < 1 {
+	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve partialDatas for requestId: %s", key)
 	}
-	partialDatas := make([]*PartialData, 0, len(getResponse.Kvs))
+	if len(getResponse.Kvs) > 1 {
+		return nil, fmt.Errorf("more than 1 TaskData associated with key: %s", key)
+	}
+	var partialData *TaskData
 	for _, v := range getResponse.Kvs {
-		var partialData *PartialData
 		err = json.Unmarshal(v.Value, &partialData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal partialDatas json: %v", err)
 		}
-		partialDatas = append(partialDatas, partialData)
+		return partialData, nil
 	}
 
-	if len(partialDatas) == 0 {
-		return nil, fmt.Errorf("partial data are empty")
-	}
-
-	return partialDatas, nil
+	return nil, fmt.Errorf("failed to retrieve partialDatas for requestId: %s", key)
 }

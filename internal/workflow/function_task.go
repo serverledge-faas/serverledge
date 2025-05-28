@@ -35,7 +35,7 @@ func (s *FunctionTask) SetNext(nextTask Task) error {
 	return nil
 }
 
-func (s *FunctionTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
 
 	err := s.CheckInput(input.Data)
 	if err != nil {

@@ -32,6 +32,6 @@ func (s *SuccessTask) String() string {
 	return "[Succeed]"
 }
 
-func (s *SuccessTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+func (s *SuccessTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
 	return input.Data, nil
 }

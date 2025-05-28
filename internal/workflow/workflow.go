@@ -68,12 +68,12 @@ func (workflow *Workflow) add(task Task) {
 	workflow.Tasks[task.GetId()] = task // if already exists, overwrites!
 }
 
-func (w *Workflow) GetPreviousTasks(task Task) []TaskId {
+func (w *Workflow) GetPreviousTasks(task TaskId) []TaskId {
 	if w.prevTasks == nil {
 		w.computePreviousTasks()
 	}
 
-	return w.prevTasks[task.GetId()]
+	return w.prevTasks[task]
 }
 
 func (w *Workflow) GetAllPreviousTasks() map[TaskId][]TaskId {
@@ -171,7 +171,7 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 
 func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) bool {
 	for _, prev := range workflow.prevTasks[id] {
-		if p.Status[prev] != Executed {
+		if p.Status[prev] == Pending {
 			return false
 		}
 	}
@@ -179,9 +179,9 @@ func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) boo
 	return true
 }
 
-func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *PartialData, progress *Progress) (*PartialData, error) {
+func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *TaskData, progress *Progress) (*TaskData, error) {
 	var err error
-	var outputData *PartialData
+	var outputData *TaskData
 
 	n, ok := workflow.Find(taskToExecute)
 	if !ok {
@@ -195,12 +195,15 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *P
 			progress.Fail(n.GetId())
 			return nil, err
 		}
+
+		outputData = NewTaskData(output)
 		progress.Complete(task.GetId())
 
 		nextTask := task.GetNext()
-		outputData = NewPartialData(nextTask, output)
 		if workflow.IsTaskEligibleForExecution(nextTask, progress) {
 			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
+		} else {
+			fmt.Printf("task %s complete, but %s not eligible for execution", task.GetId(), nextTask)
 		}
 
 	case ConditionalTask:
@@ -229,7 +232,7 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *P
 		}
 		progress.Complete(task.GetId())
 
-		outputData = NewPartialData(nextTaskId, input.Data)
+		outputData = NewTaskData(input.Data)
 		if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
 			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
 		}
@@ -360,31 +363,35 @@ func (workflow *Workflow) Save() error {
 	return nil
 }
 
-func (workflow *Workflow) getProgressAndData(r *Request) (*Progress, *PartialData, error) {
+func (workflow *Workflow) getProgress(r *Request) (*Progress, error) {
 	var progress *Progress
-	var pd *PartialData
 	var err error
 	requestId := ReqId(r.Id)
 
 	if !r.Resuming {
 		progress = InitProgress(requestId, workflow)
-		pd = NewPartialData(workflow.Start.Id, r.Params)
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to retrieve workflow progress: %v", err)
+			return nil, fmt.Errorf("failed to retrieve workflow progress: %v", err)
 		}
-		pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
-		if err != nil {
-			return nil, nil, fmt.Errorf("workflow resumed but unable to retrieve partial data of next task: %v", progress.ReadyToExecute[0])
-		}
-		if len(pds) != 1 {
-			return nil, nil, fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
-		}
-		pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
 	}
 
-	return progress, pd, nil
+	return progress, nil
+}
+
+func (workflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *Progress, data map[TaskId]*TaskData) error {
+	// TODO: check that each TaskData is saved at most once
+	for _, task := range progress.ReadyToExecute {
+		for _, prev := range workflow.GetPreviousTasks(task) {
+			err := data[prev].Save(requestId, prev)
+			if err != nil {
+				return fmt.Errorf("Could not save partial data: %v", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // Invoke schedules each function of the workflow and invokes them
@@ -393,27 +400,29 @@ func (workflow *Workflow) Invoke(r *Request) error {
 	var err error
 	requestId := ReqId(r.Id)
 
-	progress, pd, err := workflow.getProgressAndData(r)
+	// Initialize (or retrieve) Progress
+	progress, err := workflow.getProgress(r)
 	if err != nil {
 		return err
 	}
 
+	// Initialize map of TaskData
+	dataMap := make(map[TaskId]*TaskData)
+
 	if len(progress.ReadyToExecute) == 0 {
 		return fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
-	} else if len(progress.ReadyToExecute) > 1 {
-		// TODO: manage case when len is > 1 (e.g., parallel branches)
-		return fmt.Errorf("workflow resumed with multiple tasks ready for execution not yet implemented!: %v", requestId)
 	}
 
 	for len(progress.ReadyToExecute) > 0 {
 		decision, err := offloadingPolicy.Evaluate(r, progress)
 		if err == nil && decision.Offload {
 
-			err := SaveProgress(progress)
+			err := progress.Save()
 			if err != nil {
 				return fmt.Errorf("Could not save progress: %v", err)
 			}
-			err = SavePartialData(pd, ReqId(r.Id))
+
+			err = workflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
 			if err != nil {
 				return fmt.Errorf("Could not save partial data: %v", err)
 			}
@@ -434,14 +443,6 @@ func (workflow *Workflow) Invoke(r *Request) error {
 			if err != nil {
 				return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
 			}
-			pds, err := RetrievePartialData(requestId, progress.ReadyToExecute[0])
-			if err != nil {
-				return fmt.Errorf("Could not retrieve partial data: %v", err)
-			}
-			if len(pds) != 1 {
-				return fmt.Errorf("expected 1 partial data for next task: %v", progress.ReadyToExecute[0])
-			}
-			pd = pds[0] // TODO: to be updated when refactoring parallel orchestration
 			log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
 		} else {
 			// pick next executable task
@@ -455,13 +456,41 @@ func (workflow *Workflow) Invoke(r *Request) error {
 				break
 			}
 
-			pd, err = workflow.ExecuteTask(r, taskToExecute, pd, progress)
+			// Prepare input for taskToExecute
+			var input *TaskData
+			if workflow.Tasks[taskToExecute].GetType() == Start {
+				input = NewTaskData(r.Params)
+			} else {
+				var found bool
+				previousTasks := workflow.GetPreviousTasks(taskToExecute)
+				for _, previousTask := range previousTasks {
+					if progress.Status[previousTask] == Skipped {
+						continue
+					}
+
+					if input != nil {
+						return fmt.Errorf("Merge of inputs not supported yet!")
+					}
+
+					input, found = dataMap[previousTask]
+					if !found {
+						input, err = RetrievePartialData(requestId, previousTask)
+						if err != nil {
+							return fmt.Errorf("Could not retrieve partial data: %v", err)
+						}
+					}
+				}
+			}
+
+			output, err := workflow.ExecuteTask(r, taskToExecute, input, progress)
 			if err != nil {
 				return fmt.Errorf("failed workflow execution: %v", err)
 			}
 
-			if len(progress.ReadyToExecute) == 0 && pd != nil {
-				r.ExecReport.Result = pd.Data
+			dataMap[taskToExecute] = output
+
+			if len(progress.ReadyToExecute) == 0 && output != nil {
+				r.ExecReport.Result = output.Data
 				// TODO: delete  progress if needed
 				return nil
 			}
@@ -469,13 +498,15 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 	}
 
-	err = SaveProgress(progress)
-	if err != nil {
-		return err
-	}
-	err = SavePartialData(pd, ReqId(r.Id))
-	if err != nil {
-		return err
+	if len(progress.ReadyToExecute) > 0 {
+		err = progress.Save()
+		if err != nil {
+			return err
+		}
+		err = workflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
+		if err != nil {
+			return fmt.Errorf("Could not save partial data: %v", err)
+		}
 	}
 
 	return nil

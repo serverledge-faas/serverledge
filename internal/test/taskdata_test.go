@@ -8,18 +8,17 @@ import (
 	"testing"
 )
 
-func TestPartialDataMarshaling(t *testing.T) {
+func TestTaskDataMarshaling(t *testing.T) {
 	data := make(map[string]interface{})
 	data["prova"] = "testo"
 	data["num"] = 2
 	data["list"] = []string{"uno", "due", "tre"}
-	partialData := workflow.PartialData{
-		Task: "fai13p102",
+	partialData := workflow.TaskData{
 		Data: data,
 	}
 	marshal, errMarshal := json.Marshal(partialData)
 	u.AssertNilMsg(t, errMarshal, "error during marshaling")
-	var retrieved workflow.PartialData
+	var retrieved workflow.TaskData
 	errUnmarshal := json.Unmarshal(marshal, &retrieved)
 	u.AssertNilMsg(t, errUnmarshal, "failed composition unmarshal")
 

@@ -32,7 +32,7 @@ func (c *ChoiceTask) GetAlternatives() []TaskId {
 	return c.AlternativeNextTasks
 }
 
-func (c *ChoiceTask) Evaluate(input *PartialData, r *Request) (TaskId, error) {
+func (c *ChoiceTask) Evaluate(input *TaskData, r *Request) (TaskId, error) {
 
 	// simply evaluate the Conditions and set the matching one
 	matchedCondition := -1
