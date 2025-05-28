@@ -14,9 +14,8 @@ func TestPartialDataMarshaling(t *testing.T) {
 	data["num"] = 2
 	data["list"] = []string{"uno", "due", "tre"}
 	partialData := workflow.PartialData{
-		ReqId:   workflow.ReqId("abc"),
-		ForTask: "fai13p102",
-		Data:    data,
+		Task: "fai13p102",
+		Data: data,
 	}
 	marshal, errMarshal := json.Marshal(partialData)
 	u.AssertNilMsg(t, errMarshal, "error during marshaling")

@@ -13,9 +13,8 @@ import (
 
 // PartialData is saved separately from progressData to avoid cluttering the Progress struct and each Serverledge node's cache
 type PartialData struct {
-	ReqId   ReqId  // request referring to this partial data
-	ForTask TaskId // task that should receive this partial data
-	Data    map[string]interface{}
+	Task TaskId
+	Data map[string]interface{}
 }
 
 func (pd PartialData) Equals(pd2 *PartialData) bool {
@@ -33,22 +32,20 @@ func (pd PartialData) Equals(pd2 *PartialData) bool {
 		}
 	}
 
-	return pd.ReqId == pd2.ReqId && pd.ForTask == pd2.ForTask
+	return pd.Task == pd2.Task
 }
 
 func (pd PartialData) String() string {
 	return fmt.Sprintf(`PartialData{
-		Id:    %s,
-		ForTask:  %s,
+		Task:  %s,
 		Data:     %v,
-	}`, pd.ReqId, pd.ForTask, pd.Data)
+	}`, pd.Task, pd.Data)
 }
 
-func NewPartialData(reqId ReqId, forTask TaskId, data map[string]interface{}) *PartialData {
+func NewPartialData(task TaskId, data map[string]interface{}) *PartialData {
 	return &PartialData{
-		ReqId:   reqId,
-		ForTask: forTask,
-		Data:    data,
+		Task: task,
+		Data: data,
 	}
 }
 
@@ -56,7 +53,7 @@ func getPartialDataEtcdKey(reqId ReqId, nodeId TaskId) string {
 	return fmt.Sprintf("/partialData/%s/%s", reqId, nodeId)
 }
 
-func SavePartialData(pd *PartialData) error {
+func SavePartialData(pd *PartialData, reqId ReqId) error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
@@ -68,7 +65,7 @@ func SavePartialData(pd *PartialData) error {
 		return fmt.Errorf("could not marshal progress: %v", err)
 	}
 	// saves the json object into etcd
-	key := getPartialDataEtcdKey(pd.ReqId, pd.ForTask)
+	key := getPartialDataEtcdKey(reqId, pd.Task)
 	log.Printf("Saving PD on etcd with key: %s\n", key)
 
 	_, err = cli.Put(ctx, key, string(payload))
