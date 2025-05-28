@@ -29,7 +29,7 @@ func (s *StartTask) SetNext(nextTask Task) error {
 	return nil
 }
 
-func (s *StartTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+func (s *StartTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
 	return input.Data, nil
 }
 

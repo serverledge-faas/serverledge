@@ -75,7 +75,7 @@ func TestProgressCache(t *testing.T) {
 	for i := 0; i < len(workflows); i++ {
 		progress := progresses[i]
 		wflow := workflows[i]
-		err := workflow.SaveProgress(progress)
+		err := progress.Save()
 		u.AssertNilMsg(t, err, "failed to save progress")
 
 		retrievedProgress, err := workflow.RetrieveProgress(progress.ReqId)
@@ -85,7 +85,7 @@ func TestProgressCache(t *testing.T) {
 		progress.Complete(wflow.Start.Id)
 		progress.Complete(wflow.Start.GetNext())
 
-		err = workflow.SaveProgress(progress)
+		err = progress.Save()
 		u.AssertNilMsg(t, err, "failed to save after update")
 
 		retrievedProgress, err = workflow.RetrieveProgress(progress.ReqId)

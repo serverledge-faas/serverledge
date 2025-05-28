@@ -32,6 +32,6 @@ func (p *PassTask) String() string {
 	return "[ Pass ]"
 }
 
-func (p *PassTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+func (p *PassTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
 	return input.Data, nil
 }

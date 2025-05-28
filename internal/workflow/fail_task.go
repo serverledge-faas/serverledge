@@ -37,7 +37,7 @@ func (f *FailureTask) String() string {
 	return fmt.Sprintf("[Fail: %s]", f.Error)
 }
 
-func (f *FailureTask) execute(input *PartialData, r *Request) (map[string]interface{}, error) {
+func (f *FailureTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
 	output := make(map[string]interface{})
 	output[f.Error] = f.Cause
 	return output, nil

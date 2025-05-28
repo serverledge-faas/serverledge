@@ -26,14 +26,14 @@ type UnaryTask interface {
 	// SetNext connects the output of this task to another Task
 	SetNext(nextTask Task) error
 
-	execute(data *PartialData, r *Request) (map[string]interface{}, error)
+	execute(data *TaskData, r *Request) (map[string]interface{}, error)
 }
 
 type ConditionalTask interface {
 	Task
 	AddAlternative(nextTask Task) error
 	GetAlternatives() []TaskId
-	Evaluate(data *PartialData, r *Request) (TaskId, error)
+	Evaluate(data *TaskData, r *Request) (TaskId, error)
 }
 
 type baseTask struct {
