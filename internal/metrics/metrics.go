@@ -15,7 +15,30 @@ import (
 
 var Enabled bool
 var registry = prometheus.NewRegistry()
-var nodeIdentifier string
+var ScrapingHandler http.Handler = nil
+var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15, 0.3, 0.6, 1.0}
+
+const (
+	COMPLETIONS    = "completed_total"
+	EXECUTION_TIME = "execution_time"
+)
+
+var (
+	metricCompletions = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: COMPLETIONS,
+		Help: "Number of completed function invocations",
+	}, []string{"node", "function"})
+	metricExecutionTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    EXECUTION_TIME,
+		Help:    "Function duration",
+		Buckets: durationBuckets,
+	}, []string{"node", "function"})
+)
+
+type RetrievedMetrics struct {
+	Completions      map[string]float64
+	AvgExecutionTime map[string]float64
+}
 
 func Init() {
 	if config.GetBool(config.METRICS_ENABLED, false) {
@@ -26,43 +49,18 @@ func Init() {
 		return
 	}
 
-	nodeIdentifier = node.NodeIdentifier
-	registerGlobalMetrics()
+	registry.MustRegister(metricCompletions)
+	registry.MustRegister(metricExecutionTime)
 
-	handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+	ScrapingHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics: true})
-	http.Handle("/metrics", handler)
-	err := http.ListenAndServe(":2112", nil)
-	if err != nil {
-		log.Printf("Listen and serve terminated with error: %s\n", err)
-		return
-	}
+
+	go MetricsRetriever()
 }
-
-// Global metrics
-var (
-	CompletedInvocations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "sedge_completed_total",
-		Help: "The total number of completed function invocations",
-	}, []string{"node", "function"})
-	ExecutionTimes = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "sedge_exectime",
-		Help:    "Function duration",
-		Buckets: durationBuckets,
-	},
-		[]string{"node", "function"})
-)
-
-var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15, 0.3, 0.6, 1.0}
 
 func AddCompletedInvocation(funcName string) {
-	CompletedInvocations.With(prometheus.Labels{"function": funcName, "node": nodeIdentifier}).Inc()
+	metricCompletions.With(prometheus.Labels{"function": funcName, "node": node.NodeIdentifier}).Inc()
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
-	ExecutionTimes.With(prometheus.Labels{"function": funcName, "node": nodeIdentifier}).Observe(duration)
-}
-
-func registerGlobalMetrics() {
-	registry.MustRegister(CompletedInvocations)
-	registry.MustRegister(ExecutionTimes)
+	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.NodeIdentifier}).Observe(duration)
 }

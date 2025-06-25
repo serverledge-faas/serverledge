@@ -59,8 +59,14 @@ const LISTEN_UDP_PORT = "registry.udp.port"
 // enable metrics system
 const METRICS_ENABLED = "metrics.enabled"
 
-const METRICS_PROMETHEUS_HOST = "metrics.prometheus.host"
+// Port used by Prometheus server
 const METRICS_PROMETHEUS_PORT = "metrics.prometheus.port"
+
+// Prometheus IP address / hostname
+const METRICS_PROMETHEUS_HOST = "metrics.prometheus.host"
+
+// Interval (in seconds) for metrics retriever
+const METRICS_RETRIEVER_INTERVAL = "metrics.retriever.interval"
 
 // Scheduling policy to use
 // Possible values: "qosaware", "default", "cloudonly"

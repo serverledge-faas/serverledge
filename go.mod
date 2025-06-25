@@ -7,7 +7,6 @@ toolchain go1.22.5
 require (
 	github.com/LK4D4/trylock v0.0.0-20191027065348-ff7e133a5c54
 	github.com/buger/jsonparser v1.1.1
-	github.com/cornelk/hashmap v1.0.8
 	github.com/docker/docker v24.0.5+incompatible
 	github.com/hexablock/vivaldi v0.0.0-20180727225019-07adad3f2b5f
 	github.com/labstack/echo/v4 v4.6.1
@@ -15,6 +14,8 @@ require (
 	github.com/lithammer/shortuuid v3.0.0+incompatible
 	github.com/mikoim/go-loadavg v0.0.0-20150917074714-35ece5f6d547
 	github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/common v0.37.0
+	github.com/spf13/cast v1.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.4.0
 	go.etcd.io/etcd/client/v3 v3.5.1
@@ -45,6 +46,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
@@ -52,17 +54,17 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
 	github.com/moby/term v0.5.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
-	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/rogpeppe/go-internal v1.8.1 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
-	github.com/spf13/cast v1.3.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

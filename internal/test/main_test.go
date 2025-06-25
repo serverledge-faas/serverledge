@@ -64,7 +64,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 
 	node.NodeIdentifier = myKey
 
-	go metrics.Init()
+	metrics.Init()
 
 	e := echo.New()
 

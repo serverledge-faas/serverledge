@@ -59,7 +59,7 @@ func main() {
 	}
 	node.NodeIdentifier = myKey
 
-	go metrics.Init()
+	metrics.Init()
 
 	if config.GetBool(config.TRACING_ENABLED, false) {
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)

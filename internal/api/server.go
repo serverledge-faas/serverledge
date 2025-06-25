@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"log"
 	"net/http"
 	"os"
@@ -30,6 +31,14 @@ func StartAPIServer(e *echo.Echo) {
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)
 	e.GET("/status", GetServerStatus)
+
+	if config.GetBool(config.METRICS_ENABLED, false) {
+		e.GET("/metrics", func(c echo.Context) error {
+			metrics.ScrapingHandler.ServeHTTP(c.Response(), c.Request())
+			return nil
+		})
+	}
+
 	// Workflow routes
 	e.POST("/workflow/invoke/:workflow", InvokeWorkflow)
 	e.POST("/workflow/resume/:workflow", ResumeWorkflow)
