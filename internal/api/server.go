@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/metrics"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -31,6 +32,7 @@ func StartAPIServer(e *echo.Echo) {
 	e.GET("/function", GetFunctions)
 	e.GET("/poll/:reqId", PollAsyncResult)
 	e.GET("/status", GetServerStatus)
+	e.POST("/prewarm", PrewarmFunction)
 
 	if config.GetBool(config.METRICS_ENABLED, false) {
 		e.GET("/metrics", func(c echo.Context) error {

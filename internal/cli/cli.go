@@ -392,6 +392,11 @@ func ReadSourcesAsTar(srcPath string) ([]byte, error) {
 }
 
 func deleteFunction(cmd *cobra.Command, args []string) {
+	if len(funcName) < 1 {
+		fmt.Println("Missing function name for deletion.")
+		showHelpAndExit(cmd)
+	}
+
 	request := function.Function{Name: funcName}
 	requestBody, err := json.Marshal(request)
 	if err != nil {
