@@ -25,9 +25,15 @@ Serverledge has been first described in a [paper](http://www.ce.uniroma2.it/publ
       doi={10.1109/PERCOM56429.2023.10099372}
     }
 
-The paper also went through an Artifact Evaluation. An artifact guide, which
-explains how to obtain and use the software, is available
-[here](http://www.ce.uniroma2.it/publications/ServerledgeArtifact.pdf).
+Serverledge has been used in other scientific papers, including:
+
+- F. Righetti, B. Cornacchia, G. Russo Russo, N. Tonellotto, V. Cardellini, C. Vallati, *Energy-Efficient Function Invocation Scheduling for Edge FaaS Platforms*, Proc. of 2025 IEEE Int'l Conference on Smart Computing (SMARTCOMP '25), [doi](https://doi.ieeecomputersociety.org/10.1109/SMARTCOMP65954.2025.00057)
+
+- R. Farahani, N. Mehran, S. Ristov, R. Prodan, *HEFTLess: A Bi-Objective Serverless Workflow Batch Orchestration on the Computing Continuum*. Proc. of IEEE Int'l Conference on Cluster Computing (CLUSTER '24): 286-296, [doi](https://doi.org/10.1109/CLUSTER59578.2024.00032)
+
+- G. Russo Russo, D. Ferrarelli, D. Pasquali, V. Cardellini, F. Lo Presti, *QoS-aware offloading policies for serverless functions in the Cloud-to-Edge continuum*, Future Gener. Comput. Syst. 156: 1-15 (2024), [doi](https://doi.org/10.1016/j.future.2024.02.019)
+
+- A. Semjonov, H. Bornholdt, J. Edinger, G. Russo Russo, *Wasimoff: Distributed Computation Offloading Using WebAssembly in the Browser*, Proc. of \*LESS 2024 (in conjunction with IEEE PerCom '24), 203-208, [doi](https://doi.org/10.1109/PerComWorkshops59983.2024.10503392)
 
 
 ## Building from sources
@@ -85,18 +91,6 @@ where `input.json` may contain:
 		"b": 3
 	}
 
-#### Asynchronous Invocation
-
-Functions can be also invoked asynchronously using the `--async` flag:
-
-	$ bin/serverledge-cli invoke -f func --async
-
-The server will reply with a `requestID`, which can be used by the client to
-poll for the execution result:
-
-	$ bin/serverledge-cli poll --request <requestID>
-
-
 #### Getting function standard output
 
 You may want to see the content printed by the function to its standard output/error. To do so, add the `--return_output` flag (`-o` for short):
@@ -150,7 +144,7 @@ The configuration file may look like this:
 
 ## Workflows
 
-Serverledge supports the composition of multiple functions into workflows.
+Serverledge has been extended to support the composition of multiple functions into workflows.
 More information [here](./docs/workflows.md)
 
 ## Additional Documentation
@@ -160,6 +154,13 @@ More information [here](./docs/workflows.md)
  - [Serverledge Internals: Executor](./docs/executor.md)
  - [Metrics](./docs/metrics.md)
 
+## Related Projects
+
+A graphical UI to demonstrate the functionality of Serverledge has been
+developed
+at the Dept. of Information Engineering @ University of Pisa, Italy.
+The project can be found
+[here](https://github.com/Serverledge-UNIPI/Serverledge_Demo)
 
 ## License
 
