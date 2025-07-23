@@ -1,13 +1,17 @@
 package workflow
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"golang.org/x/exp/slices"
+	"net/http"
 	"strconv"
+	"time"
 )
 
 type IlpOffloadingPolicy struct{}
@@ -31,6 +35,21 @@ type ilpParams struct {
 	TaskLabels map[string][]string `json:"task_labels"` // Labels per task
 
 	ExecTime map[string]float64 `json:"exectime"` // map[json.dumps((task, node))] = time
+}
+
+func initParams() ilpParams {
+	return ilpParams{
+		Adj:         make(map[string][]string),
+		ExecTime:    make(map[string]float64),
+		OutputSize:  make(map[string]float64),
+		NodeMemory:  make(map[string]float64),
+		TaskMemory:  make(map[string]float64),
+		NodeLabels:  make(map[string][]string),
+		TaskLabels:  make(map[string][]string),
+		DSBandwidth: make(map[string]float64),
+		DSLatency:   make(map[string]float64),
+		NodeLatency: make(map[string]float64),
+	}
 }
 
 const CLOUD = "CLOUD"
@@ -119,7 +138,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// TODO: prepare parameters for ILP
-	params := ilpParams{}
+	params := initParams()
 	params.N = []string{LOCAL, CLOUD}
 	params.Deadline = r.QoS.MaxRespT
 	params.HandlingNode = LOCAL
@@ -222,6 +241,36 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// TODO: resolve ILP
+	// Serialize to JSON
+	jsonData, err := json.Marshal(params)
+	if err != nil {
+		panic(err)
+	}
+
+	// Create POST request
+	url := "http://localhost:8080/"
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	// Read and print response
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Server response: %+v\n", result)
 
 	// TODO: parse results and make a decision
 

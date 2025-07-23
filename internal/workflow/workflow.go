@@ -21,7 +21,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{}
+var offloadingPolicy OffloadingPolicy = &IlpOffloadingPolicy{}
 
 //&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
