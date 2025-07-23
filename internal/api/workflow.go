@@ -170,7 +170,7 @@ func ResumeWorkflow(e echo.Context) error {
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	if clientReq.Plan.ToExecute != nil {
-		req.Plan = &workflow.ExecutionPlan{ToExecute: clientReq.Plan.ToExecute}
+		req.Plan = &workflow.OffloadingPlan{ToExecute: clientReq.Plan.ToExecute}
 	} else {
 		req.Plan = nil
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-var offloadingPolicy OffloadingPolicy = &NoOffloadingPolicy{}
+var offloadingPolicy OffloadingPolicy = &IlpOffloadingPolicy{}
 
 //&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
 
@@ -529,7 +529,7 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 			CanDoOffloading: false,
 			Async:           false, // we force a synchronous request
 		},
-		Plan: policyDecision.ExecutionPlan,
+		Plan: policyDecision.OffloadingPlan,
 	}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {

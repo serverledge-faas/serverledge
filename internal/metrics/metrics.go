@@ -21,6 +21,7 @@ var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15
 const (
 	COMPLETIONS    = "completed_total"
 	EXECUTION_TIME = "execution_time"
+	OUTPUT_SIZE    = "output_size"
 )
 
 var (
@@ -33,11 +34,17 @@ var (
 		Help:    "Function duration",
 		Buckets: durationBuckets,
 	}, []string{"node", "function"})
+	metricOutputSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: OUTPUT_SIZE,
+		Help: "Function output size",
+	}, []string{"function"})
 )
 
 type RetrievedMetrics struct {
-	Completions      map[string]float64
-	AvgExecutionTime map[string]float64
+	Completions              map[string]float64
+	AvgExecutionTime         map[string]float64
+	AvgExecutionTimeAllNodes map[string]map[string]float64
+	AvgOutputSize            map[string]float64
 }
 
 func Init() {
@@ -51,6 +58,7 @@ func Init() {
 
 	registry.MustRegister(metricCompletions)
 	registry.MustRegister(metricExecutionTime)
+	registry.MustRegister(metricOutputSize)
 
 	ScrapingHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics: true})
@@ -63,4 +71,7 @@ func AddCompletedInvocation(funcName string) {
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
 	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.NodeIdentifier}).Observe(duration)
+}
+func AddFunctionOutputSizeValue(funcName string, size float64) {
+	metricOutputSize.With(prometheus.Labels{"function": funcName}).Observe(size)
 }
