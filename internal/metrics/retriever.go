@@ -68,6 +68,44 @@ func retrieveByFunction(query string, api v1.API, ctx context.Context) (map[stri
 	return functionValues, nil
 }
 
+func retrieveByFunctionAndNode(query string, api v1.API, ctx context.Context) (map[string]map[string]float64, error) {
+
+	result, warnings, err := api.Query(ctx, query, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("Failed query : %v\n", err)
+	}
+
+	if len(warnings) > 0 {
+		log.Printf("Received warnings in the execution of the : %v\n", warnings)
+	}
+
+	values := make(map[string]map[string]float64)
+	if vector, ok := result.(model.Vector); ok {
+		for _, sample := range vector {
+			value := float64(sample.Value)
+			functionName, found := sample.Metric[model.LabelName("function")]
+			if !found {
+				log.Printf("Could not find the function name in the result : %v\n", sample)
+				continue
+			}
+			nodeName, found := sample.Metric[model.LabelName("node")]
+			if !found {
+				log.Printf("Could not find the node name in the result : %v\n", sample)
+				continue
+			}
+			_, foundInner := values[string(nodeName)]
+			if !foundInner {
+				values[string(nodeName)] = make(map[string]float64)
+			}
+			values[string(nodeName)][string(functionName)] = value
+		}
+	} else {
+		return nil, fmt.Errorf("Unexpected Result %v\n", result)
+	}
+
+	return values, nil
+}
+
 func MetricsRetriever() {
 	prometheusHost := config.GetString(config.METRICS_PROMETHEUS_HOST, "127.0.0.1")
 	prometheusPort := config.GetInt(config.METRICS_PROMETHEUS_PORT, 9090)
@@ -83,7 +121,7 @@ func MetricsRetriever() {
 	api := v1.NewAPI(client)
 	ctx := context.Background()
 
-	ticker := time.NewTicker(time.Duration(config.GetInt(config.METRICS_RETRIEVER_INTERVAL, 10)) * time.Second)
+	ticker := time.NewTicker(time.Duration(config.GetInt(config.METRICS_RETRIEVER_INTERVAL, 5)) * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -105,7 +143,22 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.AvgExecutionTime = avgFunDuration
 
+			query = fmt.Sprintf("%s_sum{}/%s_count{}", EXECUTION_TIME, EXECUTION_TIME)
+			avgFunDurationAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByFunction: %v\n", err)
+			}
+			retrievedMetrics.AvgExecutionTimeAllNodes = avgFunDurationAllNodes
+
+			query = fmt.Sprintf("%s_sum{}/%s_count{}", OUTPUT_SIZE, OUTPUT_SIZE)
+			avgOutputSize, err := retrieveByFunction(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByFunction: %v\n", err)
+			}
+			retrievedMetrics.AvgOutputSize = avgOutputSize
+
 			fmt.Println("All queries completed")
+			fmt.Println(retrievedMetrics)
 
 		}
 	}
