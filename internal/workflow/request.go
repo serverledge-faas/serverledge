@@ -19,8 +19,8 @@ type Request struct {
 	QoS             function.RequestQoS // every function should have its QoS
 	CanDoOffloading bool                // every function inherits this flag
 	Async           bool
-	Resuming        bool           // indicating whether the function is resuming from a previous (partial) execution
-	Plan            *ExecutionPlan // optional; execution plan
+	Resuming        bool            // indicating whether the function is resuming from a previous (partial) execution
+	Plan            *OffloadingPlan // optional; execution plan
 }
 
 func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
@@ -53,5 +53,5 @@ type AsyncInvocationResponse struct {
 type WorkflowInvocationResumeRequest struct {
 	ReqId string
 	client.WorkflowInvocationRequest
-	Plan ExecutionPlan
+	Plan OffloadingPlan
 }

@@ -529,7 +529,7 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 			CanDoOffloading: false,
 			Async:           false, // we force a synchronous request
 		},
-		Plan: policyDecision.ExecutionPlan,
+		Plan: policyDecision.OffloadingPlan,
 	}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {

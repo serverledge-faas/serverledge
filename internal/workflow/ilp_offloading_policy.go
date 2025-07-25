@@ -17,7 +17,8 @@ import (
 type IlpOffloadingPolicy struct{}
 
 type ilpParams struct {
-	N            []string            `json:"N"`            // Set of nodes
+	CloudNodes   []string            `json:"cloud_nodes"`  // Set of Cloud nodes
+	EdgeNodes    []string            `json:"edge_nodes"`   // Set of Edge nodes
 	NodeMemory   map[string]float64  `json:"node_memory"`  // Memory per node
 	DSLatency    map[string]float64  `json:"ds_latency"`   // Latency per node
 	DSBandwidth  map[string]float64  `json:"ds_bandwidth"` // Bandwidth per node
@@ -36,6 +37,8 @@ type ilpParams struct {
 
 	ExecTime map[string]float64 `json:"exectime"` // map[json.dumps((task, node))] = time
 }
+
+type taskPlacement map[TaskId]string // TODO: might be useful to have a Node type with utility functions to retrieve node info...
 
 func initParams() ilpParams {
 	return ilpParams{
@@ -137,19 +140,22 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		return OffloadingDecision{Offload: false}, nil
 	}
 
-	// TODO: prepare parameters for ILP
+	// Prepare parameters for ILP
 	params := initParams()
-	params.N = []string{LOCAL, CLOUD}
+	params.CloudNodes = []string{CLOUD}
+	params.EdgeNodes = []string{LOCAL}
 	params.Deadline = r.QoS.MaxRespT
 	params.HandlingNode = LOCAL
 	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
+
+	// TODO: introduce task and node labels
 
 	// Add available Edge peers
 	nearbyServers := registration.Reg.NearbyServersMap
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
 			if v.AvailableMemMB > 0 && v.AvailableCPUs > 0 {
-				params.N = append(params.N, k)
+				params.EdgeNodes = append(params.EdgeNodes, k)
 				params.NodeMemory[k] = float64(v.AvailableMemMB)
 			}
 		}
@@ -158,7 +164,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	// Compute distances
 	for key1, v1 := range nearbyServers {
 		var distance float64
-		if !slices.Contains(params.N, key1) {
+		if !slices.Contains(params.EdgeNodes, key1) {
 			continue
 		}
 		distance = registration.Reg.Client.DistanceTo(&v1.Coordinates).Seconds() / 2
@@ -166,7 +172,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		params.NodeLatency[tupleKey(key1, LOCAL)] = distance
 
 		for key2, v2 := range nearbyServers {
-			if !slices.Contains(params.N, key2) {
+			if !slices.Contains(params.EdgeNodes, key2) {
 				continue
 			}
 			if key1 == key2 {
@@ -179,46 +185,70 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		}
 	}
 
+	// Execution Times
+	retrievedTimes := metrics.GetMetrics().AvgExecutionTimeAllNodes
+	for tid, task := range r.W.Tasks {
+		ft, ok := task.(*FunctionTask)
+		if ok {
+			f, _ := function.GetFunction(ft.Func)
+			for _, n := range params.EdgeNodes {
+				nodeTimes, found := retrievedTimes[n]
+				if !found {
+					params.ExecTime[tupleKey(string(tid), n)] = 1 // TODO: just guessing
+					continue
+				}
+				t, found := nodeTimes[f.Name]
+				if found {
+					params.ExecTime[tupleKey(string(tid), n)] = t
+				} else {
+					params.ExecTime[tupleKey(string(tid), n)] = 1 // TODO: just guessing
+				}
+			}
+			params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.1 // TODO: how to retrieve cloud metrics? cloud nodes should use unique identifier??
+		} else {
+			for _, n := range params.EdgeNodes {
+				params.ExecTime[tupleKey(string(tid), n)] = 0.0001
+			}
+			params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.0001
+		}
+	}
+
 	// Distances to Cloud and Data Store
 	// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
-	distanceToCloud := 0.100 // TODO
-	for _, n := range params.N {
-		if n == CLOUD {
-			params.NodeLatency[tupleKey(n, n)] = 0.0
-			params.DSLatency[n] = 0.0
-		} else {
-			params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
-			params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
-			params.DSLatency[n] = distanceToCloud
-		}
+	distanceToCloud := 0.100 // TODO: measure Cloud latency (ping? or, retrieve from offloadingLatency )
+	for _, n := range params.EdgeNodes {
+		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
+		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+		params.DSLatency[n] = distanceToCloud
 	}
+	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
+	params.DSLatency[CLOUD] = 0.001
 
 	// Bandwidth (we assume identical)
-	dsBandwidth := 100.0 // TODO
-	for _, n := range params.N {
-		if n == CLOUD {
-			params.DSBandwidth[n] = dsBandwidth * 10
-		} else {
-			params.DSBandwidth[n] = dsBandwidth
-		}
+	dsBandwidth := 100.0 // TODO: read from configuration?
+	for _, n := range params.EdgeNodes {
+		params.DSBandwidth[n] = dsBandwidth
 	}
+	params.DSBandwidth[CLOUD] = dsBandwidth * 10
 
 	// Workflow
-	// TODO: we cannot marshal every time just to know the size!!
+	// TODO: we cannot marshal every time just to know the size!! Measure it upon first deserialization
 	data, _ := json.Marshal(r.Params)
 	params.InputSize = float64(len(data))
 	params.OutputSize = computeOutputSize(r.W, params.InputSize)
 
-	params.T = make([]string, len(r.W.Tasks))
+	params.T = make([]string, 0)
 	for tid, task := range r.W.Tasks {
 		params.T = append(params.T, string(tid))
-		params.Adj[string(tid)] = make([]string, 1)
+		params.Adj[string(tid)] = make([]string, 0)
 
 		switch typedTask := task.(type) {
 		case ConditionalTask:
 			nextTasks := typedTask.GetAlternatives()
 			for _, nextTask := range nextTasks {
-				probability := 1.0 / float64(len(nextTasks)) // TODO
+				// TODO: estimate branch probability:
+				// TODO: either directly for every choice task
+				probability := 1.0 / float64(len(nextTasks))
 				entry := tupleKey(string(nextTask), strconv.FormatFloat(probability, 'f', 2, 32))
 				params.Adj[string(tid)] = append(params.Adj[string(tid)], entry)
 			}
@@ -232,6 +262,8 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 			if ok {
 				f, _ := function.GetFunction(ft.Func)
 				params.TaskMemory[string(tid)] = float64(f.MemoryMB)
+			} else {
+				params.TaskMemory[string(tid)] = float64(10)
 			}
 
 		default:
@@ -240,7 +272,6 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 
 	}
 
-	// TODO: resolve ILP
 	// Serialize to JSON
 	jsonData, err := json.Marshal(params)
 	if err != nil {
@@ -248,7 +279,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// Create POST request
-	url := "http://localhost:8080/"
+	url := "http://localhost:8080/" // TODO: configurable
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		panic(err)
@@ -256,26 +287,30 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second} // TODO: check if http client is cached
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return OffloadingDecision{Offload: false}, err
 	}
 	defer resp.Body.Close()
 
 	// Read and print response
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	var placement taskPlacement
+	err = json.NewDecoder(resp.Body).Decode(&placement)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return OffloadingDecision{Offload: false}, err
 	}
 
-	fmt.Printf("Server response: %+v\n", result)
+	for k, v := range placement {
+		fmt.Printf("Task: %s -> %s \n", k, v)
+	}
 
 	// TODO: parse results and make a decision
 
 	//if completed >= 2 && completed < 4 {
-	//	plan := ExecutionPlan{ToExecute: p.ReadyToExecute} // TODO
+	//	plan := OffloadingPlan{ToExecute: p.ReadyToExecute} // TODO
 	//	return OffloadingDecision{true, "127.0.0.1:1323", plan}, nil
 	//}
 
