@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"golang.org/x/exp/slices"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 type IlpOffloadingPolicy struct{}
@@ -232,9 +233,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	params.DSBandwidth[CLOUD] = dsBandwidth * 10
 
 	// Workflow
-	// TODO: we cannot marshal every time just to know the size!! Measure it upon first deserialization
-	data, _ := json.Marshal(r.Params)
-	params.InputSize = float64(len(data))
+	params.InputSize = float64(r.ParamsSize)
 	params.OutputSize = computeOutputSize(r.W, params.InputSize)
 
 	params.T = make([]string, 0)

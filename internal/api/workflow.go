@@ -161,6 +161,10 @@ func ResumeWorkflow(e echo.Context) error {
 	req := workflowInvocationRequestPool.Get().(*workflow.Request)
 	req.W = wflow
 	req.Params = clientReq.Params
+	req.ParamsSize = 0
+	if e.Request().ContentLength > 0 {
+		req.ParamsSize = uint64(e.Request().ContentLength)
+	}
 	req.Arrival = time.Now()
 	req.QoS = clientReq.QoS
 	req.CanDoOffloading = clientReq.CanDoOffloading
@@ -199,6 +203,10 @@ func InvokeWorkflow(e echo.Context) error {
 	req := workflowInvocationRequestPool.Get().(*workflow.Request)
 	req.W = wflow
 	req.Params = clientReq.Params
+	req.ParamsSize = 0
+	if e.Request().ContentLength > 0 {
+		req.ParamsSize = uint64(e.Request().ContentLength)
+	}
 	req.Arrival = time.Now()
 	req.QoS = clientReq.QoS
 	req.CanDoOffloading = clientReq.CanDoOffloading
