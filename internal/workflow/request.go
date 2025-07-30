@@ -1,8 +1,9 @@
 package workflow
 
 import (
-	"github.com/serverledge-faas/serverledge/internal/client"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/client"
 
 	"github.com/serverledge-faas/serverledge/internal/function"
 )
@@ -14,6 +15,7 @@ type Request struct {
 	Id              string
 	W               *Workflow
 	Params          map[string]interface{}
+	ParamsSize      uint64
 	Arrival         time.Time
 	ExecReport      ExecutionReport     // each function has its execution report, and the workflow has additional metrics
 	QoS             function.RequestQoS // every function should have its QoS
@@ -23,12 +25,13 @@ type Request struct {
 	Plan            *OffloadingPlan // optional; execution plan
 }
 
-func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}) *Request {
+func NewRequest(reqId string, workflow *Workflow, params map[string]interface{}, paramsSize uint64) *Request {
 	return &Request{
-		Id:      reqId,
-		W:       workflow,
-		Params:  params,
-		Arrival: time.Now(),
+		Id:         reqId,
+		W:          workflow,
+		Params:     params,
+		ParamsSize: paramsSize,
+		Arrival:    time.Now(),
 		ExecReport: ExecutionReport{
 			Reports: map[string]*function.ExecutionReport{},
 		},

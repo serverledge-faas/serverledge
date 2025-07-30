@@ -303,6 +303,38 @@ func pollWorkflowTest(t *testing.T, requestId string, host string, port int) str
 	return utils.GetJsonResponse(resp.Body)
 }
 
+// Utility to approximate map size
+func approximateMapSize(m map[string]interface{}) uint64 {
+	size := 0
+	for key, value := range m {
+		// Key size (string header + actual bytes)
+		size += 16 + len(key) // string header (16 bytes) + string data
+
+		// Value size (interface{} header + actual value)
+		size += 16 // interface{} header (type + data pointers)
+
+		// Estimate value size based on type
+		switch v := value.(type) {
+		case string:
+			size += len(v)
+		case int, int64, float64:
+			size += 8
+		case int32, float32:
+			size += 4
+		case bool:
+			size += 1
+		// Add more types as needed
+		default:
+			size += 8 // rough estimate for pointer types
+		}
+	}
+
+	// Add map overhead (buckets, etc.)
+	size += 48 + (len(m) * 8) // rough estimate of map overhead
+
+	return uint64(size)
+}
+
 func IsWindows() bool {
 	return os.PathSeparator == '\\' && os.PathListSeparator == ';'
 }

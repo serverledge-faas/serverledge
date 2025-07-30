@@ -1,9 +1,10 @@
 package test
 
 import (
-	"github.com/serverledge-faas/serverledge/internal/function"
 	"os"
 	"testing"
+
+	"github.com/serverledge-faas/serverledge/internal/function"
 
 	"github.com/lithammer/shortuuid"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
@@ -60,7 +61,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 	// runs the workflow
 	params := make(map[string]interface{})
 	params["input"] = "0"
-	request := workflow.NewRequest(shortuuid.New(), comp, params)
+	request := workflow.NewRequest(shortuuid.New(), comp, params, approximateMapSize(params))
 	err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
 }
@@ -123,7 +124,8 @@ func TestParsingChoiceWorkflowWithDefaultFail(t *testing.T) {
 	// runs the workflow, making it going to the fail part
 	params := make(map[string]interface{})
 	params[incFn.Signature.GetInputs()[0].Name] = 10
-	request := workflow.NewRequest(shortuuid.New(), comp, params)
+	paramsSize := uint64(len(params))
+	request := workflow.NewRequest(shortuuid.New(), comp, params, paramsSize)
 	err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
 
@@ -168,7 +170,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (1st choice branch) test: (input == 1)
 	params1 := make(map[string]interface{})
 	params1[incFn.Signature.GetInputs()[0].Name] = 1
-	request1 := workflow.NewRequest(shortuuid.New(), comp, params1)
+	request1 := workflow.NewRequest(shortuuid.New(), comp, params1, approximateMapSize(params1))
 	err1 := comp.Invoke(request1)
 	utils.AssertNil(t, err1)
 
@@ -178,7 +180,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (2nd choice branch) test: (input == 2)
 	params2 := make(map[string]interface{})
 	params2[incFn.Signature.GetInputs()[0].Name] = 2
-	request2 := workflow.NewRequest(shortuuid.New(), comp, params2)
+	request2 := workflow.NewRequest(shortuuid.New(), comp, params2, approximateMapSize(params2))
 	err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
@@ -189,7 +191,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 	// runs the workflow (default choice branch)
 	paramsDefault := make(map[string]interface{})
 	paramsDefault[incFn.Signature.GetInputs()[0].Name] = "Giacomo"
-	requestDefault := workflow.NewRequest(shortuuid.New(), comp, paramsDefault)
+	requestDefault := workflow.NewRequest(shortuuid.New(), comp, paramsDefault, approximateMapSize(paramsDefault))
 	errDef := comp.Invoke(requestDefault)
 	utils.AssertNil(t, errDef)
 
@@ -218,7 +220,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params["type"] = "Public"
 	params["value"] = 1
 	//params["input"] = 1
-	request := workflow.NewRequest(shortuuid.New(), comp, params)
+	request := workflow.NewRequest(shortuuid.New(), comp, params, approximateMapSize(params))
 	err1 := comp.Invoke(request)
 	utils.AssertNil(t, err1)
 
@@ -231,7 +233,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	params2 := make(map[string]interface{})
 	params2["type"] = "Private"
 	params2["value"] = 20
-	request2 := workflow.NewRequest(shortuuid.New(), comp, params2)
+	request2 := workflow.NewRequest(shortuuid.New(), comp, params2, approximateMapSize(params2))
 	err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)
 
@@ -243,7 +245,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	// 2nd branch (type == "Private", value is present, value is numeric, value >= 20, value < 30)
 	params3 := make(map[string]interface{})
 	params3["type"] = "Private"
-	request3 := workflow.NewRequest(shortuuid.New(), comp, params3)
+	request3 := workflow.NewRequest(shortuuid.New(), comp, params3, approximateMapSize(params3))
 	comp.Invoke(request3)
 	utils.AssertNil(t, err2)
 	// no results to check
