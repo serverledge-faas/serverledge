@@ -16,6 +16,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
 	"github.com/serverledge-faas/serverledge/internal/telemetry"
+	"github.com/serverledge-faas/serverledge/internal/workflow"
 	"github.com/serverledge-faas/serverledge/utils"
 
 	"github.com/labstack/echo/v4"
@@ -85,8 +86,12 @@ func main() {
 	// Register a signal handler to cleanup things on termination
 	api.RegisterTerminationHandler(registry, e)
 
+	// Function scheduling policy
 	schedulingPolicy := api.CreateSchedulingPolicy()
 	go scheduling.Run(schedulingPolicy)
+
+	// Workflow offloading policy
+	workflow.CreateOffloadingPolicy()
 
 	if !isInCloud {
 		err = registration.InitEdgeMonitoring(registry)

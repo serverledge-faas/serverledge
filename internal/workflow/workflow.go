@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"golang.org/x/exp/slices"
 	"io"
 	"net/http"
@@ -23,7 +24,15 @@ import (
 
 var offloadingPolicy OffloadingPolicy = &IlpOffloadingPolicy{}
 
-//&NoOffloadingPolicy{} // TODO: handle initialization elsewhere
+func CreateOffloadingPolicy() {
+	policyConf := config.GetString(config.OFFLOADING_POLICY, "disable")
+	log.Printf("Configured offloading policy: %s\n", policyConf)
+	if policyConf == "ilp" {
+		offloadingPolicy = &IlpOffloadingPolicy{}
+	} else { // default, disable offloading
+		offloadingPolicy = &NoOffloadingPolicy{}
+	}
+}
 
 // Workflow is a Workflow to drive the execution of the workflow
 type Workflow struct {
