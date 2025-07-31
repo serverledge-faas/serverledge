@@ -5,16 +5,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/client"
-	"golang.org/x/exp/slices"
 	"io"
 	"net/http"
 	"sort"
 	"time"
 
+	"log"
+
+	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/metrics"
+	"golang.org/x/exp/slices"
+
 	"github.com/serverledge-faas/serverledge/internal/cache"
 	"github.com/serverledge-faas/serverledge/utils"
-	"log"
 
 	"github.com/serverledge-faas/serverledge/internal/asl"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -227,6 +230,11 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *T
 		outputData = NewTaskData(input.Data)
 		if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
 			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
+		}
+
+		// Update metrics, if enabled
+		if metrics.Enabled {
+			metrics.AddBranchCount(string(task.GetId()), string(nextTaskId))
 		}
 	case *EndTask:
 		progress.Complete(task.GetId())
