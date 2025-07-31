@@ -3,11 +3,12 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/prometheus/common/model"
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/node"
-	"log"
-	"time"
 
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -15,145 +16,135 @@ import (
 
 var retrievedMetrics RetrievedMetrics
 
-func retrieveSingleValue(query string, api v1.API, ctx context.Context) (float64, error) {
+type metricSample struct {
+	Value  float64
+	Labels map[string]string
+}
+type metricProcessor[T any] func(samples []metricSample) (T, error)
 
+func executeQuery(query string, api v1.API, ctx context.Context) (model.Vector, error) {
 	result, warnings, err := api.Query(ctx, query, time.Now())
 	if err != nil {
-		return 0.0, fmt.Errorf("Failed query : %v\n", err)
+		return nil, fmt.Errorf("failed query: %v", err)
 	}
 
 	if len(warnings) > 0 {
-		log.Printf("Received warnings in the execution of the : %v\n", warnings)
+		log.Printf("received warnings in the execution: %v", warnings)
 	}
 
 	vector, ok := result.(model.Vector)
 	if !ok {
-		return 0.0, fmt.Errorf("Could not convert the result of the query : %v\n", result)
-	}
-	if vector.Len() != 1 {
-		return 0.0, fmt.Errorf("Expected 1 result; found %d\n", vector.Len())
+		return nil, fmt.Errorf("could not convert the result of the query: %v", result)
 	}
 
-	sample := vector[0]
-	return float64(sample.Value), nil
+	return vector, nil
+}
+
+func extractSampleWithLabels(sample *model.Sample, requiredLabels []string) (*metricSample, error) {
+	labels := make(map[string]string)
+
+	for _, labelName := range requiredLabels {
+		labelValue, found := sample.Metric[model.LabelName(labelName)]
+		if !found {
+			return nil, fmt.Errorf("could not find the %s label in the result: %v", labelName, sample)
+		}
+		labels[labelName] = string(labelValue)
+	}
+
+	return &metricSample{
+		Value:  float64(sample.Value),
+		Labels: labels,
+	}, nil
+}
+
+func retrieveMetrics[T any](query string, api v1.API, ctx context.Context, requiredLabels []string, processor metricProcessor[T]) (T, error) {
+	var zero T
+
+	vector, err := executeQuery(query, api, ctx)
+	if err != nil {
+		return zero, err
+	}
+
+	var samples []metricSample
+	for _, sample := range vector {
+		extracted, err := extractSampleWithLabels(sample, requiredLabels)
+		if err != nil {
+			log.Printf("skipping sample: %v", err)
+			continue
+		}
+		samples = append(samples, *extracted)
+	}
+
+	return processor(samples)
+}
+
+func retrieveSingleValue(query string, api v1.API, ctx context.Context) (float64, error) {
+	return retrieveMetrics(query, api, ctx, []string{}, func(samples []metricSample) (float64, error) {
+		if len(samples) != 1 {
+			// This will cause the function to return zero value, but we should handle this better
+			return 0.0, fmt.Errorf("Expected 1 result; found %d\n", len(samples))
+		}
+		return samples[0].Value, nil
+	})
 }
 
 func retrieveByFunction(query string, api v1.API, ctx context.Context) (map[string]float64, error) {
-
-	result, warnings, err := api.Query(ctx, query, time.Now())
-	if err != nil {
-		return nil, fmt.Errorf("Failed query : %v\n", err)
-	}
-
-	if len(warnings) > 0 {
-		log.Printf("Received warnings in the execution of the : %v\n", warnings)
-	}
-
-	functionValues := make(map[string]float64)
-	if vector, ok := result.(model.Vector); ok {
-		for _, sample := range vector {
-			value := float64(sample.Value)
-			functionName, found := sample.Metric[model.LabelName("function")]
-			if !found {
-				log.Printf("Could not find the function name in the result : %v\n", sample)
-				continue
-			} else {
-				functionValues[string(functionName)] = value
-			}
+	return retrieveMetrics(query, api, ctx, []string{"function"}, func(samples []metricSample) (map[string]float64, error) {
+		result := make(map[string]float64)
+		for _, sample := range samples {
+			result[sample.Labels["function"]] = sample.Value
 		}
-	} else {
-		return nil, fmt.Errorf("Unexpected Result %v\n", result)
-	}
-
-	return functionValues, nil
+		return result, nil
+	})
 }
 
 func retrieveByFunctionAndNode(query string, api v1.API, ctx context.Context) (map[string]map[string]float64, error) {
+	return retrieveMetrics(query, api, ctx, []string{"function", "node"}, func(samples []metricSample) (map[string]map[string]float64, error) {
+		result := make(map[string]map[string]float64)
+		for _, sample := range samples {
+			nodeName := sample.Labels["node"]
+			functionName := sample.Labels["function"]
 
-	result, warnings, err := api.Query(ctx, query, time.Now())
-	if err != nil {
-		return nil, fmt.Errorf("Failed query : %v\n", err)
-	}
-
-	if len(warnings) > 0 {
-		log.Printf("Received warnings in the execution of the : %v\n", warnings)
-	}
-
-	values := make(map[string]map[string]float64)
-	if vector, ok := result.(model.Vector); ok {
-		for _, sample := range vector {
-			value := float64(sample.Value)
-			functionName, found := sample.Metric[model.LabelName("function")]
-			if !found {
-				log.Printf("Could not find the function name in the result : %v\n", sample)
-				continue
+			if _, exists := result[nodeName]; !exists {
+				result[nodeName] = make(map[string]float64)
 			}
-			nodeName, found := sample.Metric[model.LabelName("node")]
-			if !found {
-				log.Printf("Could not find the node name in the result : %v\n", sample)
-				continue
-			}
-			_, foundInner := values[string(nodeName)]
-			if !foundInner {
-				values[string(nodeName)] = make(map[string]float64)
-			}
-			values[string(nodeName)][string(functionName)] = value
+			result[nodeName][functionName] = sample.Value
 		}
-	} else {
-		return nil, fmt.Errorf("Unexpected Result %v\n", result)
-	}
-
-	return values, nil
+		return result, nil
+	})
 }
 
 func retrieveByTaskAndNextTask(query string, api v1.API, ctx context.Context) (map[string]map[string]float64, error) {
+	return retrieveMetrics(query, api, ctx, []string{"task", "next_task"}, func(samples []metricSample) (map[string]map[string]float64, error) {
+		values := make(map[string]map[string]float64)
 
-	result, warnings, err := api.Query(ctx, query, time.Now())
-	if err != nil {
-		return nil, fmt.Errorf("Failed query : %v\n", err)
-	}
+		// Build the raw values map
+		for _, sample := range samples {
+			taskId := sample.Labels["task"]
+			nextTaskId := sample.Labels["next_task"]
 
-	if len(warnings) > 0 {
-		log.Printf("Received warnings in the execution of the : %v\n", warnings)
-	}
-
-	values := make(map[string]map[string]float64)
-	if vector, ok := result.(model.Vector); ok {
-		for _, sample := range vector {
-			value := float64(sample.Value)
-			taskId, found := sample.Metric[model.LabelName("task")]
-			if !found {
-				log.Printf("Could not find the task in the result : %v\n", sample)
-				continue
+			if _, exists := values[taskId]; !exists {
+				values[taskId] = make(map[string]float64)
 			}
-			nextTaskId, found := sample.Metric[model.LabelName("next_task")]
-			if !found {
-				log.Printf("Could not find the output branch name in the result : %v\n", sample)
-				continue
-			}
-			_, foundInner := values[string(taskId)]
-			if !foundInner {
-				values[string(taskId)] = make(map[string]float64)
-			}
-			values[string(taskId)][string(nextTaskId)] = value
-		}
-	} else {
-		return nil, fmt.Errorf("Unexpected Result %v\n", result)
-	}
-
-	// estimate branch probability
-	for taskId, innerMap := range values {
-		sum := 0.0
-		for _, value := range innerMap {
-			sum += value
+			values[taskId][nextTaskId] = sample.Value
 		}
 
-		for nextTaskId, value := range innerMap {
-			values[taskId][nextTaskId] = value / sum
-		}
-	}
+		// Normalize to probabilities
+		for taskId, innerMap := range values {
+			sum := 0.0
+			for _, value := range innerMap {
+				sum += value
+			}
 
-	return values, nil
+			if sum > 0 {
+				for nextTaskId, value := range innerMap {
+					values[taskId][nextTaskId] = value / sum
+				}
+			}
+		}
+
+		return values, nil
+	})
 }
 
 func MetricsRetriever() {
