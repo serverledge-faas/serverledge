@@ -16,6 +16,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
+	"github.com/serverledge-faas/serverledge/internal/workflow"
 	u "github.com/serverledge-faas/serverledge/utils"
 	"google.golang.org/grpc/codes"
 )
@@ -65,6 +66,9 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 	node.NodeIdentifier = myKey
 
 	metrics.Init()
+
+	// Workflow offloading policy
+	workflow.CreateOffloadingPolicy()
 
 	e := echo.New()
 

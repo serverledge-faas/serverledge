@@ -110,7 +110,7 @@ func RegisterTerminationHandler(r *registration.Registry, e *echo.Echo) {
 
 func CreateSchedulingPolicy() scheduling.Policy {
 	policyConf := config.GetString(config.SCHEDULING_POLICY, "default")
-	log.Printf("Configured policy: %s\n", policyConf)
+	log.Printf("Configured scheduling policy: %s\n", policyConf)
 	if policyConf == "cloudonly" {
 		return &scheduling.CloudOnlyPolicy{}
 	} else if policyConf == "edgecloud" {

@@ -80,3 +80,7 @@ const TRACING_ENABLED = "tracing.enabled"
 
 // Custom output file for traces
 const TRACING_OUTFILE = "tracing.outfile"
+
+// Offloading policy to use
+// Possible values: "disable", "ilp"
+const OFFLOADING_POLICY = "offloading.policy"
