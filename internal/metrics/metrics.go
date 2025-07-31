@@ -22,6 +22,7 @@ const (
 	COMPLETIONS    = "completed_total"
 	EXECUTION_TIME = "execution_time"
 	OUTPUT_SIZE    = "output_size"
+	BRANCH_COUNT   = "branch_count"
 )
 
 var (
@@ -38,6 +39,10 @@ var (
 		Name: OUTPUT_SIZE,
 		Help: "Function output size",
 	}, []string{"function"})
+	metricBranchCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: BRANCH_COUNT,
+		Help: "Number of executions of a task among multiple alternatives",
+	}, []string{"task", "next_task"})
 )
 
 type RetrievedMetrics struct {
@@ -45,6 +50,7 @@ type RetrievedMetrics struct {
 	AvgExecutionTime         map[string]float64
 	AvgExecutionTimeAllNodes map[string]map[string]float64
 	AvgOutputSize            map[string]float64
+	BranchFrequency          map[string]map[string]float64
 }
 
 func Init() {
@@ -59,6 +65,7 @@ func Init() {
 	registry.MustRegister(metricCompletions)
 	registry.MustRegister(metricExecutionTime)
 	registry.MustRegister(metricOutputSize)
+	registry.MustRegister(metricBranchCount)
 
 	ScrapingHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics: true})
@@ -74,4 +81,7 @@ func AddFunctionDurationValue(funcName string, duration float64) {
 }
 func AddFunctionOutputSizeValue(funcName string, size float64) {
 	metricOutputSize.With(prometheus.Labels{"function": funcName}).Observe(size)
+}
+func AddBranchCount(taskId string, nextTaskId string) {
+	metricBranchCount.With(prometheus.Labels{"task": taskId, "next_task": nextTaskId}).Inc()
 }

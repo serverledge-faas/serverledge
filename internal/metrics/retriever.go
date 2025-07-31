@@ -106,6 +106,56 @@ func retrieveByFunctionAndNode(query string, api v1.API, ctx context.Context) (m
 	return values, nil
 }
 
+func retrieveByTaskAndNextTask(query string, api v1.API, ctx context.Context) (map[string]map[string]float64, error) {
+
+	result, warnings, err := api.Query(ctx, query, time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("Failed query : %v\n", err)
+	}
+
+	if len(warnings) > 0 {
+		log.Printf("Received warnings in the execution of the : %v\n", warnings)
+	}
+
+	values := make(map[string]map[string]float64)
+	if vector, ok := result.(model.Vector); ok {
+		for _, sample := range vector {
+			value := float64(sample.Value)
+			taskId, found := sample.Metric[model.LabelName("task")]
+			if !found {
+				log.Printf("Could not find the task in the result : %v\n", sample)
+				continue
+			}
+			nextTaskId, found := sample.Metric[model.LabelName("next_task")]
+			if !found {
+				log.Printf("Could not find the output branch name in the result : %v\n", sample)
+				continue
+			}
+			_, foundInner := values[string(taskId)]
+			if !foundInner {
+				values[string(taskId)] = make(map[string]float64)
+			}
+			values[string(taskId)][string(nextTaskId)] = value
+		}
+	} else {
+		return nil, fmt.Errorf("Unexpected Result %v\n", result)
+	}
+
+	// estimate branch probability
+	for taskId, innerMap := range values {
+		sum := 0.0
+		for _, value := range innerMap {
+			sum += value
+		}
+
+		for nextTaskId, value := range innerMap {
+			values[taskId][nextTaskId] = value / sum
+		}
+	}
+
+	return values, nil
+}
+
 func MetricsRetriever() {
 	prometheusHost := config.GetString(config.METRICS_PROMETHEUS_HOST, "127.0.0.1")
 	prometheusPort := config.GetInt(config.METRICS_PROMETHEUS_PORT, 9090)
@@ -156,6 +206,13 @@ func MetricsRetriever() {
 				log.Printf("Error in retrieveByFunction: %v\n", err)
 			}
 			retrievedMetrics.AvgOutputSize = avgOutputSize
+
+			query = fmt.Sprintf("%s{}", BRANCH_COUNT)
+			frequencyPerTaskAndNextOne, err := retrieveByTaskAndNextTask(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByTaskAndNextTask: %v\n", err)
+			}
+			retrievedMetrics.BranchFrequency = frequencyPerTaskAndNextOne
 
 			fmt.Println("All queries completed")
 			fmt.Println(retrievedMetrics)
