@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -290,7 +291,9 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// Create POST request
-	url := "http://localhost:8080/" // TODO: configurable
+	ilpOptimizerHost := config.GetString(config.OFFLOADING_POLICY_ILP_OPTIMIZER_HOST, "localhost")
+	ilpOptimizerPort := config.GetInt(config.OFFLOADING_POLICY_ILP_OPTIMIZER_PORT, 8080)
+	url := fmt.Sprintf("http://%s:%d", ilpOptimizerHost, ilpOptimizerPort)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return OffloadingDecision{Offload: false}, fmt.Errorf("creating request: %w", err)
