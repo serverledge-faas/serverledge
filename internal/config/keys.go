@@ -84,3 +84,9 @@ const TRACING_OUTFILE = "tracing.outfile"
 // Offloading policy to use
 // Possible values: "disable", "ilp"
 const OFFLOADING_POLICY = "offloading.policy"
+
+// Port used by ILP Offloading Policy for solving the ILP formulation
+const OFFLOADING_POLICY_ILP_OPTIMIZER_PORT = "offloading.policy.ilp.port"
+
+// IP address / hostname used by ILP Offloading Policy for solving the ILP formulation
+const OFFLOADING_POLICY_ILP_OPTIMIZER_HOST = "offloading.policy.ilp.host"
