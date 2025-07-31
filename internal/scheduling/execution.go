@@ -55,7 +55,7 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) (funct
 	if !response.Success {
 		// notify scheduler
 		completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: nil}
-		return function.ExecutionReport{}, fmt.Errorf("Function execution failed")
+		return function.ExecutionReport{}, fmt.Errorf("[%s] Function execution failed %v", r, cont.ID)
 	}
 
 	report := function.ExecutionReport{Result: response.Result,
