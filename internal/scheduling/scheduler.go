@@ -134,6 +134,7 @@ func SubmitAsyncRequest(r *function.Request) {
 		report, err := Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
 		if err != nil {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
+			return
 		}
 		publishAsyncResponse(r.Id(), function.Response{Success: true, ExecutionReport: report})
 	}
