@@ -246,10 +246,20 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		switch typedTask := task.(type) {
 		case ConditionalTask:
 			nextTasks := typedTask.GetAlternatives()
+			branchFrequency := metrics.GetMetrics().BranchFrequency
+			// check if metrics have value
+			sum := 0.0
 			for _, nextTask := range nextTasks {
-				// TODO: estimate branch probability:
-				// TODO: either directly for every choice task
-				probability := 1.0 / float64(len(nextTasks))
+				sum += branchFrequency[string(tid)][string(nextTask)]
+			}
+			for _, nextTask := range nextTasks {
+				var probability float64
+				if sum == 0.0 {
+					// fallback if no metrics
+					probability = 1.0 / float64(len(nextTasks))
+				} else {
+					probability = branchFrequency[string(tid)][string(nextTask)]
+				}
 				entry := tupleKey(string(nextTask), strconv.FormatFloat(probability, 'f', 2, 32))
 				params.Adj[string(tid)] = append(params.Adj[string(tid)], entry)
 			}
