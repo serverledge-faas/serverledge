@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/serverledge-faas/serverledge/internal/api"
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
@@ -18,8 +19,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/telemetry"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
 	"github.com/serverledge-faas/serverledge/utils"
-
-	"github.com/labstack/echo/v4"
 )
 
 func main() {
@@ -33,32 +32,13 @@ func main() {
 	api.CacheSetup()
 
 	// register to etcd, this way server is visible to the others under a given local area
-	registry := new(registration.Registry)
-	isInCloud := config.GetBool(config.IS_IN_CLOUD, false)
-	if isInCloud {
-		registry.Area = "cloud/" + config.GetString(config.REGISTRY_AREA, "ROME")
-	} else {
-		registry.Area = config.GetString(config.REGISTRY_AREA, "ROME")
-	}
-	// before register checkout other servers into the local area
-	//todo use this info later on; future work with active remote server selection
-	_, err := registry.GetAll(true)
+	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
+	node.LocalNode = node.NewIdentifier(myArea)
+
+	err := registration.RegisterToEtcd()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defaultAddressStr := "127.0.0.1"
-	address, err := utils.GetOutboundIp()
-	if err == nil {
-		defaultAddressStr = address.String()
-	}
-	registration.RegisteredLocalIP = config.GetString(config.API_IP, defaultAddressStr)
-
-	myKey, err := registry.RegisterToEtcd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	node.NodeIdentifier = myKey
 
 	metrics.Init()
 
@@ -84,7 +64,7 @@ func main() {
 	e := echo.New()
 
 	// Register a signal handler to cleanup things on termination
-	api.RegisterTerminationHandler(registry, e)
+	api.RegisterTerminationHandler(e)
 
 	// Function scheduling policy
 	schedulingPolicy := api.CreateSchedulingPolicy()
@@ -93,11 +73,9 @@ func main() {
 	// Workflow offloading policy
 	workflow.CreateOffloadingPolicy()
 
-	if !isInCloud {
-		err = registration.InitEdgeMonitoring(registry)
-		if err != nil {
-			log.Fatal(err)
-		}
+	err = registration.StartMonitoring()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	api.StartAPIServer(e)

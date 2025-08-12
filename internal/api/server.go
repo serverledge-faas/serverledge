@@ -78,7 +78,7 @@ func CacheSetup() {
 	cache.GetCacheInstance()
 }
 
-func RegisterTerminationHandler(r *registration.Registry, e *echo.Echo) {
+func RegisterTerminationHandler(e *echo.Echo) {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
 
@@ -89,7 +89,7 @@ func RegisterTerminationHandler(r *registration.Registry, e *echo.Echo) {
 			node.ShutdownAllContainers()
 
 			// deregister from etcd; server should be unreachable
-			err := r.Deregister()
+			err := registration.Deregister()
 			if err != nil {
 				log.Fatal(err)
 			}

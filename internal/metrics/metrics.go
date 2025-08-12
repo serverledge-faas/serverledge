@@ -74,10 +74,10 @@ func Init() {
 }
 
 func AddCompletedInvocation(funcName string) {
-	metricCompletions.With(prometheus.Labels{"function": funcName, "node": node.NodeIdentifier}).Inc()
+	metricCompletions.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Inc()
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
-	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.NodeIdentifier}).Observe(duration)
+	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(duration)
 }
 func AddFunctionOutputSizeValue(funcName string, size float64) {
 	metricOutputSize.With(prometheus.Labels{"function": funcName}).Observe(size)

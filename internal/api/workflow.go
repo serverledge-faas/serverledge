@@ -213,7 +213,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.Async = clientReq.Async
 	req.Plan = nil
 	req.Resuming = false
-	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.NodeIdentifier[len(node.NodeIdentifier)-5:], req.Arrival.Nanosecond())
+	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.LocalNode.String()[len(node.LocalNode.String())-5:], req.Arrival.Nanosecond())
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	return handleWorkflowInvocation(e, req)

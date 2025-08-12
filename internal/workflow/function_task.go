@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"time"
 
 	"github.com/lithammer/shortuuid"
 	"github.com/serverledge-faas/serverledge/internal/function"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
 )
 
@@ -56,17 +56,15 @@ func (s *FunctionTask) exec(compRequest *Request, params ...map[string]interface
 	}
 
 	// the rest of the code is similar to a single function execution
-	now := time.Now()
-	requestId := fmt.Sprintf("%s-%s%d", s.Func, node.NodeIdentifier[len(node.NodeIdentifier)-5:], now.Nanosecond())
-
 	r := &function.Request{
 		Fun:             funct,
 		Params:          params[0],
-		Arrival:         now,
+		Arrival:         time.Now(),
 		RequestQoS:      compRequest.QoS,
 		CanDoOffloading: true,
 		Async:           false,
 	}
+	requestId := fmt.Sprintf("%s-%s%d", s.Func, node.LocalNode.String()[len(node.LocalNode.String())-5:], r.Arrival.Nanosecond())
 	r.Ctx = context.WithValue(context.Background(), "ReqId", requestId)
 
 	report, err := scheduling.SubmitRequest(r)

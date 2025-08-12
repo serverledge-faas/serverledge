@@ -169,7 +169,7 @@ func MetricsRetriever() {
 		select {
 		case <-ticker.C:
 
-			query := fmt.Sprintf("%s{node=\"%s\"}", COMPLETIONS, node.NodeIdentifier)
+			query := fmt.Sprintf("%s{node=\"%s\"}", COMPLETIONS, node.LocalNode)
 			completionsPerFunction, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
 				log.Printf("Error in retrieveByFunction: %v\n", err)
@@ -177,7 +177,7 @@ func MetricsRetriever() {
 			retrievedMetrics.Completions = completionsPerFunction
 
 			query = fmt.Sprintf("%s_sum{node=\"%s\"}/%s_count{node=\"%s\"}",
-				EXECUTION_TIME, node.NodeIdentifier, EXECUTION_TIME, node.NodeIdentifier)
+				EXECUTION_TIME, node.LocalNode, EXECUTION_TIME, node.LocalNode)
 			avgFunDuration, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
 				log.Printf("Error in retrieveByFunction: %v\n", err)

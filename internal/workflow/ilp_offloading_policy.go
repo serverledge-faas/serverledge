@@ -155,7 +155,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	// TODO: introduce task and node labels
 
 	// Add available Edge peers
-	nearbyServers := registration.Reg.NearbyServersMap
+	nearbyServers := registration.NeighborInfo
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
 			if v.AvailableMemMB > 0 && v.AvailableCPUs > 0 {
@@ -171,7 +171,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		if !slices.Contains(params.EdgeNodes, key1) {
 			continue
 		}
-		distance = registration.Reg.Client.DistanceTo(&v1.Coordinates).Seconds() / 2
+		distance = registration.VivaldiClient.DistanceTo(&v1.Coordinates).Seconds() / 2
 		params.NodeLatency[tupleKey(LOCAL, key1)] = distance
 		params.NodeLatency[tupleKey(key1, LOCAL)] = distance
 
