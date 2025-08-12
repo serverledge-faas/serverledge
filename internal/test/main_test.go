@@ -62,7 +62,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 		log.Fatal(err)
 	}
 
-	node.NodeIdentifier = myKey
+	node.LocalNode = myKey
 
 	metrics.Init()
 
@@ -74,7 +74,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 	go scheduling.Run(schedulingPolicy)
 
 	if !isInCloud {
-		err = registration.InitEdgeMonitoring(registry)
+		err = registration.StartMonitoring(registry)
 		if err != nil {
 			log.Fatal(err)
 		}

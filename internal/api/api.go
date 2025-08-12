@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/client"
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -74,7 +73,7 @@ func InvokeFunction(c echo.Context) error {
 	r.Async = invocationRequest.Async
 	r.ReturnOutput = invocationRequest.ReturnOutput
 
-	reqId := fmt.Sprintf("%s-%s%d", fun, node.NodeIdentifier[len(node.NodeIdentifier)-5:], r.Arrival.Nanosecond())
+	reqId := fmt.Sprintf("%s-%s%d", funcName, node.LocalNode.String()[len(node.LocalNode.String())-5:], r.Arrival.Nanosecond())
 	r.Ctx = context.WithValue(context.Background(), "ReqId", reqId)
 
 	// Tracing
@@ -233,10 +232,6 @@ func GetServerStatus(c echo.Context) error {
 	node.Resources.RLock()
 	defer node.Resources.RUnlock()
 
-	portNumber := config.GetInt("api.port", 1323)
-
-	url := fmt.Sprintf("http://%s:%d", registration.RegisteredLocalIP, portNumber)
-
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
 	if err == nil {
@@ -244,11 +239,11 @@ func GetServerStatus(c echo.Context) error {
 	}
 
 	response := registration.StatusInformation{
-		Url:                     url,
+		Url:                     registration.SelfRegistration.RemoteURL,
 		AvailableWarmContainers: node.WarmStatus(),
 		AvailableMemMB:          node.Resources.AvailableMemMB,
 		AvailableCPUs:           node.Resources.AvailableCPUs,
-		Coordinates:             *registration.Reg.Client.GetCoordinate(),
+		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
 		LoadAvg:                 loadAvgValues,
 	}
 

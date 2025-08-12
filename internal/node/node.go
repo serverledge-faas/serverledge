@@ -3,12 +3,29 @@ package node
 import (
 	"errors"
 	"fmt"
+	"github.com/lithammer/shortuuid"
+	"strconv"
 	"sync"
+	"time"
 )
 
 var OutOfResourcesErr = errors.New("not enough resources for function execution")
 
-var NodeIdentifier string
+type NodeID struct {
+	Area string
+	Key  string
+}
+
+var LocalNode NodeID
+
+func (n NodeID) String() string {
+	return fmt.Sprintf("%s/%s", n.Area, n.Key)
+}
+
+func NewIdentifier(area string) NodeID {
+	id := shortuuid.New() + strconv.FormatInt(time.Now().UnixNano(), 10)
+	return NodeID{Area: area, Key: id}
+}
 
 type NodeResources struct {
 	sync.RWMutex

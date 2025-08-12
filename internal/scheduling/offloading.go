@@ -18,23 +18,22 @@ import (
 const SCHED_ACTION_OFFLOAD = "O"
 
 func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
-	nearbyServersMap := registration.Reg.NearbyServersMap
-	if nearbyServersMap == nil {
+	if registration.NearestNeighbors == nil {
 		return ""
 	}
-	//first, search for warm container
-	for _, v := range nearbyServersMap {
-		if v.AvailableWarmContainers[r.Fun.Name] != 0 && v.AvailableCPUs >= r.Request.Fun.CPUDemand {
-			return v.Url
+
+	remoteUrl := ""
+	maxAvailableMemMB := int64(0)
+
+	for _, key := range registration.NearestNeighbors {
+		info := registration.NeighborInfo[key]
+		if remoteUrl == "" || info.AvailableMemMB > maxAvailableMemMB {
+			remoteUrl = info.Url
+			maxAvailableMemMB = info.AvailableMemMB
 		}
 	}
-	//second, (nobody has warm container) search for available memory
-	for _, v := range nearbyServersMap {
-		if v.AvailableMemMB >= r.Request.Fun.MemoryMB && v.AvailableCPUs >= r.Request.Fun.CPUDemand {
-			return v.Url
-		}
-	}
-	return ""
+
+	return remoteUrl
 }
 
 func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, error) {

@@ -44,14 +44,14 @@ const IS_IN_CLOUD = "cloud"
 // the area wich the server belongs to
 const REGISTRY_AREA = "registry.area"
 
+// the area that acts as "remote cloud" for this node
+const REGISTRY_REMOTE_AREA = "registry.remote.area"
+
 // short period: retrieve information about nearby edge-servers
 const REG_NEARBY_INTERVAL = "registry.nearby.interval"
 
 // long period for general monitoring inside the area
 const REG_MONITORING_INTERVAL = "registry.monitoring.interval"
-
-// registration TTL in seconds
-const REGISTRATION_TTL = "registry.ttl"
 
 // port for udp status listener
 const LISTEN_UDP_PORT = "registry.udp.port"
