@@ -9,10 +9,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/serverledge-faas/serverledge/internal/config"
-	"github.com/serverledge-faas/serverledge/internal/registration"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
 var currentTargets []*middleware.ProxyTarget
@@ -42,20 +42,20 @@ func StartReverseProxy(e *echo.Echo, region string) {
 }
 
 func getTargets(region string) ([]*middleware.ProxyTarget, error) {
-	cloudNodes, err := registration.GetCloudNodes(region)
+	cloudNodes, err := registration.GetAllInArea(region, false)
 	if err != nil {
 		return nil, err
 	}
 
 	targets := make([]*middleware.ProxyTarget, 0, len(cloudNodes))
-	for _, addr := range cloudNodes {
-		log.Printf("Found target: %v\n", addr)
+	for _, target := range cloudNodes {
+		log.Printf("Found target: %v\n", target.Key)
 		// TODO: etcd should NOT contain URLs, but only host and port...
-		parsedUrl, err := url.Parse(addr)
+		parsedUrl, err := url.Parse(target.RemoteURL)
 		if err != nil {
 			return nil, err
 		}
-		targets = append(targets, &middleware.ProxyTarget{Name: addr, URL: parsedUrl})
+		targets = append(targets, &middleware.ProxyTarget{Name: target.Key, URL: parsedUrl})
 	}
 
 	log.Printf("Found %d targets\n", len(targets))

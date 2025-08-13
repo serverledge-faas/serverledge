@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
 	"os"
 	"os/signal"
@@ -14,7 +15,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/lb"
 	"github.com/serverledge-faas/serverledge/internal/registration"
-	"github.com/serverledge-faas/serverledge/utils"
 )
 
 func registerTerminationHandler(e *echo.Echo) {
@@ -44,19 +44,12 @@ func main() {
 	}
 	config.ReadConfiguration(configFileName)
 
-	// TODO: split Area in Region + Type (e.g., cloud/lb/edge)
-	region := config.GetString(config.REGISTRY_AREA, "ROME")
-	registry := &registration.Registry{Area: "lb/" + region}
+	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
+	node.LocalNode = node.NewIdentifier(myArea)
 
-	defaultAddressStr := "127.0.0.1"
-	address, err := utils.GetOutboundIp()
-	if err == nil {
-		defaultAddressStr = address.String()
-	}
-	registration.RegisteredLocalIP = config.GetString(config.API_IP, defaultAddressStr)
-
-	if _, err := registry.RegisterToEtcd(); err != nil {
-		log.Printf("Could not register to Etcd: %v\n", err)
+	err := registration.RegisterLoadBalancer()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	e := echo.New()
@@ -66,5 +59,5 @@ func main() {
 	// Register a signal handler to cleanup things on termination
 	registerTerminationHandler(e)
 
-	lb.StartReverseProxy(e, region)
+	lb.StartReverseProxy(e, myArea)
 }

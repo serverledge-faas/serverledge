@@ -238,6 +238,7 @@ func GetServerStatus(c echo.Context) error {
 		loadAvgValues = []float64{loadAvg.LoadAverage1, loadAvg.LoadAverage5, loadAvg.LoadAverage10}
 	}
 
+	// TODO: use a different type
 	response := registration.StatusInformation{
 		Url:                     registration.SelfRegistration.RemoteURL,
 		AvailableWarmContainers: node.WarmStatus(),

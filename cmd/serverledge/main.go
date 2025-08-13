@@ -33,7 +33,7 @@ func main() {
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
 	node.LocalNode = node.NewIdentifier(myArea)
 
-	err := registration.RegisterToEtcd()
+	err := registration.RegisterNode()
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -18,22 +19,15 @@ import (
 const SCHED_ACTION_OFFLOAD = "O"
 
 func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
-	if registration.NearestNeighbors == nil {
+	// TODO: better to cache choice for a while
+	// TODO: check available mem as well
+	nearestNeighbors := registration.GetNearestNeighbors()
+	if nearestNeighbors == nil {
 		return ""
 	}
 
-	remoteUrl := ""
-	maxAvailableMemMB := int64(0)
-
-	for _, key := range registration.NearestNeighbors {
-		info := registration.NeighborInfo[key]
-		if remoteUrl == "" || info.AvailableMemMB > maxAvailableMemMB {
-			remoteUrl = info.Url
-			maxAvailableMemMB = info.AvailableMemMB
-		}
-	}
-
-	return remoteUrl
+	randomItem := nearestNeighbors[rand.Intn(len(nearestNeighbors))]
+	return randomItem.RemoteURL
 }
 
 func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, error) {
