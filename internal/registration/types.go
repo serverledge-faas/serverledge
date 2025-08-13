@@ -12,12 +12,12 @@ var IdRegistrationErr = errors.New("etcd error: could not complete the registrat
 type NodeRegistration struct {
 	node.NodeID
 	IPAddress      string
-	RemoteURL      string
+	APIPort        int
+	UDPPort        int
 	IsLoadBalancer bool
 }
 
 type StatusInformation struct {
-	Url                     string
 	AvailableWarmContainers map[string]int // <k, v> = <function name, warm container number>
 	AvailableMemMB          int64
 	AvailableCPUs           float64

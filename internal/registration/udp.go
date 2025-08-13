@@ -69,7 +69,6 @@ func handleUDPConnection(conn *net.UDPConn) {
 // TODO: this function should reuse the code in api.go for the /status API
 func getCurrentStatusInformation() (status []byte, err error) {
 	response := StatusInformation{
-		Url:                     SelfRegistration.RemoteURL,
 		AvailableWarmContainers: node.WarmStatus(),
 		AvailableMemMB:          node.Resources.AvailableMemMB,
 		AvailableCPUs:           node.Resources.AvailableCPUs,
@@ -80,8 +79,10 @@ func getCurrentStatusInformation() (status []byte, err error) {
 
 }
 
-func statusInfoRequest(hostname string) (info *StatusInformation, duration time.Duration) {
-	port := config.GetInt(config.LISTEN_UDP_PORT, 9876)
+func statusInfoRequest(peer *NodeRegistration) (info *StatusInformation, duration time.Duration) {
+
+	hostname := peer.IPAddress
+	port := peer.UDPPort
 	address := fmt.Sprintf("%s:%d", hostname, port)
 
 	remoteAddr, err := net.ResolveUDPAddr("udp", address)

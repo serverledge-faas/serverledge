@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/registration"
 	"log"
 	"net/http"
 	"runtime"
@@ -159,6 +160,11 @@ func handleOffload(r *scheduledRequest, serverHost string) {
 }
 
 func handleCloudOffload(r *scheduledRequest) {
-	cloudAddress := config.GetString(config.CLOUD_URL, "")
-	handleOffload(r, cloudAddress)
+	offloadingTarget := registration.GetRemoteOffloadingTarget()
+	if offloadingTarget == nil {
+		log.Printf("No remote offloading target available; dropping request")
+		r.decisionChannel <- schedDecision{action: DROP}
+	} else {
+		handleOffload(r, offloadingTarget.APIUrl())
+	}
 }

@@ -19,7 +19,7 @@ type NodeID struct {
 var LocalNode NodeID
 
 func (n NodeID) String() string {
-	return fmt.Sprintf("%s/%s", n.Area, n.Key)
+	return fmt.Sprintf("(%s)%s", n.Area, n.Key)
 }
 
 func NewIdentifier(area string) NodeID {

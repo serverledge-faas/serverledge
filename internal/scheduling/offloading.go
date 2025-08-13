@@ -27,7 +27,7 @@ func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
 	}
 
 	randomItem := nearestNeighbors[rand.Intn(len(nearestNeighbors))]
-	return randomItem.RemoteURL
+	return randomItem.APIUrl()
 }
 
 func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"log"
 	"os"
 	"os/exec"
@@ -23,7 +24,6 @@ import (
 
 const HOST = "127.0.0.1"
 const PORT = 1323
-const AREA = "ROME"
 
 func getShell() string {
 	if IsWindows() {
@@ -41,29 +41,18 @@ func getShellExt() string {
 	}
 }
 
-func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Registry, *echo.Echo) {
+func testStartServerledge(isInCloud bool, outboundIp string) *echo.Echo {
 	//setting up cache parameters
 	api.CacheSetup()
 	schedulingPolicy := &scheduling.DefaultLocalPolicy{}
 	// register to etcd, this way server is visible to the others under a given local area
-	registry := new(registration.Registry)
-	if isInCloud {
-		registry.Area = "cloud/" + AREA
-	} else {
-		registry.Area = AREA
-	}
-	// before register checkout other servers into the local area
-	_, err := registry.GetAll(true)
+	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
+	node.LocalNode = node.NewIdentifier(myArea)
+
+	err := registration.RegisterNode()
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	myKey, err := registry.RegisterToEtcd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	node.LocalNode = myKey
 
 	metrics.Init()
 
@@ -73,19 +62,19 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 	e := echo.New()
 
 	// Register a signal handler to cleanup things on termination
-	api.RegisterTerminationHandler(registry, e)
+	api.RegisterTerminationHandler(e)
 
 	go scheduling.Run(schedulingPolicy)
 
 	if !isInCloud {
-		err = registration.StartMonitoring(registry)
+		err = registration.StartMonitoring()
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 	// needed: if you call a function composition, internally will invoke each function
 	go api.StartAPIServer(e)
-	return registry, e
+	return e
 
 }
 
@@ -100,7 +89,7 @@ func TestMain(m *testing.M) {
 
 	// TODO: avoid full setup if testing.Short()
 
-	registry, echoServer, ok := setupServerledge(outboundIp.String())
+	echoServer, ok := setupServerledge(outboundIp.String())
 	if ok != nil {
 		fmt.Printf("failed to initialize serverledgde: %v\n", ok)
 		os.Exit(int(codes.Internal))
@@ -110,7 +99,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	// tear down containers in order
-	err = teardownServerledge(registry, echoServer)
+	err = teardownServerledge(echoServer)
 	if err != nil {
 		fmt.Printf("failed to remove serverledgde: %v\n", err)
 	}
@@ -118,30 +107,24 @@ func TestMain(m *testing.M) {
 }
 
 // startReliably can start the containers, or restart them if needed
-func startReliably(startScript string, stopScript string, msg string) error {
+func startReliably(startScript string) error {
 	cmd := exec.CommandContext(context.Background(), getShell(), startScript)
 	err := cmd.Run()
 	if err != nil {
-		antiCmd := exec.CommandContext(context.Background(), getShell(), stopScript)
-		err = antiCmd.Run()
-		if err != nil {
-			return fmt.Errorf("stopping of %s failed", msg)
-		}
-		cmd = exec.CommandContext(context.Background(), getShell(), startScript)
-		err = cmd.Run()
+		log.Fatalf("failed to start (%s): %v", startScript, err)
 	}
 	return err
 }
 
 // run the bash script to initialize serverledge
-func setupServerledge(outboundIp string) (*registration.Registry, *echo.Echo, error) {
-	_ = startReliably("../../scripts/start-etcd"+getShellExt(), "../../scripts/stop-etcd"+getShellExt(), "ETCD")
-	registry, echoServer := testStartServerledge(false, outboundIp)
-	return registry, echoServer, nil
+func setupServerledge(outboundIp string) (*echo.Echo, error) {
+	_ = startReliably("../../scripts/start-etcd" + getShellExt())
+	echoServer := testStartServerledge(false, outboundIp)
+	return echoServer, nil
 }
 
 // run the bash script to stop serverledge
-func teardownServerledge(registry *registration.Registry, e *echo.Echo) error {
+func teardownServerledge(e *echo.Echo) error {
 	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/remove-etcd"+getShellExt())
 
 	node.ShutdownAllContainers()
@@ -152,7 +135,7 @@ func teardownServerledge(registry *registration.Registry, e *echo.Echo) error {
 	defer cancel()
 	errEcho := e.Shutdown(ctx)
 
-	errRegistry := registry.Deregister()
+	errRegistry := registration.Deregister()
 	err1 := cmd1.Run()
 	return u.ReturnNonNilErr(errEcho, errRegistry, err1)
 }
