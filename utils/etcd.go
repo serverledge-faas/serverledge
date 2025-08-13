@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -21,14 +22,18 @@ func GetEtcdClient() (*clientv3.Client, error) {
 		return etcdClient, nil
 	}
 
+	log.Println("Connecting to etcd")
 	etcdHost := config.GetString(config.ETCD_ADDRESS, "localhost:2379")
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{etcdHost},
-		DialTimeout: 1 * time.Second,
+		DialTimeout: 3 * time.Second,
 	})
 	if err != nil {
+		log.Printf("Could not connect to etcd: %v", err)
 		return nil, fmt.Errorf("Could not connect to etcd: %v", err)
 	}
+
+	log.Println("Connected to etcd")
 
 	etcdClient = cli
 	return cli, nil
