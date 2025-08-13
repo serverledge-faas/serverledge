@@ -240,7 +240,6 @@ func GetServerStatus(c echo.Context) error {
 
 	// TODO: use a different type
 	response := registration.StatusInformation{
-		Url:                     registration.SelfRegistration.RemoteURL,
 		AvailableWarmContainers: node.WarmStatus(),
 		AvailableMemMB:          node.Resources.AvailableMemMB,
 		AvailableCPUs:           node.Resources.AvailableCPUs,

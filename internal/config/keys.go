@@ -7,9 +7,6 @@ const ETCD_ADDRESS = "etcd.address"
 const API_PORT = "api.port"
 const API_IP = "api.ip"
 
-// REMOTE SERVER URL
-const CLOUD_URL = "cloud.server.url"
-
 // Forces runtime container images to be pulled the first time they are used,
 // even if they are locally available (true/false).
 const FACTORY_REFRESH_IMAGES = "factory.images.refresh"

@@ -42,7 +42,7 @@ func StartReverseProxy(e *echo.Echo, region string) {
 }
 
 func getTargets(region string) ([]*middleware.ProxyTarget, error) {
-	cloudNodes, err := registration.GetAllInArea(region, false)
+	cloudNodes, err := registration.GetNodesInArea(region, false, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func getTargets(region string) ([]*middleware.ProxyTarget, error) {
 	for _, target := range cloudNodes {
 		log.Printf("Found target: %v\n", target.Key)
 		// TODO: etcd should NOT contain URLs, but only host and port...
-		parsedUrl, err := url.Parse(target.RemoteURL)
+		parsedUrl, err := url.Parse(target.APIUrl())
 		if err != nil {
 			return nil, err
 		}
