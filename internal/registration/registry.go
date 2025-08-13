@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/hexablock/vivaldi"
 	"github.com/serverledge-faas/serverledge/internal/node"
+	"golang.org/x/exp/maps"
 	"log"
 	"net/url"
+	"path"
 	"sort"
 	"sync"
 	"time"
@@ -17,13 +19,15 @@ import (
 )
 
 const registryBaseDirectory = "registry"
+const registryLoadBalancerDirectory = "lb"
 const etcdLeaseTTL = 120
 
-var mutex sync.Mutex
+var mutex sync.RWMutex
 
-var NearestNeighbors []string
-var NeighborInfo map[string]*StatusInformation
+var nearestNeighbors []NodeRegistration
+var neighborInfo map[string]*StatusInformation
 var neighbors map[string]NodeRegistration
+
 var VivaldiClient *vivaldi.Client
 var SelfRegistration *NodeRegistration
 
@@ -31,15 +35,19 @@ var etcdClient *clientv3.Client = nil
 var etcdLease clientv3.LeaseID
 
 func (r *NodeRegistration) toEtcdKey() (key string) {
-	return fmt.Sprintf("%s/%s/%s", registryBaseDirectory, r.Area, r.Key)
+	if r.IsLoadBalancer {
+		return fmt.Sprintf("%s/%s/%s/%s", registryBaseDirectory, r.Area, registryLoadBalancerDirectory, r.Key)
+	} else {
+		return fmt.Sprintf("%s/%s/%s", registryBaseDirectory, r.Area, r.Key)
+	}
 }
 
 func areaEtcdKey(area string) string {
 	return fmt.Sprintf("%s/%s/", registryBaseDirectory, area)
 }
 
-// RegisterToEtcd make a registration to the local Area
-func RegisterToEtcd() error {
+// RegisterNode make a registration to the local Area
+func registerToEtcd(asLoadBalancer bool) error {
 	log.Printf("Registration for node: %s\n", node.LocalNode)
 
 	defaultAddressStr := "127.0.0.1"
@@ -64,10 +72,13 @@ func RegisterToEtcd() error {
 
 	registeredLocalIP := config.GetString(config.API_IP, defaultAddressStr)
 	hostport := fmt.Sprintf("http://%s:%d", registeredLocalIP, config.GetInt(config.API_PORT, 1323))
-	SelfRegistration := &NodeRegistration{NodeID: node.LocalNode, IPAddress: registeredLocalIP, RemoteURL: hostport}
+
+	SelfRegistration = &NodeRegistration{NodeID: node.LocalNode, IPAddress: registeredLocalIP, RemoteURL: hostport, IsLoadBalancer: asLoadBalancer}
 
 	// save couple (id, hostport) to the correct Area-dir on etcd
-	_, err = etcdClient.Put(ctx, SelfRegistration.toEtcdKey(), hostport, clientv3.WithLease(etcdLease))
+	etcdKey := SelfRegistration.toEtcdKey()
+	log.Printf("Registering to etcd: %s\n", etcdKey)
+	_, err = etcdClient.Put(ctx, etcdKey, hostport, clientv3.WithLease(etcdLease))
 	if err != nil {
 		log.Fatal(IdRegistrationErr)
 		return IdRegistrationErr
@@ -80,6 +91,15 @@ func RegisterToEtcd() error {
 	}()
 
 	return nil
+}
+
+// RegisterNode make a registration to the local Area
+func RegisterNode() error {
+	return registerToEtcd(false)
+}
+
+func RegisterLoadBalancer() error {
+	return registerToEtcd(true)
 }
 
 func keepAliveLease() {
@@ -102,12 +122,38 @@ func GetAllInArea(area string, includeSelf bool) (map[string]NodeRegistration, e
 
 	servers := make(map[string]NodeRegistration)
 	for _, s := range resp.Kvs {
-		remoteURL := string(s.Value)
-		key := string(s.Key)
+		key := path.Base(string(s.Key))
+		if key == registryLoadBalancerDirectory {
+			// TODO: is this check needed?
+			continue
+		}
 		if !includeSelf && area == SelfRegistration.Area && key == SelfRegistration.Key {
 			continue
 		}
+
+		remoteURL := string(s.Value)
 		servers[key] = NodeRegistration{NodeID: node.NodeID{Area: area, Key: key}, RemoteURL: remoteURL}
+		fmt.Printf("Server found: %v\n", servers[key])
+	}
+
+	return servers, nil
+}
+
+func GetLBInArea(area string) (map[string]NodeRegistration, error) {
+	baseDir := areaEtcdKey(area) + "/" + registryLoadBalancerDirectory
+
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+
+	resp, err := etcdClient.Get(ctx, baseDir, clientv3.WithPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("Could not read from etcd: %v", err)
+	}
+
+	servers := make(map[string]NodeRegistration)
+	for _, s := range resp.Kvs {
+		key := path.Base(string(s.Key))
+		remoteURL := string(s.Value)
+		servers[key] = NodeRegistration{NodeID: node.NodeID{Area: area, Key: key}, RemoteURL: remoteURL, IsLoadBalancer: true}
 		fmt.Printf("Server found: %v\n", servers[key])
 	}
 
@@ -133,7 +179,7 @@ func Deregister() error {
 func StartMonitoring() error {
 
 	neighbors = make(map[string]NodeRegistration)
-	NeighborInfo = make(map[string]*StatusInformation)
+	neighborInfo = make(map[string]*StatusInformation)
 
 	defaultConfig := vivaldi.DefaultConfig()
 	defaultConfig.Dimensionality = 3
@@ -181,10 +227,10 @@ func globalMonitoring() {
 	neighbors = newNeighbors
 
 	//deletes information about servers that haven't registered anymore
-	for key := range NeighborInfo {
+	for key := range neighborInfo {
 		_, ok := neighbors[key]
 		if !ok {
-			delete(NeighborInfo, key)
+			delete(neighborInfo, key)
 		}
 	}
 }
@@ -196,24 +242,24 @@ func computeNearestNeighbors(nNeighbors int) {
 		distance time.Duration
 	}
 
-	if nNeighbors > len(NeighborInfo) {
-		NearestNeighbors = make([]string, 0, len(NeighborInfo))
-		for k, _ := range neighbors {
-			NearestNeighbors = append(NearestNeighbors, k)
+	if nNeighbors > len(neighborInfo) {
+		nearestNeighbors = make([]NodeRegistration, 0, len(neighborInfo))
+		for _, n := range neighbors {
+			nearestNeighbors = append(nearestNeighbors, n)
 		}
 		return
 	}
 
-	var distanceBuf = make([]dist, len(NeighborInfo)) //distances from current server
-	for key, s := range NeighborInfo {
+	var distanceBuf = make([]dist, len(neighborInfo)) //distances from current server
+	for key, s := range neighborInfo {
 		distanceBuf = append(distanceBuf, dist{key, VivaldiClient.DistanceTo(&s.Coordinates)})
 	}
 	sort.Slice(distanceBuf, func(i, j int) bool { return distanceBuf[i].distance < distanceBuf[j].distance })
 
-	NearestNeighbors = make([]string, nNeighbors)
+	nearestNeighbors = make([]NodeRegistration, nNeighbors)
 	for i := 0; i < nNeighbors; i++ {
 		k := distanceBuf[i].key
-		NearestNeighbors[i] = k
+		nearestNeighbors[i] = neighbors[k]
 	}
 }
 
@@ -221,15 +267,15 @@ func computeNearestNeighbors(nNeighbors int) {
 func nearbyMonitoring(vivaldiClient *vivaldi.Client) {
 	log.Printf("Periodic nearby Monitoring\n")
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
+	mutex.RLock()
 	// TODO: randomly choose a subset of peers for update?
+	peersToUpdate := make([]NodeRegistration, len(neighbors))
+	for _, reg := range neighbors {
+		peersToUpdate = append(peersToUpdate, reg)
+	}
+	mutex.RUnlock()
 
-	for key, registeredNode := range neighbors {
-		var oldInfo *StatusInformation = nil
-		oldInfo, _ = NeighborInfo[key]
-
+	for _, registeredNode := range peersToUpdate {
 		u, err := url.Parse(registeredNode.RemoteURL)
 		if err != nil {
 			panic(err)
@@ -238,21 +284,30 @@ func nearbyMonitoring(vivaldiClient *vivaldi.Client) {
 		newInfo, rtt := statusInfoRequest(hostname)
 
 		if newInfo == nil {
-			log.Printf("Unreachable neighbor: %s\n", key)
-			//unreachable server
-			if oldInfo != nil {
-				delete(NeighborInfo, key)
-			}
+			log.Printf("Unreachable neighbor: %s\n", registeredNode.RemoteURL)
 			continue
 		}
 
-		NeighborInfo[key] = newInfo
+		mutex.Lock()
+		neighborInfo[registeredNode.Key] = newInfo
 
 		_, err = vivaldiClient.Update("node", &newInfo.Coordinates, rtt)
 		if err != nil {
 			log.Printf("Error while updating node coordinates: %s\n", err)
 		}
+		mutex.Unlock()
 	}
-	// Updates NeighborInfo with the N closest nodes from serverMap
+
+	// Updates neighborInfo with the N closest nodes from serverMap
 	computeNearestNeighbors(2) //todo change this value
+}
+
+func GetNearestNeighbors() []NodeRegistration {
+	return nearestNeighbors
+}
+
+func GetFullNeighborInfo() map[string]*StatusInformation {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	return maps.Clone(neighborInfo)
 }

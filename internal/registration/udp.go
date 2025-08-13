@@ -128,5 +128,6 @@ func statusInfoRequest(hostname string) (info *StatusInformation, duration time.
 		fmt.Println("Can not unmarshal JSON")
 		return nil, 0
 	}
+
 	return &result, rtt
 }

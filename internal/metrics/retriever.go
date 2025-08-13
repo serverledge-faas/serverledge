@@ -162,7 +162,7 @@ func MetricsRetriever() {
 	api := v1.NewAPI(client)
 	ctx := context.Background()
 
-	ticker := time.NewTicker(time.Duration(config.GetInt(config.METRICS_RETRIEVER_INTERVAL, 5)) * time.Second)
+	ticker := time.NewTicker(time.Duration(config.GetInt(config.METRICS_RETRIEVER_INTERVAL, 60)) * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -172,7 +172,7 @@ func MetricsRetriever() {
 			query := fmt.Sprintf("%s{node=\"%s\"}", COMPLETIONS, node.LocalNode)
 			completionsPerFunction, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v\n", err)
+				log.Printf("Error in retrieveByFunction: %v", err)
 			}
 			retrievedMetrics.Completions = completionsPerFunction
 
@@ -180,21 +180,21 @@ func MetricsRetriever() {
 				EXECUTION_TIME, node.LocalNode, EXECUTION_TIME, node.LocalNode)
 			avgFunDuration, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v\n", err)
+				log.Printf("Error in retrieveByFunction: %v", err)
 			}
 			retrievedMetrics.AvgExecutionTime = avgFunDuration
 
 			query = fmt.Sprintf("%s_sum{}/%s_count{}", EXECUTION_TIME, EXECUTION_TIME)
 			avgFunDurationAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
 			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v\n", err)
+				log.Printf("Error in retrieveByFunction: %v", err)
 			}
 			retrievedMetrics.AvgExecutionTimeAllNodes = avgFunDurationAllNodes
 
 			query = fmt.Sprintf("%s_sum{}/%s_count{}", OUTPUT_SIZE, OUTPUT_SIZE)
 			avgOutputSize, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v\n", err)
+				log.Printf("Error in retrieveByFunction: %v", err)
 			}
 			retrievedMetrics.AvgOutputSize = avgOutputSize
 

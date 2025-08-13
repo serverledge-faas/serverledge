@@ -155,7 +155,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	// TODO: introduce task and node labels
 
 	// Add available Edge peers
-	nearbyServers := registration.NeighborInfo
+	nearbyServers := registration.GetFullNeighborInfo()
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
 			if v.AvailableMemMB > 0 && v.AvailableCPUs > 0 {
