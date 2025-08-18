@@ -18,6 +18,7 @@ type Registry struct {
 	RwMtx            trylock.Mutex
 	NearbyServersMap map[string]*StatusInformation
 	serversMap       map[string]*StatusInformation
+	CloudLatency     map[string]float64
 	etcdCh           chan bool
 }
 

@@ -93,6 +93,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		registration.InitCloudMonitoring()
 	}
 
 	api.StartAPIServer(e)

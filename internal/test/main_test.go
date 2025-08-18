@@ -78,6 +78,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) (*registration.Regi
 		if err != nil {
 			log.Fatal(err)
 		}
+		registration.InitCloudMonitoring()
 	}
 	// needed: if you call a function composition, internally will invoke each function
 	go api.StartAPIServer(e)

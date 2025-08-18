@@ -50,6 +50,9 @@ const REG_NEARBY_INTERVAL = "registry.nearby.interval"
 // long period for general monitoring inside the area
 const REG_MONITORING_INTERVAL = "registry.monitoring.interval"
 
+// time interval for monitoring cloud latency
+const REG_CLOUD_MONITORING_INTERVAL = "registry.monitoring.cloud.interval"
+
 // registration TTL in seconds
 const REGISTRATION_TTL = "registry.ttl"
 
