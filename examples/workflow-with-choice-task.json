@@ -1,0 +1,58 @@
+{
+    "Comment": "A simple state machine",
+    "StartAt": "FirstState",
+    "States": {
+      "FirstState": {
+        "Comment": "The first task",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "ChoiceState"
+      },
+      "ChoiceState": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.result",
+            "NumericLessThan": 10,
+            "Next": "BranchOneSecondState"
+          },
+          {
+            "Variable": "$.result",
+            "NumericGreaterThanEquals": 10,
+            "Next": "BranchTwoSecondState"
+          }
+        ],
+        "Default": "FinalBranchOne"
+      },
+      "BranchOneSecondState": {
+        "Comment": "The second task of the first branch",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "FinalBranchOne"
+      },
+      "BranchTwoSecondState": {
+        "Comment": "The second task of the second branch",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "BranchTwoThirdState"
+      },
+      "BranchTwoThirdState": {
+        "Comment": "The third task of the second branch",
+        "Type": "Task",
+        "Resource": "inc",
+        "Next": "FinalBranchTwo"
+      },
+      "FinalBranchOne": {
+        "Comment": "The end task",
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      },
+      "FinalBranchTwo": {
+        "Comment": "The end task",
+        "Type": "Task",
+        "Resource": "inc",
+        "End": true
+      }
+    }
+  }
