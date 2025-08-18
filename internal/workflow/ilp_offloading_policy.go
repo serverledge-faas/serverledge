@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -216,14 +217,27 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 
 	// Distances to Cloud and Data Store
 	// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
-	distanceToCloud := 0.100 // TODO: measure Cloud latency (ping? or, retrieve from offloadingLatency )
-	for _, n := range params.EdgeNodes {
-		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
-		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
-		params.DSLatency[n] = distanceToCloud
+	cloudAddress := config.GetString(config.CLOUD_URL, "")
+	// TODO: what if we have multiple cloud nodes? one per region? CloudLatency already stores latency towards all of them
+	distanceToCloud, found := registration.Reg.CloudLatency[cloudAddress]
+	if found {
+		for _, n := range params.EdgeNodes {
+			params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
+			params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+			params.DSLatency[n] = distanceToCloud
+		}
+		params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
+		params.DSLatency[CLOUD] = 0.001
+	} else {
+		// TODO: this branch is for testing purposes only. Remove it.
+		for _, n := range params.EdgeNodes {
+			params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
+			params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+			params.DSLatency[n] = distanceToCloud
+		}
+		params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
+		params.DSLatency[CLOUD] = 0.001
 	}
-	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
-	params.DSLatency[CLOUD] = 0.001
 
 	// Bandwidth (we assume identical)
 	dsBandwidth := 100.0 // TODO: read from configuration?
