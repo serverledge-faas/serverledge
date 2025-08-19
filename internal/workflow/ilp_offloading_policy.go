@@ -229,11 +229,11 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	params.DSLatency[CLOUD] = 0.001
 
 	// Bandwidth (we assume identical)
-	dsBandwidth := 100.0 // TODO: read from configuration?
+	dsBandwidth := config.GetFloat(config.OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
 	for _, n := range params.EdgeNodes {
 		params.DSBandwidth[n] = dsBandwidth
 	}
-	params.DSBandwidth[CLOUD] = dsBandwidth * 10
+	params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
 
 	// Workflow
 	params.InputSize = float64(r.ParamsSize)
