@@ -59,6 +59,8 @@ func initParams() ilpParams {
 const CLOUD = "CLOUD"
 const LOCAL = "LOCAL"
 
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 func tupleKey(s1, s2 string) string {
 	keyBytes, _ := json.Marshal([]string{s1, s2})
 	return string(keyBytes)
@@ -281,16 +283,15 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	url := "http://localhost:8080/" // TODO: configurable
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		panic(err)
+		return OffloadingDecision{Offload: false}, fmt.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second} // TODO: check if http client is cached
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		fmt.Println(err)
-		return OffloadingDecision{Offload: false}, err
+		return OffloadingDecision{Offload: false}, fmt.Errorf("sending request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -299,7 +300,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	err = json.NewDecoder(resp.Body).Decode(&placement)
 	if err != nil {
 		fmt.Println(err)
-		return OffloadingDecision{Offload: false}, err
+		return OffloadingDecision{Offload: false}, fmt.Errorf("decoding response: %w", err)
 	}
 
 	for k, v := range placement {
