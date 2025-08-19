@@ -90,3 +90,9 @@ const OFFLOADING_POLICY_ILP_OPTIMIZER_PORT = "offloading.policy.ilp.port"
 
 // IP address / hostname used by ILP Offloading Policy for solving the ILP formulation
 const OFFLOADING_POLICY_ILP_OPTIMIZER_HOST = "offloading.policy.ilp.host"
+
+// Estimated bandwidth between the current node and the data store
+const OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "offloading.policy.node2datastore.bandwidth"
+
+// Estimated bandwidth between cloud nodes and the data store
+const OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH = "offloading.policy.cloud2datastore.bandwidth"
