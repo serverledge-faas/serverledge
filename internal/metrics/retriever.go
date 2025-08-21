@@ -143,6 +143,7 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.AvgExecutionTime = avgFunDuration
 
+			// TODO: is this needed?
 			query = fmt.Sprintf("%s_sum{}/%s_count{}", EXECUTION_TIME, EXECUTION_TIME)
 			avgFunDurationAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
 			if err != nil {
@@ -157,6 +158,19 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.AvgOutputSize = avgOutputSize
 
+			// CLOUD
+			cloudArea := config.GetString(config.REGISTRY_REMOTE_AREA, "")
+			if cloudArea != "" {
+				log.Printf("Retrieved cloudarea %s", cloudArea)
+				query = fmt.Sprintf("%s_sum{node=~\"\\\\(%s\\\\).*\"}/%s_count{node=~\"\\\\(%s\\\\).*\"}",
+					EXECUTION_TIME, cloudArea, EXECUTION_TIME, cloudArea)
+				avgFunDuration, err := retrieveByFunction(query, api, ctx)
+				if err != nil {
+					log.Printf("Error in retrieveByFunction: %v", err)
+				}
+				// TODO
+				fmt.Println(avgFunDuration)
+			}
 			//fmt.Println("All queries completed")
 			//fmt.Println(retrievedMetrics)
 
