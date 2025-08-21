@@ -180,6 +180,7 @@ func GetOneNodeInArea(area string, includeSelf bool) (NodeRegistration, error) {
 		for _, n := range nodes {
 			return n, nil
 		}
+		return NodeRegistration{}, fmt.Errorf("no nodes found")
 	}
 
 	return NodeRegistration{}, err
