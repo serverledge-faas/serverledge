@@ -416,6 +416,10 @@ func GetRemoteOffloadingTarget() *NodeRegistration {
 	return nil
 }
 
+func GetRemoteOffloadingTargetLatencyMs() float64 {
+	return remoteOffloadingTargetLatencyMs
+}
+
 func GetFullNeighborInfo() map[string]*StatusInformation {
 	mutex.RLock()
 	defer mutex.RUnlock()

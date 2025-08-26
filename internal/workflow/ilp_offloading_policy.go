@@ -218,11 +218,12 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// Distances to Cloud and Data Store
-	// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
-	distanceToCloud := 0.100 // TODO: measure Cloud latency (ping? or, retrieve from offloadingLatency )
+	distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
 	for _, n := range params.EdgeNodes {
 		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
 		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+
+		// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
 		params.DSLatency[n] = distanceToCloud
 	}
 	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
