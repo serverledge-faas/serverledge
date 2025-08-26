@@ -18,7 +18,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/scheduling"
 	"github.com/serverledge-faas/serverledge/internal/telemetry"
 	"github.com/serverledge-faas/serverledge/internal/workflow"
-	"github.com/serverledge-faas/serverledge/utils"
 )
 
 func main() {

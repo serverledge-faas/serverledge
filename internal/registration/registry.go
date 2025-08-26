@@ -80,7 +80,7 @@ func registerToEtcd(asLoadBalancer bool) error {
 	apiPort := config.GetInt(config.API_PORT, 1323)
 	udpPort := config.GetInt(config.LISTEN_UDP_PORT, 9876)
 
-	payload := fmt.Sprintf("%d;%d", apiPort, udpPort)
+	payload := fmt.Sprintf("%s;%d;%d", registeredLocalIP, apiPort, udpPort)
 
 	SelfRegistration = &NodeRegistration{NodeID: node.LocalNode, IPAddress: registeredLocalIP, APIPort: apiPort, UDPPort: udpPort, IsLoadBalancer: asLoadBalancer}
 
@@ -121,21 +121,23 @@ func keepAliveLease() {
 func parseEtcdRegisteredNode(area string, key string, payload []byte) (NodeRegistration, error) {
 	payloadStr := string(payload)
 	split := strings.Split(payloadStr, ";")
-	if len(split) < 2 {
+	if len(split) < 3 {
 		return NodeRegistration{}, fmt.Errorf("invalid payload: %s", payloadStr)
 	}
 
-	apiPort, err := strconv.Atoi(split[0])
+	ipAddress := split[0]
+
+	apiPort, err := strconv.Atoi(split[1])
 	if err != nil {
 		return NodeRegistration{}, err
 	}
 
-	udpPort, err := strconv.Atoi(split[1])
+	udpPort, err := strconv.Atoi(split[2])
 	if err != nil {
 		return NodeRegistration{}, err
 	}
 
-	return NodeRegistration{NodeID: node.NodeID{Area: area, Key: key}, APIPort: apiPort, UDPPort: udpPort}, nil
+	return NodeRegistration{NodeID: node.NodeID{Area: area, Key: key}, IPAddress: ipAddress, APIPort: apiPort, UDPPort: udpPort}, nil
 }
 
 // GetNodesInArea is used to obtain the list of  other server's addresses under a specific local Area
