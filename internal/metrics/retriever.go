@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/registration"
 	"log"
 	"time"
 
@@ -176,21 +177,13 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.Completions = completionsPerFunction
 
-			query = fmt.Sprintf("%s_sum{node=\"%s\"}/%s_count{node=\"%s\"}",
-				EXECUTION_TIME, node.LocalNode, EXECUTION_TIME, node.LocalNode)
-			avgFunDuration, err := retrieveByFunction(query, api, ctx)
-			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v", err)
-			}
-			retrievedMetrics.AvgExecutionTime = avgFunDuration
-
-			// TODO: is this needed?
-			query = fmt.Sprintf("%s_sum{}/%s_count{}", EXECUTION_TIME, EXECUTION_TIME)
-			avgFunDurationAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
-			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v", err)
-			}
-			retrievedMetrics.AvgExecutionTimeAllNodes = avgFunDurationAllNodes
+			//query = fmt.Sprintf("%s_sum{node=\"%s\"}/%s_count{node=\"%s\"}",
+			//	EXECUTION_TIME, node.LocalNode, EXECUTION_TIME, node.LocalNode)
+			//avgFunDuration, err := retrieveByFunction(query, api, ctx)
+			//if err != nil {
+			//	log.Printf("Error in retrieveByFunction: %v", err)
+			//}
+			//retrievedMetrics.AvgExecutionTime = avgFunDuration
 
 			query = fmt.Sprintf("%s_sum{}/%s_count{}", OUTPUT_SIZE, OUTPUT_SIZE)
 			avgOutputSize, err := retrieveByFunction(query, api, ctx)
@@ -206,18 +199,28 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.BranchFrequency = frequencyPerTaskAndNextOne
 
+			// Execution time on Edge peers
+			localArea := registration.SelfRegistration.Area
+			query = fmt.Sprintf("%s_sum{node=~\"\\\\(%s\\\\).*\"}/%s_count{node=~\"\\\\(%s\\\\).*\"}",
+				EXECUTION_TIME, localArea, EXECUTION_TIME, localArea)
+			avgFunDurationAllNodes, err := retrieveByFunctionAndNode(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByFunction: %v", err)
+			}
+			retrievedMetrics.AvgEdgeExecutionTime = avgFunDurationAllNodes
+
 			// CLOUD
 			cloudArea := config.GetString(config.REGISTRY_REMOTE_AREA, "")
 			if cloudArea != "" {
-				log.Printf("Retrieved cloudarea %s", cloudArea)
 				query = fmt.Sprintf("%s_sum{node=~\"\\\\(%s\\\\).*\"}/%s_count{node=~\"\\\\(%s\\\\).*\"}",
 					EXECUTION_TIME, cloudArea, EXECUTION_TIME, cloudArea)
 				avgFunDuration, err := retrieveByFunction(query, api, ctx)
 				if err != nil {
 					log.Printf("Error in retrieveByFunction: %v", err)
 				}
-				fmt.Println(avgFunDuration)
-				// TODO: use this information
+				retrievedMetrics.AvgRemoteExecutionTime = avgFunDuration
+			} else {
+				retrievedMetrics.AvgRemoteExecutionTime = make(map[string]float64)
 			}
 
 			fmt.Println("All queries completed")

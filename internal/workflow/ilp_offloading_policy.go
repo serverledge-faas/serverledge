@@ -190,25 +190,32 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// Execution Times
-	retrievedTimes := metrics.GetMetrics().AvgExecutionTimeAllNodes
+	retrievedMetrics := metrics.GetMetrics()
 	for tid, task := range r.W.Tasks {
 		ft, ok := task.(*FunctionTask)
 		if ok {
 			f, _ := function.GetFunction(ft.Func)
 			for _, n := range params.EdgeNodes {
-				nodeTimes, found := retrievedTimes[n]
+				nodeTimes, found := retrievedMetrics.AvgEdgeExecutionTime[n]
 				if !found {
-					params.ExecTime[tupleKey(string(tid), n)] = 1 // TODO: just guessing
+					params.ExecTime[tupleKey(string(tid), n)] = 1 // no data: just guessing
 					continue
 				}
 				t, found := nodeTimes[f.Name]
 				if found {
 					params.ExecTime[tupleKey(string(tid), n)] = t
 				} else {
-					params.ExecTime[tupleKey(string(tid), n)] = 1 // TODO: just guessing
+					params.ExecTime[tupleKey(string(tid), n)] = 1 // no data: just guessing
 				}
 			}
-			params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.1 // TODO: how to retrieve cloud metrics? cloud nodes should use unique identifier??
+
+			// Cloud
+			t, found := retrievedMetrics.AvgRemoteExecutionTime[f.Name]
+			if found {
+				params.ExecTime[tupleKey(string(tid), CLOUD)] = t
+			} else {
+				params.ExecTime[tupleKey(string(tid), CLOUD)] = 1 // no data: just guessing
+			}
 		} else {
 			for _, n := range params.EdgeNodes {
 				params.ExecTime[tupleKey(string(tid), n)] = 0.0001

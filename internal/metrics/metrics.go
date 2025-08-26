@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"log"
 
 	"net/http"
@@ -46,11 +47,28 @@ var (
 )
 
 type RetrievedMetrics struct {
-	Completions              map[string]float64
-	AvgExecutionTime         map[string]float64
-	AvgExecutionTimeAllNodes map[string]map[string]float64
-	AvgOutputSize            map[string]float64
-	BranchFrequency          map[string]map[string]float64
+	Completions map[string]float64
+	//AvgExecutionTime       map[string]float64
+	AvgRemoteExecutionTime map[string]float64
+	AvgEdgeExecutionTime   map[string]map[string]float64
+	AvgOutputSize          map[string]float64
+	BranchFrequency        map[string]map[string]float64
+}
+
+func (r RetrievedMetrics) String() string {
+	s := ""
+	s += "COMPLETIONS:\n"
+	s += fmt.Sprintf("  %v\n\n", r.Completions)
+	s += "REMOTE EXEC TIMES:\n"
+	s += fmt.Sprintf("  %v\n\n", r.AvgRemoteExecutionTime)
+	s += "EDGE EXEC TIMES:\n"
+	s += fmt.Sprintf("  %v\n\n", r.AvgEdgeExecutionTime)
+	s += "OUTPUT SIZE:\n"
+	s += fmt.Sprintf("  %v\n\n", r.AvgOutputSize)
+	s += "BRANCH FREQ:\n"
+	s += fmt.Sprintf("  %v\n\n", r.BranchFrequency)
+
+	return s
 }
 
 func Init() {

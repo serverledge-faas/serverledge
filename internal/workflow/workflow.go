@@ -12,8 +12,8 @@ import (
 
 	"log"
 
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
 	"golang.org/x/exp/slices"
 
