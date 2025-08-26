@@ -6,6 +6,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"golang.org/x/exp/maps"
 	"log"
+	"net"
 	"path"
 	"sort"
 	"strconv"
@@ -28,7 +29,9 @@ var mutex sync.RWMutex
 var nearestNeighbors []NodeRegistration
 var neighborInfo map[string]*StatusInformation
 var neighbors map[string]NodeRegistration
+
 var remoteOffloadingTarget NodeRegistration
+var remoteOffloadingTargetLatencyMs float64
 
 var VivaldiClient *vivaldi.Client
 var SelfRegistration *NodeRegistration
@@ -281,6 +284,33 @@ func globalMonitoring() {
 	}
 
 	updateRemoteOffloadingTarget()
+	updateLatencyToOffloadingTarget()
+}
+
+func updateLatencyToOffloadingTarget() {
+	if remoteOffloadingTarget.Key == "" {
+		remoteOffloadingTargetLatencyMs = 9999.0
+		return
+	}
+
+	hostAndPort := fmt.Sprintf("%s:%d", remoteOffloadingTarget.IPAddress, remoteOffloadingTarget.APIPort)
+	latency, err := tcpLatency(hostAndPort)
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Printf("Latency for remote offloading target is %v", latency)
+		remoteOffloadingTargetLatencyMs = latency
+	}
+}
+
+func tcpLatency(hostAndPort string) (float64, error) {
+	start := time.Now()
+	conn, err := net.DialTimeout("tcp", hostAndPort, 3*time.Second)
+	if err != nil {
+		return 0, err
+	}
+	_ = conn.Close()
+	return float64(time.Since(start).Milliseconds()), nil
 }
 
 func updateRemoteOffloadingTarget() {
