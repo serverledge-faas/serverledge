@@ -372,7 +372,7 @@ func (wflow *Workflow) Save() error {
 	return nil
 }
 
-func (wflow *Workflow) getProgress(r *Request) (*Progress, error) {
+func (wflow *Workflow) initializeOrRetrieveProgress(r *Request) (*Progress, error) {
 	var progress *Progress
 	var err error
 	requestId := ReqId(r.Id)
@@ -421,8 +421,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 	var err error
 	requestId := ReqId(r.Id)
 
-	// Initialize (or retrieve) Progress
-	progress, err := wflow.getProgress(r)
+	progress, err := wflow.initializeOrRetrieveProgress(r)
 	if err != nil {
 		return err
 	}
