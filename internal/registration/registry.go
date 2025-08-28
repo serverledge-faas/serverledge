@@ -97,9 +97,11 @@ func registerToEtcd(asLoadBalancer bool) error {
 	}
 
 	go func() {
-		interval := time.Duration(float64(etcdLeaseTTL) * 0.7 * float64(time.Second))
-		time.Sleep(interval)
-		keepAliveLease()
+		for {
+			interval := time.Duration(float64(etcdLeaseTTL) * 0.75 * float64(time.Second))
+			time.Sleep(interval)
+			keepAliveLease()
+		}
 	}()
 
 	return nil
