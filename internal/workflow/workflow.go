@@ -62,41 +62,41 @@ func newWorkflow() Workflow {
 	return workflow
 }
 
-func (workflow *Workflow) Find(taskId TaskId) (Task, bool) {
-	task, found := workflow.Tasks[taskId]
+func (wflow *Workflow) Find(taskId TaskId) (Task, bool) {
+	task, found := wflow.Tasks[taskId]
 	return task, found
 }
 
 // add can be used to add a new task to the Workflow. Does not chain anything, but updates Workflow width
-func (workflow *Workflow) add(task Task) {
-	workflow.Tasks[task.GetId()] = task // if already exists, overwrites!
+func (wflow *Workflow) add(task Task) {
+	wflow.Tasks[task.GetId()] = task // if already exists, overwrites!
 }
 
-func (w *Workflow) GetPreviousTasks(task TaskId) []TaskId {
-	if w.prevTasks == nil {
-		w.computePreviousTasks()
+func (wflow *Workflow) GetPreviousTasks(task TaskId) []TaskId {
+	if wflow.prevTasks == nil {
+		wflow.computePreviousTasks()
 	}
 
-	return w.prevTasks[task]
+	return wflow.prevTasks[task]
 }
 
-func (w *Workflow) GetAllPreviousTasks() map[TaskId][]TaskId {
-	if w.prevTasks == nil {
-		w.computePreviousTasks()
+func (wflow *Workflow) GetAllPreviousTasks() map[TaskId][]TaskId {
+	if wflow.prevTasks == nil {
+		wflow.computePreviousTasks()
 	}
 
-	return w.prevTasks
+	return wflow.prevTasks
 }
 
-func (w *Workflow) computePreviousTasks() {
-	w.prevTasks = make(map[TaskId][]TaskId)
+func (wflow *Workflow) computePreviousTasks() {
+	wflow.prevTasks = make(map[TaskId][]TaskId)
 	visited := make(map[TaskId]bool)
-	for tid, _ := range w.Tasks {
-		w.prevTasks[tid] = make([]TaskId, 0)
+	for tid, _ := range wflow.Tasks {
+		wflow.prevTasks[tid] = make([]TaskId, 0)
 		visited[tid] = false
 	}
 
-	toVisit := []Task{w.Start}
+	toVisit := []Task{wflow.Start}
 
 	for len(toVisit) > 0 {
 		task := toVisit[0]
@@ -118,11 +118,11 @@ func (w *Workflow) computePreviousTasks() {
 
 		for _, nextTask := range nextTasks {
 			if nextTask != "" {
-				if !slices.Contains(w.prevTasks[nextTask], task.GetId()) {
-					w.prevTasks[nextTask] = append(w.prevTasks[nextTask], task.GetId())
+				if !slices.Contains(wflow.prevTasks[nextTask], task.GetId()) {
+					wflow.prevTasks[nextTask] = append(wflow.prevTasks[nextTask], task.GetId())
 				}
 				if !visited[nextTask] {
-					toVisit = append(toVisit, w.Tasks[nextTask])
+					toVisit = append(toVisit, wflow.Tasks[nextTask])
 				}
 			}
 		}
@@ -173,8 +173,8 @@ func Visit(workflow *Workflow, taskId TaskId, excludeEnd bool) []Task {
 	return tasks
 }
 
-func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) bool {
-	for _, prev := range workflow.prevTasks[id] {
+func (wflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) bool {
+	for _, prev := range wflow.prevTasks[id] {
 		if p.Status[prev] == Pending {
 			return false
 		}
@@ -183,11 +183,11 @@ func (workflow *Workflow) IsTaskEligibleForExecution(id TaskId, p *Progress) boo
 	return true
 }
 
-func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *TaskData, progress *Progress) (*TaskData, error) {
+func (wflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *TaskData, progress *Progress) (*TaskData, error) {
 	var err error
 	var outputData *TaskData
 
-	n, ok := workflow.Find(taskToExecute)
+	n, ok := wflow.Find(taskToExecute)
 	if !ok {
 		return nil, fmt.Errorf("failed to find task %s", n.GetId())
 	}
@@ -204,7 +204,7 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *T
 		progress.Complete(task.GetId())
 
 		nextTask := task.GetNext()
-		if workflow.IsTaskEligibleForExecution(nextTask, progress) {
+		if wflow.IsTaskEligibleForExecution(nextTask, progress) {
 			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTask)
 		} else {
 			fmt.Printf("task %s complete, but %s not eligible for execution", task.GetId(), nextTask)
@@ -219,12 +219,12 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *T
 
 		// we skip all tasks that will not be executed
 		toSkip := make([]Task, 0)
-		toNotSkip := Visit(workflow, nextTaskId, false)
+		toNotSkip := Visit(wflow, nextTaskId, false)
 		for _, a := range task.GetAlternatives() {
 			if a == nextTaskId {
 				continue
 			}
-			branchTasks := Visit(workflow, a, false)
+			branchTasks := Visit(wflow, a, false)
 			for _, otherTask := range branchTasks {
 				if !slices.Contains(toNotSkip, otherTask) {
 					toSkip = append(toSkip, otherTask)
@@ -237,7 +237,7 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *T
 		progress.Complete(task.GetId())
 
 		outputData = NewTaskData(input.Data)
-		if workflow.IsTaskEligibleForExecution(nextTaskId, progress) {
+		if wflow.IsTaskEligibleForExecution(nextTaskId, progress) {
 			progress.ReadyToExecute = append(progress.ReadyToExecute, nextTaskId)
 		}
 
@@ -258,9 +258,9 @@ func (workflow *Workflow) ExecuteTask(r *Request, taskToExecute TaskId, input *T
 }
 
 // GetUniqueFunctions returns a list with the function names used in the Workflow. The returned function names are unique and in alphabetical order
-func (workflow *Workflow) GetUniqueFunctions() []string {
+func (wflow *Workflow) GetUniqueFunctions() []string {
 	allFunctionsMap := make(map[string]interface{})
-	for _, task := range workflow.Tasks {
+	for _, task := range wflow.Tasks {
 		switch n := task.(type) {
 		case *FunctionTask:
 			allFunctionsMap[n.Func] = nil
@@ -278,8 +278,8 @@ func (workflow *Workflow) GetUniqueFunctions() []string {
 	return uniqueFunctions
 }
 
-func (workflow *Workflow) getEtcdKey() string {
-	return getEtcdKey(workflow.Name)
+func (wflow *Workflow) getEtcdKey() string {
+	return getEtcdKey(wflow.Name)
 }
 
 func getEtcdKey(workflowName string) string {
@@ -344,9 +344,9 @@ func Get(name string) (*Workflow, bool) {
 
 // Save creates and register the workflow in Serverledge
 // It is like Save for a simple function
-func (workflow *Workflow) Save() error {
-	if len(workflow.Name) == 0 {
-		return fmt.Errorf("cannot save an anonymous workflow (no name set)")
+func (wflow *Workflow) Save() error {
+	if len(wflow.Name) == 0 {
+		return fmt.Errorf("cannot save an anonymous wflow (no name set)")
 	}
 
 	cli, err := utils.GetEtcdClient()
@@ -355,53 +355,60 @@ func (workflow *Workflow) Save() error {
 	}
 	ctx := context.TODO()
 
-	// marshal the workflow object into json
-	payload, err := json.Marshal(*workflow)
+	// marshal the wflow object into json
+	payload, err := json.Marshal(*wflow)
 	if err != nil {
-		return fmt.Errorf("could not marshal workflow: %v", err)
+		return fmt.Errorf("could not marshal wflow: %v", err)
 	}
 	// saves the json object into etcd
-	_, err = cli.Put(ctx, workflow.getEtcdKey(), string(payload))
+	_, err = cli.Put(ctx, wflow.getEtcdKey(), string(payload))
 	if err != nil {
 		return fmt.Errorf("failed etcd Put: %v", err)
 	}
 
-	// Add the workflow to the local cache
-	cache.GetCacheInstance().Set(workflow.Name, workflow, cache.DefaultExp)
+	// Add the wflow to the local cache
+	cache.GetCacheInstance().Set(wflow.Name, wflow, cache.DefaultExp)
 
 	return nil
 }
 
-func (workflow *Workflow) getProgress(r *Request) (*Progress, error) {
+func (wflow *Workflow) getProgress(r *Request) (*Progress, error) {
 	var progress *Progress
 	var err error
 	requestId := ReqId(r.Id)
 
 	if !r.Resuming {
-		progress = InitProgress(requestId, workflow)
+		progress = InitProgress(requestId, wflow)
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve workflow progress: %v", err)
+			return nil, fmt.Errorf("failed to retrieve wflow progress: %v", err)
 		}
 	}
 
 	return progress, nil
 }
 
-func (workflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *Progress, data map[TaskId]*TaskData) error {
-	saved := make(map[TaskId]bool)
+func (wflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *Progress, data map[TaskId]*TaskData) error {
+	handledTasks := make(map[TaskId]bool)
 
 	for _, task := range progress.ReadyToExecute {
-		for _, prev := range workflow.GetPreviousTasks(task) {
-			if _, found := saved[prev]; found {
+		for _, prev := range wflow.GetPreviousTasks(task) {
+			if _, found := handledTasks[prev]; found {
 				continue
 			}
-			err := data[prev].Save(requestId, prev)
-			if err != nil {
-				return fmt.Errorf("Could not save partial data: %v", err)
+
+			dataToSave, ok := data[prev]
+			if ok {
+				err := dataToSave.Save(requestId, prev)
+				if err != nil {
+					return fmt.Errorf("Could not save partial data: %v", err)
+				}
+			} else {
+				log.Printf("PD not available locally for %s; they might be on Etcd already...", prev)
 			}
-			saved[prev] = true
+
+			handledTasks[prev] = true
 		}
 	}
 
@@ -409,13 +416,13 @@ func (workflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress
 }
 
 // Invoke schedules each function of the workflow and invokes them
-func (workflow *Workflow) Invoke(r *Request) error {
+func (wflow *Workflow) Invoke(r *Request) error {
 
 	var err error
 	requestId := ReqId(r.Id)
 
 	// Initialize (or retrieve) Progress
-	progress, err := workflow.getProgress(r)
+	progress, err := wflow.getProgress(r)
 	if err != nil {
 		return err
 	}
@@ -424,7 +431,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 	dataMap := make(map[TaskId]*TaskData)
 
 	if len(progress.ReadyToExecute) == 0 {
-		return fmt.Errorf("workflow resumed but no task is ready for execution: %v", requestId)
+		return fmt.Errorf("wflow resumed but no task is ready for execution: %v", requestId)
 	}
 
 	for len(progress.ReadyToExecute) > 0 {
@@ -436,7 +443,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 				return fmt.Errorf("Could not save progress: %v", err)
 			}
 
-			err = workflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
+			err = wflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
 			if err != nil {
 				return fmt.Errorf("Could not save partial data: %v", err)
 			}
@@ -472,11 +479,11 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 			// Prepare input for taskToExecute
 			var input *TaskData
-			if workflow.Tasks[taskToExecute].GetType() == Start {
+			if wflow.Tasks[taskToExecute].GetType() == Start {
 				input = NewTaskData(r.Params)
 			} else {
 				var found bool
-				previousTasks := workflow.GetPreviousTasks(taskToExecute)
+				previousTasks := wflow.GetPreviousTasks(taskToExecute)
 				for _, previousTask := range previousTasks {
 					if progress.Status[previousTask] == Skipped {
 						continue
@@ -488,17 +495,22 @@ func (workflow *Workflow) Invoke(r *Request) error {
 
 					input, found = dataMap[previousTask]
 					if !found {
+						log.Printf("Input not found in dataMap for previousTask %s", previousTask)
 						input, err = RetrievePartialData(requestId, previousTask)
 						if err != nil {
 							return fmt.Errorf("Could not retrieve partial data: %v", err)
 						}
+						log.Printf("Input retrieved from etcd: %s", input)
 					}
 				}
 			}
 
-			output, err := workflow.ExecuteTask(r, taskToExecute, input, progress)
+			if input == nil {
+				log.Printf("Nil input for task: %s", taskToExecute)
+			}
+			output, err := wflow.ExecuteTask(r, taskToExecute, input, progress)
 			if err != nil {
-				return fmt.Errorf("failed workflow execution: %v", err)
+				return fmt.Errorf("failed wflow execution: %v", err)
 			}
 
 			dataMap[taskToExecute] = output
@@ -526,7 +538,7 @@ func (workflow *Workflow) Invoke(r *Request) error {
 		if err != nil {
 			return err
 		}
-		err = workflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
+		err = wflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
 		if err != nil {
 			return fmt.Errorf("Could not save partial data: %v", err)
 		}
@@ -554,7 +566,7 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 	}
 
 	// Send invocation request
-	url := fmt.Sprintf("http://%s/workflow/resume/%s", policyDecision.RemoteHost, r.W.Name)
+	url := fmt.Sprintf("%s/workflow/resume/%s", policyDecision.RemoteHost, r.W.Name)
 	resp, err := utils.PostJson(url, invocationBody)
 	if err != nil {
 		return fmt.Errorf("HTTP request for offloading failed: %v", err)
@@ -590,32 +602,32 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 }
 
 // Delete removes the Workflow from cache and from etcd, so it cannot be invoked anymore
-func (workflow *Workflow) Delete() error {
+func (wflow *Workflow) Delete() error {
 	cli, err := utils.GetEtcdClient()
 	if err != nil {
 		return err
 	}
 	ctx := context.TODO()
 
-	dresp, err := cli.Delete(ctx, workflow.getEtcdKey())
+	dresp, err := cli.Delete(ctx, wflow.getEtcdKey())
 	if err != nil || dresp.Deleted != 1 {
 		return fmt.Errorf("failed Delete: %v", err)
 	}
 
 	// Remove the function from the local cache
-	cache.GetCacheInstance().Delete(workflow.Name)
+	cache.GetCacheInstance().Delete(wflow.Name)
 
 	return nil
 }
 
 // Exists return true if the workflow exists either in etcd or in cache. If it only exists in Etcd, it saves the workflow also in caches
-func (workflow *Workflow) Exists() bool {
-	_, found := getFromCache(workflow.Name)
+func (wflow *Workflow) Exists() bool {
+	_, found := getFromCache(wflow.Name)
 	if !found {
 		// cache miss
-		f, err := getFromEtcd(workflow.Name)
+		f, err := getFromEtcd(wflow.Name)
 		if err != nil {
-			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(workflow.Name)) {
+			if err.Error() == fmt.Sprintf("failed to retrieve value for key %s", getEtcdKey(wflow.Name)) {
 				return false
 			} else {
 				log.Printf("ERROR: %v", err.Error())
@@ -629,47 +641,47 @@ func (workflow *Workflow) Exists() bool {
 	return found
 }
 
-func (workflow *Workflow) Equals(comparer types.Comparable) bool {
+func (wflow *Workflow) Equals(comparer types.Comparable) bool {
 
 	workflow2 := comparer.(*Workflow)
 
-	if workflow.Name != workflow2.Name {
+	if wflow.Name != workflow2.Name {
 		return false
 	}
 
-	for k := range workflow.Tasks {
-		if !workflow.Tasks[k].Equals(workflow2.Tasks[k]) {
+	for k := range wflow.Tasks {
+		if !wflow.Tasks[k].Equals(workflow2.Tasks[k]) {
 			return false
 		}
 	}
-	return workflow.Start.Equals(workflow2.Start) &&
-		workflow.End.Equals(workflow2.End) &&
-		len(workflow.Tasks) == len(workflow2.Tasks)
+	return wflow.Start.Equals(workflow2.Start) &&
+		wflow.End.Equals(workflow2.End) &&
+		len(wflow.Tasks) == len(workflow2.Tasks)
 }
 
-func (workflow *Workflow) String() string {
+func (wflow *Workflow) String() string {
 	return fmt.Sprintf(`Workflow{
 		Name: %s,
 		Start: %s,
 		Tasks: %s,
 		End:   %s,
-	}`, workflow.Name, workflow.Start.String(), workflow.Tasks, workflow.End.String())
+	}`, wflow.Name, wflow.Start.String(), wflow.Tasks, wflow.End.String())
 }
 
 // MarshalJSON is needed because Task is an interface
 // This is automatically used when calling json.Marshal()
-func (workflow *Workflow) MarshalJSON() ([]byte, error) {
+func (wflow *Workflow) MarshalJSON() ([]byte, error) {
 	// Create a map to hold the JSON representation of the Workflow
 	data := make(map[string]interface{})
 
 	// Add the field to the map
-	data["Name"] = workflow.Name
-	data["Start"] = workflow.Start
-	data["End"] = workflow.End
+	data["Name"] = wflow.Name
+	data["Start"] = wflow.Start
+	data["End"] = wflow.End
 	tasks := make(map[TaskId]interface{})
 
 	// Marshal the interface and store it as concrete task value in the map
-	for taskId, task := range workflow.Tasks {
+	for taskId, task := range wflow.Tasks {
 		tasks[taskId] = task
 	}
 	data["Tasks"] = tasks
@@ -680,7 +692,7 @@ func (workflow *Workflow) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON is needed because Task is an interface
 // This is automatically used when calling json.Unmarshal()
-func (workflow *Workflow) UnmarshalJSON(data []byte) error {
+func (wflow *Workflow) UnmarshalJSON(data []byte) error {
 	// Create a temporary map to decode the JSON data
 	var tempMap map[string]json.RawMessage
 	if err := json.Unmarshal(data, &tempMap); err != nil {
@@ -688,7 +700,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	}
 	// extract simple fields
 	if rawStart, ok := tempMap["Start"]; ok {
-		if err := json.Unmarshal(rawStart, &workflow.Start); err != nil {
+		if err := json.Unmarshal(rawStart, &wflow.Start); err != nil {
 			return err
 		}
 	} else {
@@ -696,7 +708,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	}
 
 	if rawEnd, ok := tempMap["End"]; ok {
-		if err := json.Unmarshal(rawEnd, &workflow.End); err != nil {
+		if err := json.Unmarshal(rawEnd, &wflow.End); err != nil {
 			return err
 		}
 	} else {
@@ -704,7 +716,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	}
 
 	if rawName, ok := tempMap["Name"]; ok {
-		if err := json.Unmarshal(rawName, &workflow.Name); err != nil {
+		if err := json.Unmarshal(rawName, &wflow.Name); err != nil {
 			return err
 		}
 	} else {
@@ -716,9 +728,9 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(tempMap["Tasks"], &tempTaskMap); err != nil {
 		return err
 	}
-	workflow.Tasks = make(map[TaskId]Task)
+	wflow.Tasks = make(map[TaskId]Task)
 	for taskId, value := range tempTaskMap {
-		err := workflow.decodeTask(taskId, value)
+		err := wflow.decodeTask(taskId, value)
 		if err != nil {
 			return err
 		}
@@ -726,7 +738,7 @@ func (workflow *Workflow) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error {
+func (wflow *Workflow) decodeTask(taskId string, value json.RawMessage) error {
 	var tempTaskMap map[string]interface{}
 	if err := json.Unmarshal(value, &tempTaskMap); err != nil {
 		return err
@@ -744,27 +756,27 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 		task := &StartTask{}
 		err = json.Unmarshal(value, task)
 		if err == nil && task.Id != "" {
-			workflow.Tasks[TaskId(taskId)] = task
+			wflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
 	case Function:
 		task := &FunctionTask{}
 		err = json.Unmarshal(value, task)
 		if err == nil && task.Id != "" && task.Func != "" {
-			workflow.Tasks[TaskId(taskId)] = task
+			wflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
 	case Choice:
 		task := &ChoiceTask{}
 		err = json.Unmarshal(value, task)
 		if err == nil && task.Id != "" && len(task.AlternativeNextTasks) == len(task.Conditions) {
-			workflow.Tasks[TaskId(taskId)] = task
+			wflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
 	default:
 		err = json.Unmarshal(value, task)
 		if err == nil && task.GetId() != "" {
-			workflow.Tasks[TaskId(taskId)] = task
+			wflow.Tasks[TaskId(taskId)] = task
 			return nil
 		}
 	}
@@ -778,16 +790,16 @@ func (workflow *Workflow) decodeTask(taskId string, value json.RawMessage) error
 }
 
 // IsEmpty returns true if the workflow has 0 tasks or exactly one StartTask and one EndTask.
-func (workflow *Workflow) IsEmpty() bool {
-	if len(workflow.Tasks) == 0 {
+func (wflow *Workflow) IsEmpty() bool {
+	if len(wflow.Tasks) == 0 {
 		return true
 	}
 
 	hasOnlyStartAndEnd := false
-	if len(workflow.Tasks) == 2 {
+	if len(wflow.Tasks) == 2 {
 		hasStart := 0
 		hasEnd := 0
-		for _, task := range workflow.Tasks {
+		for _, task := range wflow.Tasks {
 			if task.GetType() == Start {
 				hasStart++
 			}

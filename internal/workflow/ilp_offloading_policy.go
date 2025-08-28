@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,7 +12,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"golang.org/x/exp/slices"
 )
@@ -61,6 +61,26 @@ const CLOUD = "CLOUD"
 const LOCAL = "LOCAL"
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
+
+var cachedSolutions map[string]taskPlacement
+
+func getCachedSolution(r *Request) (*taskPlacement, bool) {
+	if cachedSolutions == nil {
+		cachedSolutions = make(map[string]taskPlacement)
+		return nil, false
+	}
+
+	sol, ok := cachedSolutions[r.Id]
+	return &sol, ok
+}
+
+func cacheSolution(r *Request, sol *taskPlacement) {
+	if cachedSolutions == nil {
+		cachedSolutions = make(map[string]taskPlacement)
+	}
+
+	cachedSolutions[r.Id] = *sol
+}
 
 func tupleKey(s1, s2 string) string {
 	keyBytes, _ := json.Marshal([]string{s1, s2})
@@ -140,8 +160,13 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	if completed > 0 {
-		// TODO: we do not handle scheduling during workflow execution at the moment
-		return OffloadingDecision{Offload: false}, nil
+		placement, found := getCachedSolution(r)
+		if !found {
+			log.Println("Unable to find solution for ", r.Id)
+			// TODO: solve the ILP
+			return OffloadingDecision{Offload: false}, nil
+		}
+		return computeDecisionFromPlacement(*placement, p, r), nil
 	}
 
 	// Prepare parameters for ILP
@@ -150,7 +175,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	params.EdgeNodes = []string{LOCAL}
 	params.Deadline = r.QoS.MaxRespT
 	params.HandlingNode = LOCAL
-	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
+	params.NodeMemory[LOCAL] = 10 // (float64)(node.Resources.AvailableMemMB)
 
 	// TODO: introduce task and node labels
 
@@ -328,12 +353,46 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		fmt.Printf("Task: %s -> %s \n", k, v)
 	}
 
-	// TODO: parse results and make a decision
+	// parse results and make a decision
+	return computeDecisionFromPlacement(placement, p, r), nil
+}
 
-	//if completed >= 2 && completed < 4 {
-	//	plan := OffloadingPlan{ToExecute: p.ReadyToExecute} // TODO
-	//	return OffloadingDecision{true, "127.0.0.1:1323", plan}, nil
-	//}
+func computeDecisionFromPlacement(placement taskPlacement, p *Progress, r *Request) OffloadingDecision {
 
-	return OffloadingDecision{Offload: false}, nil
+	var localExecution = false
+	var remoteNode string
+	for _, t := range p.ReadyToExecute {
+		assignedNode := placement[t]
+		if assignedNode == LOCAL {
+			localExecution = true
+			break
+		} else {
+			remoteNode = assignedNode
+		}
+	}
+	if localExecution {
+		log.Println("Continuing with local execution")
+		cacheSolution(r, &placement)
+		return OffloadingDecision{Offload: false}
+	}
+
+	// Retrieve all tasks assigned to n
+	toExecute := make([]TaskId, 0)
+	for t, assignedNode := range placement {
+		if assignedNode == remoteNode {
+			toExecute = append(toExecute, t)
+		}
+	}
+
+	plan := OffloadingPlan{ToExecute: toExecute}
+
+	// TODO: retrieve node URL from solution
+	var remoteNodeReg *registration.NodeRegistration
+	if remoteNode == CLOUD {
+		remoteNodeReg = registration.GetRemoteOffloadingTarget()
+	}
+
+	decision := OffloadingDecision{true, remoteNodeReg.APIUrl(), plan}
+	log.Printf("Decision: %v\n", decision)
+	return decision
 }
