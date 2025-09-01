@@ -41,7 +41,7 @@ type ilpParams struct {
 	ExecTime map[string]float64 `json:"exectime"` // map[json.dumps((task, node))] = time
 }
 
-type taskPlacement map[TaskId]string // TODO: might be useful to have a Node type with utility functions to retrieve node info...
+type taskPlacement map[TaskId]string
 
 func initParams() ilpParams {
 	return ilpParams{
@@ -109,6 +109,7 @@ func tupleKey(s1, s2 string) string {
 	return string(keyBytes)
 }
 
+// TODO: Update this function as soon as tasks that split/merge their inputs are implemented (e.g., Map)
 func computeOutputSize(workflow *Workflow, inputParamsSize float64) map[string]float64 {
 
 	task := workflow.Start
@@ -120,7 +121,7 @@ func computeOutputSize(workflow *Workflow, inputParamsSize float64) map[string]f
 	outputSize := make(map[string]float64)
 	avgOutputSize := metrics.GetMetrics().AvgOutputSize
 
-	var currentInputSize = inputParamsSize // TODO: propagating input size to output only works for sequential connections
+	var currentInputSize = inputParamsSize
 
 	for len(toVisit) > 0 {
 		task := toVisit[0]
@@ -191,9 +192,12 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 
 	// Prepare parameters for ILP
 	params := initParams()
-	params.CloudNodes = []string{CLOUD}
+	params.CloudNodes = make([]string, 0)
+	if registration.GetRemoteOffloadingTarget() != nil {
+		params.CloudNodes = append(params.CloudNodes, CLOUD)
+	}
 	params.EdgeNodes = []string{LOCAL}
-	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds() // TODO: what if deadline is <0?
+	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds()
 	params.HandlingNode = LOCAL
 	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
 
@@ -234,24 +238,34 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		}
 	}
 
-	// Distances to Cloud and Data Store
-	distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
-	for _, n := range params.EdgeNodes {
-		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
-		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+	if len(params.CloudNodes) > 0 {
+		// Distances to Cloud and Data Store
+		distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
+		for _, n := range params.EdgeNodes {
+			params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
+			params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
 
-		// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
-		params.DSLatency[n] = distanceToCloud
+			// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
+			params.DSLatency[n] = distanceToCloud
+		}
+		params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
+		params.DSLatency[CLOUD] = 0.001
+	} else {
+		distanceToDS := 0.100 // TODO: how to compute?
+		for _, n := range params.EdgeNodes {
+			params.DSLatency[n] = distanceToDS
+		}
 	}
-	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
-	params.DSLatency[CLOUD] = 0.001
 
 	// Bandwidth (we assume identical)
 	dsBandwidth := config.GetFloat(config.OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
 	for _, n := range params.EdgeNodes {
 		params.DSBandwidth[n] = dsBandwidth
 	}
-	params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
+
+	if len(params.CloudNodes) > 0 {
+		params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
+	}
 
 	// Execution Times
 	retrievedMetrics := metrics.GetMetrics()
@@ -276,18 +290,22 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 				}
 			}
 
-			// Cloud
-			t, found := retrievedMetrics.AvgRemoteExecutionTime[f.Name]
-			if found {
-				params.ExecTime[tupleKey(string(tid), CLOUD)] = t
-			} else {
-				params.ExecTime[tupleKey(string(tid), CLOUD)] = 1 // no data: just guessing
+			if len(params.CloudNodes) > 0 {
+				// Cloud
+				t, found := retrievedMetrics.AvgRemoteExecutionTime[f.Name]
+				if found {
+					params.ExecTime[tupleKey(string(tid), CLOUD)] = t
+				} else {
+					params.ExecTime[tupleKey(string(tid), CLOUD)] = 1 // no data: just guessing
+				}
 			}
 		} else {
 			for _, n := range params.EdgeNodes {
 				params.ExecTime[tupleKey(string(tid), n)] = 0.0001
 			}
-			params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.0001
+			if len(params.CloudNodes) > 0 {
+				params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.0001
+			}
 		}
 	}
 
@@ -415,10 +433,11 @@ func computeDecisionFromPlacement(placement taskPlacement, p *Progress, r *Reque
 
 	plan := OffloadingPlan{ToExecute: toExecute}
 
-	// TODO: retrieve node URL from solution
 	var remoteNodeReg *registration.NodeRegistration
 	if remoteNode == CLOUD {
 		remoteNodeReg = registration.GetRemoteOffloadingTarget()
+	} else {
+		remoteNodeReg = registration.GetPeerFromKey(remoteNode)
 	}
 
 	decision := OffloadingDecision{true, remoteNodeReg.APIUrl(), plan}
