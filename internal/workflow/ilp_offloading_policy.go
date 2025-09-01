@@ -98,7 +98,7 @@ func computeOutputSize(workflow *Workflow, inputParamsSize float64) map[string]f
 	outputSize := make(map[string]float64)
 	avgOutputSize := metrics.GetMetrics().AvgOutputSize
 
-	var currentInputSize float64 // TODO: propagating input size to output only works for sequential connections
+	var currentInputSize = inputParamsSize // TODO: propagating input size to output only works for sequential connections
 
 	for len(toVisit) > 0 {
 		task := toVisit[0]
@@ -159,15 +159,12 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		}
 	}
 
-	//if completed > 0 {
-	//	placement, found := getCachedSolution(r)
-	//	if !found {
-	//		log.Println("Unable to find solution for ", r.Id)
-	//		// TODO: solve the ILP
-	//		return OffloadingDecision{Offload: false}, nil
-	//	}
-	//	return computeDecisionFromPlacement(*placement, p, r), nil
-	//}
+	if completed > 0 {
+		placement, found := getCachedSolution(r) // TODO: trigger ILP resolution?
+		if found {
+			return computeDecisionFromPlacement(*placement, p, r), nil
+		}
+	}
 
 	// Prepare parameters for ILP
 	params := initParams()
@@ -214,9 +211,31 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		}
 	}
 
+	// Distances to Cloud and Data Store
+	distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
+	for _, n := range params.EdgeNodes {
+		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
+		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
+
+		// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
+		params.DSLatency[n] = distanceToCloud
+	}
+	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
+	params.DSLatency[CLOUD] = 0.001
+
+	// Bandwidth (we assume identical)
+	dsBandwidth := config.GetFloat(config.OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
+	for _, n := range params.EdgeNodes {
+		params.DSBandwidth[n] = dsBandwidth
+	}
+	params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
+
 	// Execution Times
 	retrievedMetrics := metrics.GetMetrics()
 	for tid, task := range r.W.Tasks {
+		if p.Status[tid] == Executed || p.Status[tid] == Skipped {
+			continue
+		}
 		ft, ok := task.(*FunctionTask)
 		if ok {
 			f, _ := function.GetFunction(ft.Func)
@@ -248,25 +267,6 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 			params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.0001
 		}
 	}
-
-	// Distances to Cloud and Data Store
-	distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
-	for _, n := range params.EdgeNodes {
-		params.NodeLatency[tupleKey(n, CLOUD)] = distanceToCloud
-		params.NodeLatency[tupleKey(CLOUD, n)] = distanceToCloud
-
-		// TODO: we assume distance to Cloud == distance to DS (for all Edge nodes)
-		params.DSLatency[n] = distanceToCloud
-	}
-	params.NodeLatency[tupleKey(CLOUD, CLOUD)] = 0.0
-	params.DSLatency[CLOUD] = 0.001
-
-	// Bandwidth (we assume identical)
-	dsBandwidth := config.GetFloat(config.OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
-	for _, n := range params.EdgeNodes {
-		params.DSBandwidth[n] = dsBandwidth
-	}
-	params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
 
 	// Workflow
 	params.InputSize = float64(r.ParamsSize)
