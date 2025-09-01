@@ -159,23 +159,23 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		}
 	}
 
-	if completed > 0 {
-		placement, found := getCachedSolution(r)
-		if !found {
-			log.Println("Unable to find solution for ", r.Id)
-			// TODO: solve the ILP
-			return OffloadingDecision{Offload: false}, nil
-		}
-		return computeDecisionFromPlacement(*placement, p, r), nil
-	}
+	//if completed > 0 {
+	//	placement, found := getCachedSolution(r)
+	//	if !found {
+	//		log.Println("Unable to find solution for ", r.Id)
+	//		// TODO: solve the ILP
+	//		return OffloadingDecision{Offload: false}, nil
+	//	}
+	//	return computeDecisionFromPlacement(*placement, p, r), nil
+	//}
 
 	// Prepare parameters for ILP
 	params := initParams()
 	params.CloudNodes = []string{CLOUD}
 	params.EdgeNodes = []string{LOCAL}
-	params.Deadline = r.QoS.MaxRespT
+	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds() // TODO: what if deadline is <0?
 	params.HandlingNode = LOCAL
-	params.NodeMemory[LOCAL] = 10 // (float64)(node.Resources.AvailableMemMB)
+	params.NodeMemory[LOCAL] = 10 // (float64)(node.Resources.AvailableMemMB) // TODO: change this
 
 	// TODO: introduce task and node labels
 
@@ -274,6 +274,10 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 
 	params.T = make([]string, 0)
 	for tid, task := range r.W.Tasks {
+
+		if p.Status[tid] == Skipped || p.Status[tid] == Executed {
+			continue
+		}
 		params.T = append(params.T, string(tid))
 		params.Adj[string(tid)] = make([]string, 0)
 

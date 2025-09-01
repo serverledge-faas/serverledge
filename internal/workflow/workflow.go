@@ -556,9 +556,14 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 			Params:          r.Params,
 			CanDoOffloading: false,
 			Async:           false, // we force a synchronous request
+			QoS:             r.QoS,
 		},
 		Plan: policyDecision.OffloadingPlan,
 	}
+
+	// Update slack for deadline satisfaction
+	request.QoS.MaxRespT -= time.Now().Sub(r.Arrival).Seconds()
+
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("JSON marshaling failed: %v", err)
