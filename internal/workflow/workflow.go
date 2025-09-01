@@ -372,21 +372,21 @@ func (wflow *Workflow) Save() error {
 	return nil
 }
 
-func (wflow *Workflow) initializeOrRetrieveProgress(r *Request) (*Progress, error) {
+func (wflow *Workflow) initializeOrRetrieveProgress(r *Request) (*Progress, bool, error) {
 	var progress *Progress
 	var err error
 	requestId := ReqId(r.Id)
 
 	if !r.Resuming {
 		progress = InitProgress(requestId, wflow)
+		return progress, false, nil
 	} else {
 		progress, err = RetrieveProgress(requestId)
 		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve wflow progress: %v", err)
+			return nil, true, fmt.Errorf("failed to retrieve wflow progress: %v", err)
 		}
+		return progress, true, nil
 	}
-
-	return progress, nil
 }
 
 func (wflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *Progress, data map[TaskId]*TaskData) error {
@@ -421,7 +421,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 	var err error
 	requestId := ReqId(r.Id)
 
-	progress, err := wflow.initializeOrRetrieveProgress(r)
+	progress, isProgressOnEtcd, err := wflow.initializeOrRetrieveProgress(r)
 	if err != nil {
 		return err
 	}
@@ -441,6 +441,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 			if err != nil {
 				return fmt.Errorf("Could not save progress: %v", err)
 			}
+			isProgressOnEtcd = true
 
 			err = wflow.savePartialDataForReadyTasks(requestId, progress, dataMap)
 			if err != nil {
@@ -517,13 +518,15 @@ func (wflow *Workflow) Invoke(r *Request) error {
 			if len(progress.ReadyToExecute) == 0 && output != nil {
 				r.ExecReport.Result = output.Data
 
-				err = DeleteProgress(requestId)
-				if err != nil {
-					log.Printf("Failed to delete progress: %v", err)
-				}
-				err = DeleteAllTaskData(requestId)
-				if err != nil {
-					log.Printf("Failed to delete task data: %v", err)
+				if isProgressOnEtcd {
+					err = DeleteProgress(requestId)
+					if err != nil {
+						log.Printf("Failed to delete progress: %v", err)
+					}
+					err = DeleteAllTaskData(requestId)
+					if err != nil {
+						log.Printf("Failed to delete task data: %v", err)
+					}
 				}
 
 				return nil
