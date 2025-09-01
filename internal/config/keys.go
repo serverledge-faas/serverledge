@@ -88,6 +88,9 @@ const OFFLOADING_POLICY_ILP_OPTIMIZER_PORT = "offloading.policy.ilp.port"
 // IP address / hostname used by ILP Offloading Policy for solving the ILP formulation
 const OFFLOADING_POLICY_ILP_OPTIMIZER_HOST = "offloading.policy.ilp.host"
 
+// Number of times a scheduling plan can be reused before being re-computed
+const OFFLOADING_POLICY_ILP_PLACEMENT_TTL = "offloading.policy.ilp.placement.ttl"
+
 // Estimated bandwidth between the current node and the data store
 const OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "offloading.policy.node2datastore.bandwidth"
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
 	"net/http"
 	"strconv"
@@ -62,24 +63,45 @@ const LOCAL = "LOCAL"
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-var cachedSolutions map[string]taskPlacement
+type cachedPlacement struct {
+	placement taskPlacement
+	ttl       int
+}
+
+var placementCache map[string]*cachedPlacement
 
 func getCachedSolution(r *Request) (*taskPlacement, bool) {
-	if cachedSolutions == nil {
-		cachedSolutions = make(map[string]taskPlacement)
+	if placementCache == nil {
+		placementCache = make(map[string]*cachedPlacement)
 		return nil, false
 	}
 
-	sol, ok := cachedSolutions[r.Id]
-	return &sol, ok
+	sol, ok := placementCache[r.Id]
+	if !ok {
+		return nil, false
+	}
+
+	// check TTL
+	if sol.ttl > 0 {
+		sol.ttl--
+		return &sol.placement, ok
+	}
+
+	delete(placementCache, r.Id)
+	return nil, false
 }
 
 func cacheSolution(r *Request, sol *taskPlacement) {
-	if cachedSolutions == nil {
-		cachedSolutions = make(map[string]taskPlacement)
+	if placementCache == nil {
+		placementCache = make(map[string]*cachedPlacement)
 	}
 
-	cachedSolutions[r.Id] = *sol
+	defaultTTL := config.GetInt(config.OFFLOADING_POLICY_ILP_PLACEMENT_TTL, 2) - 1
+
+	placementCache[r.Id] = &cachedPlacement{
+		placement: *sol,
+		ttl:       defaultTTL,
+	}
 }
 
 func tupleKey(s1, s2 string) string {
@@ -160,8 +182,9 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	if completed > 0 {
-		placement, found := getCachedSolution(r) // TODO: trigger ILP resolution?
+		placement, found := getCachedSolution(r)
 		if found {
+			log.Printf("Reusing cached placement\n")
 			return computeDecisionFromPlacement(*placement, p, r), nil
 		}
 	}
@@ -172,7 +195,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	params.EdgeNodes = []string{LOCAL}
 	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds() // TODO: what if deadline is <0?
 	params.HandlingNode = LOCAL
-	params.NodeMemory[LOCAL] = 10 // (float64)(node.Resources.AvailableMemMB) // TODO: change this
+	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
 
 	// TODO: introduce task and node labels
 
@@ -353,6 +376,8 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		return OffloadingDecision{Offload: false}, fmt.Errorf("decoding response: %w", err)
 	}
 
+	cacheSolution(r, &placement)
+
 	for k, v := range placement {
 		fmt.Printf("Task: %s -> %s \n", k, v)
 	}
@@ -374,9 +399,9 @@ func computeDecisionFromPlacement(placement taskPlacement, p *Progress, r *Reque
 			remoteNode = assignedNode
 		}
 	}
+
 	if localExecution {
 		log.Println("Continuing with local execution")
-		cacheSolution(r, &placement)
 		return OffloadingDecision{Offload: false}
 	}
 
