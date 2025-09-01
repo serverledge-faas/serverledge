@@ -174,7 +174,7 @@ func GetNodesInArea(area string, includeSelf bool, limit int64) (map[string]Node
 		reg, err := parseEtcdRegisteredNode(area, key, s.Value)
 		if err == nil {
 			servers[key] = reg
-			fmt.Printf("Server found: %v\n", servers[key])
+			fmt.Printf("Server found: %v (%v-udp:%d)\n", servers[key], reg.IPAddress, reg.UDPPort)
 		}
 	}
 
@@ -379,7 +379,7 @@ func nearbyMonitoring(vivaldiClient *vivaldi.Client) {
 
 	mutex.RLock()
 	// TODO: randomly choose a subset of peers for update?
-	peersToUpdate := make([]NodeRegistration, len(neighbors))
+	peersToUpdate := make([]NodeRegistration, 0)
 	for _, reg := range neighbors {
 		peersToUpdate = append(peersToUpdate, reg)
 	}
@@ -409,6 +409,16 @@ func nearbyMonitoring(vivaldiClient *vivaldi.Client) {
 
 func GetNearestNeighbors() []NodeRegistration {
 	return nearestNeighbors
+}
+
+func GetPeerFromKey(key string) *NodeRegistration {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	reg, ok := neighbors[key]
+	if !ok {
+		return nil
+	}
+	return &reg
 }
 
 func GetRemoteOffloadingTarget() *NodeRegistration {
