@@ -20,10 +20,11 @@ var ScrapingHandler http.Handler = nil
 var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15, 0.3, 0.6, 1.0}
 
 const (
-	COMPLETIONS    = "completed_total"
-	EXECUTION_TIME = "execution_time"
-	OUTPUT_SIZE    = "output_size"
-	BRANCH_COUNT   = "branch_count"
+	COMPLETIONS         = "completed_total"
+	EXECUTION_TIME      = "execution_time"
+	INITIALIZATION_TIME = "init_time"
+	OUTPUT_SIZE         = "output_size"
+	BRANCH_COUNT        = "branch_count"
 )
 
 var (
@@ -36,6 +37,10 @@ var (
 		Help:    "Function duration",
 		Buckets: durationBuckets,
 	}, []string{"node", "function"})
+	metricInitializationTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: INITIALIZATION_TIME,
+		Help: "Function initialization time (cold start duration)",
+	}, []string{"node", "function"})
 	metricOutputSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: OUTPUT_SIZE,
 		Help: "Function output size",
@@ -47,10 +52,11 @@ var (
 )
 
 type RetrievedMetrics struct {
-	Completions map[string]float64
-	//AvgExecutionTime       map[string]float64
+	Completions            map[string]float64
 	AvgRemoteExecutionTime map[string]float64
 	AvgEdgeExecutionTime   map[string]map[string]float64
+	AvgRemoteInitTime      map[string]float64
+	AvgEdgeInitTime        map[string]map[string]float64
 	AvgOutputSize          map[string]float64
 	BranchFrequency        map[string]map[string]float64
 }
@@ -63,6 +69,10 @@ func (r RetrievedMetrics) String() string {
 	s += fmt.Sprintf("  %v\n\n", r.AvgRemoteExecutionTime)
 	s += "EDGE EXEC TIMES:\n"
 	s += fmt.Sprintf("  %v\n\n", r.AvgEdgeExecutionTime)
+	s += "REMOTE INIT TIMES:\n"
+	s += fmt.Sprintf("  %v\n\n", r.AvgRemoteInitTime)
+	s += "EDGE INIT TIMES:\n"
+	s += fmt.Sprintf("  %v\n\n", r.AvgEdgeInitTime)
 	s += "OUTPUT SIZE:\n"
 	s += fmt.Sprintf("  %v\n\n", r.AvgOutputSize)
 	s += "BRANCH FREQ:\n"
@@ -82,6 +92,7 @@ func Init() {
 
 	registry.MustRegister(metricCompletions)
 	registry.MustRegister(metricExecutionTime)
+	registry.MustRegister(metricInitializationTime)
 	registry.MustRegister(metricOutputSize)
 	registry.MustRegister(metricBranchCount)
 
@@ -96,6 +107,9 @@ func AddCompletedInvocation(funcName string) {
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
 	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(duration)
+}
+func AddFunctionInitTimeValue(funcName string, initTime float64) {
+	metricInitializationTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(initTime)
 }
 func AddFunctionOutputSizeValue(funcName string, size float64) {
 	metricOutputSize.With(prometheus.Labels{"function": funcName}).Observe(size)

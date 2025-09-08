@@ -66,6 +66,7 @@ func Run(p Policy) {
 				metrics.AddCompletedInvocation(c.fun.Name)
 				if c.executionReport.SchedAction != SCHED_ACTION_OFFLOAD {
 					metrics.AddFunctionDurationValue(c.fun.Name, c.executionReport.Duration)
+					metrics.AddFunctionInitTimeValue(c.fun.Name, c.executionReport.InitTime)
 				}
 				outputSize := len(c.executionReport.Result)
 				metrics.AddFunctionOutputSizeValue(r.Fun.Name, float64(outputSize))

@@ -40,7 +40,8 @@ type ilpParams struct {
 	NodeLabels map[string][]string `json:"node_labels"` // Labels per node
 	TaskLabels map[string][]string `json:"task_labels"` // Labels per task
 
-	ExecTime map[string]float64 `json:"exectime"` // map[json.dumps((task, node))] = time
+	ExecTime map[string]float64 `json:"exectime"`  // map[json.dumps((task, node))] = time
+	InitTime map[string]float64 `json:"init_time"` // map[json.dumps((task, node))] = time
 }
 
 type taskPlacement map[TaskId]string
@@ -49,6 +50,7 @@ func initParams() ilpParams {
 	return ilpParams{
 		Adj:         make(map[string][]string),
 		ExecTime:    make(map[string]float64),
+		InitTime:    make(map[string]float64),
 		OutputSize:  make(map[string]float64),
 		NodeMemory:  make(map[string]float64),
 		Cost:        make(map[string]float64),
@@ -63,7 +65,6 @@ func initParams() ilpParams {
 }
 
 const CLOUD = "CLOUD"
-const LOCAL = "LOCAL"
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
@@ -175,6 +176,8 @@ func computeOutputSize(workflow *Workflow, inputParamsSize float64) map[string]f
 func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {
 
 	completed := 0
+
+	var LOCAL = registration.SelfRegistration.Key
 
 	if p == nil || !r.CanDoOffloading || len(p.ReadyToExecute) == 0 {
 		return OffloadingDecision{Offload: false}, nil
@@ -295,6 +298,8 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
 	}
 
+	localWarmStatus := node.WarmStatus()
+
 	// Execution Times
 	retrievedMetrics := metrics.GetMetrics()
 	for tid, task := range r.W.Tasks {
@@ -305,34 +310,86 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		if ok {
 			f, _ := function.GetFunction(ft.Func)
 			for _, n := range params.EdgeNodes {
-				nodeTimes, found := retrievedMetrics.AvgEdgeExecutionTime[n]
+				nId := node.NodeID{Area: registration.SelfRegistration.Area, Key: n}
+				// Execution Times
+				nodeTimes, found := retrievedMetrics.AvgEdgeExecutionTime[nId.String()]
 				if !found {
-					params.ExecTime[tupleKey(string(tid), n)] = 1 // no data: just guessing
+					log.Printf("No data about exec times on %s", n)
+					params.ExecTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
+				} else {
+					t, found := nodeTimes[f.Name]
+					if found {
+						params.ExecTime[tupleKey(string(tid), n)] = t
+					} else {
+						log.Printf("No data about exec times of %s on %s", f.Name, n)
+						params.ExecTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
+					}
+				}
+
+				// Init Times
+				initTimes, found := retrievedMetrics.AvgEdgeInitTime[nId.String()]
+				if !found {
+					// Unknown node
+					params.InitTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
 					continue
 				}
-				t, found := nodeTimes[f.Name]
-				if found {
-					params.ExecTime[tupleKey(string(tid), n)] = t
+
+				coldStart := false
+				if n == LOCAL {
+					warmCount, ok := localWarmStatus[f.Name]
+					if !ok || warmCount < 1 {
+						coldStart = true
+					}
 				} else {
-					params.ExecTime[tupleKey(string(tid), n)] = 1 // no data: just guessing
+					warmCount, ok := nearbyServers[n].AvailableWarmContainers[f.Name]
+					if !ok || warmCount < 1 {
+						coldStart = true
+					}
+				}
+
+				if !coldStart {
+					params.InitTime[tupleKey(string(tid), n)] = 0
+				} else {
+					t, found := initTimes[f.Name]
+					if found {
+						params.InitTime[tupleKey(string(tid), n)] = t
+					} else {
+						params.InitTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
+					}
 				}
 			}
 
 			if len(params.CloudNodes) > 0 {
-				// Cloud
+				// Cloud Execution Time
 				t, found := retrievedMetrics.AvgRemoteExecutionTime[f.Name]
 				if found {
 					params.ExecTime[tupleKey(string(tid), CLOUD)] = t
 				} else {
-					params.ExecTime[tupleKey(string(tid), CLOUD)] = 1 // no data: just guessing
+					params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.01 // no data: just guessing
+				}
+
+				// Init Time
+				coldStart := true // TODO: assuming cold start
+				if !coldStart {
+					params.InitTime[tupleKey(string(tid), CLOUD)] = 0
+				} else {
+					t, found = retrievedMetrics.AvgRemoteInitTime[f.Name]
+					if found {
+						params.InitTime[tupleKey(string(tid), CLOUD)] = t
+					} else {
+						params.InitTime[tupleKey(string(tid), CLOUD)] = 0.01 // no data: just guessing
+					}
 				}
 			}
 		} else {
+			// The task is not a Functiontask
 			for _, n := range params.EdgeNodes {
 				params.ExecTime[tupleKey(string(tid), n)] = 0.0001
+				params.InitTime[tupleKey(string(tid), n)] = 0.0
 			}
 			if len(params.CloudNodes) > 0 {
 				params.ExecTime[tupleKey(string(tid), CLOUD)] = 0.0001
+				params.InitTime[tupleKey(string(tid), CLOUD)] = 0.0
 			}
 		}
 	}
@@ -438,7 +495,7 @@ func computeDecisionFromPlacement(placement taskPlacement, p *Progress, r *Reque
 	var remoteNode string
 	for _, t := range p.ReadyToExecute {
 		assignedNode := placement[t]
-		if assignedNode == LOCAL {
+		if assignedNode == registration.SelfRegistration.Key {
 			localExecution = true
 			break
 		} else {
