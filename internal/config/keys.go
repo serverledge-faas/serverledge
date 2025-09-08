@@ -91,6 +91,14 @@ const OFFLOADING_POLICY_ILP_OPTIMIZER_HOST = "offloading.policy.ilp.host"
 // Number of times a scheduling plan can be reused before being re-computed
 const OFFLOADING_POLICY_ILP_PLACEMENT_TTL = "offloading.policy.ilp.placement.ttl"
 
+// Monetary computation cost per region (Map: string -> float)
+const OFFLOADING_POLICY_ILP_REGION_COST = "offloading.policy.ilp.region.cost"
+
+// Weight of objective terms in the ILP offloading policy
+const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS = "offloading.policy.ilp.obj.violations"
+const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS = "offloading.policy.ilp.obj.data"
+const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST = "offloading.policy.ilp.obj.cost"
+
 // Estimated bandwidth between the current node and the data store
 const OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "offloading.policy.node2datastore.bandwidth"
 

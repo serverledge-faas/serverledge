@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/config"
@@ -34,7 +35,8 @@ type ilpParams struct {
 	OutputSize   map[string]float64  `json:"output_size"` // Output size per task
 	InputSize    float64             `json:"input_size"`  // Input data size
 
-	Alpha      float64             `json:"alpha"`       // Weighting factor
+	ObjWeights []float64           `json:"obj_weights"` // Objective terms weights
+	Cost       map[string]float64  `json:"cost"`        // Computation cost
 	NodeLabels map[string][]string `json:"node_labels"` // Labels per node
 	TaskLabels map[string][]string `json:"task_labels"` // Labels per task
 
@@ -49,12 +51,14 @@ func initParams() ilpParams {
 		ExecTime:    make(map[string]float64),
 		OutputSize:  make(map[string]float64),
 		NodeMemory:  make(map[string]float64),
+		Cost:        make(map[string]float64),
 		TaskMemory:  make(map[string]float64),
 		NodeLabels:  make(map[string][]string),
 		TaskLabels:  make(map[string][]string),
 		DSBandwidth: make(map[string]float64),
 		DSLatency:   make(map[string]float64),
 		NodeLatency: make(map[string]float64),
+		ObjWeights:  []float64{0.33, 0.33, 0.33},
 	}
 }
 
@@ -201,6 +205,19 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	params.HandlingNode = LOCAL
 	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
 
+	wViolations := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.33)
+	wDataTransfers := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.33)
+	wCost := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST, 0.33)
+	params.ObjWeights = []float64{wViolations, wDataTransfers, wCost}
+
+	regionCost := config.GetStringMapFloat64(config.OFFLOADING_POLICY_ILP_REGION_COST)
+	// TODO: ToLower() is needed because viper (used to parse configuration files) is not case sensitive
+	localCost, ok := regionCost[strings.ToLower(registration.SelfRegistration.Area)]
+	if !ok {
+		localCost = 0.0
+	}
+	params.Cost[LOCAL] = localCost
+
 	// TODO: introduce task and node labels
 
 	// Add available Edge peers
@@ -210,6 +227,9 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 			if v.AvailableMemMB > 0 && v.AvailableCPUs > 0 {
 				params.EdgeNodes = append(params.EdgeNodes, k)
 				params.NodeMemory[k] = float64(v.AvailableMemMB)
+
+				// Cost (assuming that Edge nodes are all in the same area)
+				params.Cost[k] = localCost
 			}
 		}
 	}
@@ -239,6 +259,14 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	if len(params.CloudNodes) > 0 {
+		// Cost
+		// TODO: ToLower() is needed because viper (used to parse configuration files) is not case sensitive
+		remoteCost, ok := regionCost[strings.ToLower(registration.GetRemoteOffloadingTarget().Area)]
+		if !ok {
+			remoteCost = 0.0
+		}
+		params.Cost[CLOUD] = remoteCost
+
 		// Distances to Cloud and Data Store
 		distanceToCloud := registration.GetRemoteOffloadingTargetLatencyMs() / 1000.0
 		for _, n := range params.EdgeNodes {

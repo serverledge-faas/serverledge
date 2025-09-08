@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"path/filepath"
+	"strconv"
 
 	"github.com/spf13/viper"
 )
@@ -48,6 +49,33 @@ func GetBool(key string, defaultValue bool) bool {
 	} else {
 		return defaultValue
 	}
+}
+
+func GetStringMapFloat64(key string) map[string]float64 {
+	raw := viper.GetStringMap(key)
+	if raw == nil {
+		return make(map[string]float64)
+	}
+
+	m := make(map[string]float64)
+	for k, v := range raw {
+		switch vTyped := v.(type) {
+		case float64:
+			m[k] = vTyped
+		case string:
+			vfloat, err := strconv.ParseFloat(vTyped, 64)
+			if err != nil {
+				log.Printf("Invaid float value for key %s: %v", k, v)
+				continue
+			}
+			m[k] = vfloat
+		default:
+			log.Printf("Invaid value for key %s: %v", k, v)
+			continue
+		}
+	}
+
+	return m
 }
 
 // ReadConfiguration reads a configuration file stored in one of the predefined paths.
