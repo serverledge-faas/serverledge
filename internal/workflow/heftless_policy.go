@@ -37,6 +37,9 @@ func (policy *HEFTlessPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecis
 	}
 
 	params := prepareParameters(r, p)
+	if r.QoS.MaxRespT <= 0.0 {
+		params.Deadline = 99999
+	}
 
 	// Serialize to JSON
 	jsonData, err := json.Marshal(params)
