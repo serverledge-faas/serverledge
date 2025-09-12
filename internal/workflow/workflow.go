@@ -32,6 +32,8 @@ func CreateOffloadingPolicy() {
 	log.Printf("Configured offloading policy: %s\n", policyConf)
 	if policyConf == "ilp" {
 		offloadingPolicy = &IlpOffloadingPolicy{}
+	} else if policyConf == "heftless" {
+		offloadingPolicy = &HEFTlessPolicy{}
 	} else { // default, disable offloading
 		offloadingPolicy = &NoOffloadingPolicy{}
 	}
@@ -465,7 +467,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 				return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
 			}
 			log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
-		} else {
+		} else if err == nil {
 			// pick next executable task
 			var taskToExecute TaskId = ""
 			for _, task := range progress.ReadyToExecute {
@@ -531,6 +533,8 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 				return nil
 			}
+		} else {
+			return fmt.Errorf("an error occurred in policy evaluation: %v", err)
 		}
 
 	}
