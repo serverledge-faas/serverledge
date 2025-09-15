@@ -189,7 +189,15 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 // in the busy pool.
 func NewContainer(fun *function.Function, markAsIdle bool, forceImagePull bool) (*container.Container, error) {
 	Resources.Lock()
-	if !acquireResources(fun.CPUDemand, fun.MemoryMB, true) {
+
+	var cpuDemand float64
+	if markAsIdle {
+		cpuDemand = 0.0
+	} else {
+		cpuDemand = fun.CPUDemand
+	}
+
+	if !acquireResources(cpuDemand, fun.MemoryMB, true) {
 		//log.Printf("Not enough resources for the new container.\n")
 		Resources.Unlock()
 		return nil, OutOfResourcesErr
@@ -205,7 +213,7 @@ func NewContainer(fun *function.Function, markAsIdle bool, forceImagePull bool) 
 // function, assuming that the required CPU and memory resources have been
 // already been acquired.
 func NewContainerWithAcquiredResources(fun *function.Function, startAsIdle bool, forceImagePull bool) (*container.Container, error) {
-	cont, err := container.CreateContainer(fun, false)
+	cont, err := container.CreateContainer(fun, forceImagePull)
 
 	if err != nil {
 		log.Printf("Failed container creation: %v\n", err)

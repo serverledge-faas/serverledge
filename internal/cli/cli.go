@@ -46,6 +46,12 @@ var createCmd = &cobra.Command{
 	Run:   create,
 }
 
+var prewarmCmd = &cobra.Command{
+	Use:   "prewarm",
+	Short: "Prewarms instances for a function",
+	Run:   prewarm,
+}
+
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Deletes a function",
@@ -103,6 +109,8 @@ var verbose bool
 var returnOutput bool
 var update bool
 var maxConcurrency int16
+var prewarmCount int64
+var forcePull bool
 
 func Init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
@@ -130,6 +138,11 @@ func Init() {
 	createCmd.Flags().StringVarP(&customImage, "custom_image", "", "", "custom container image (only if runtime == 'custom')")
 	createCmd.Flags().StringSliceVarP(&inputs, "input", "i", nil, "Input parameter: <name>:<type>")
 	createCmd.Flags().StringSliceVarP(&outputs, "output", "o", nil, "Output specification: <name>:<type>")
+
+	rootCmd.AddCommand(prewarmCmd)
+	prewarmCmd.Flags().StringVarP(&funcName, "function", "f", "", "name of the function")
+	prewarmCmd.Flags().Int64VarP(&prewarmCount, "count", "c", 1, "num of instances to launch")
+	prewarmCmd.Flags().BoolVarP(&forcePull, "force_pull", "", false, "Force pull of container image")
 
 	rootCmd.AddCommand(deleteCmd)
 	deleteCmd.Flags().StringVarP(&funcName, "function", "f", "", "name of the function")
@@ -271,6 +284,36 @@ func buildSignature() (*function.Signature, error) {
 	}
 
 	return sb.Build(), nil
+}
+
+func prewarm(cmd *cobra.Command, args []string) {
+	if funcName == "" {
+		showHelpAndExit(cmd)
+	}
+	if prewarmCount < 1 {
+		fmt.Printf("Invalid prewarm count: %d\n", prewarmCount)
+		showHelpAndExit(cmd)
+	}
+
+	request := client.PrewarmingRequest{
+		Function:       funcName,
+		Instances:      prewarmCount,
+		ForceImagePull: forcePull,
+	}
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		showHelpAndExit(cmd)
+	}
+
+	apiName := "prewarm"
+
+	url := fmt.Sprintf("http://%s:%d/%s", ServerConfig.Host, ServerConfig.Port, apiName)
+	resp, err := utils.PostJson(url, requestBody)
+	if err != nil {
+		fmt.Printf("Prewarming request failed: %v\n", err)
+		os.Exit(2)
+	}
+	utils.PrintJsonResponse(resp.Body)
 }
 
 func create(cmd *cobra.Command, args []string) {
