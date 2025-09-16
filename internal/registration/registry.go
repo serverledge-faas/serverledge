@@ -300,8 +300,8 @@ func updateLatencyToOffloadingTarget() {
 	if err != nil {
 		log.Println(err)
 	} else {
-		log.Printf("Latency for remote offloading target is %v", latency)
-		remoteOffloadingTargetLatencyMs = latency
+		log.Printf("Latency for remote offloading target is %v (ms)", latency)
+		remoteOffloadingTargetLatencyMs = max(0.1, latency)
 	}
 }
 
