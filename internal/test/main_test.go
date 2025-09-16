@@ -125,7 +125,7 @@ func setupServerledge(outboundIp string) (*echo.Echo, error) {
 
 // run the bash script to stop serverledge
 func teardownServerledge(e *echo.Echo) error {
-	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/remove-etcd"+getShellExt())
+	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/stop-etcd"+getShellExt())
 
 	node.ShutdownAllContainers()
 
