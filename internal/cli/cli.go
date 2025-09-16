@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/labstack/gommon/log"
-	"github.com/serverledge-faas/serverledge/internal/api"
-
 	"github.com/serverledge-faas/serverledge/internal/client"
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -96,7 +94,8 @@ var compInvokeCmd = &cobra.Command{
 	Run:   invokeWorkflow,
 }
 
-var compName, funcName, runtime, handler, customImage, src, qosClass, jsonSrc string
+var compName, funcName, runtime, handler, customImage, src, jsonSrc string
+var qosClass int64
 var requestId string
 var memory int64
 var cpuDemand, qosMaxRespT float64
@@ -120,7 +119,7 @@ func Init() {
 	rootCmd.AddCommand(invokeCmd)
 	invokeCmd.Flags().StringVarP(&funcName, "function", "f", "", "name of the function")
 	invokeCmd.Flags().Float64VarP(&qosMaxRespT, "resptime", "", -1.0, "Max. response time (optional)")
-	invokeCmd.Flags().StringVarP(&qosClass, "class", "c", "", "QoS class (optional)")
+	invokeCmd.Flags().Int64VarP(&qosClass, "class", "c", 0, "QoS class ID (optional)")
 	invokeCmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Function parameter: <name>:<value>")
 	invokeCmd.Flags().StringVarP(&paramsFile, "params_file", "j", "", "File containing parameters (JSON)")
 	invokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous invocation")
@@ -159,7 +158,7 @@ func Init() {
 	rootCmd.AddCommand(compInvokeCmd)
 	compInvokeCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
 	compInvokeCmd.Flags().Float64VarP(&qosMaxRespT, "resptime", "r", -1.0, "Max. response time (optional)")
-	compInvokeCmd.Flags().StringVarP(&qosClass, "class", "c", "", "QoS class (optional)")
+	compInvokeCmd.Flags().Int64VarP(&qosClass, "class", "c", 0, "QoS class ID (optional)")
 	compInvokeCmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Workflow parameter: <name>:<value>")
 	compInvokeCmd.Flags().StringVarP(&paramsFile, "params_file", "j", "", "File containing parameters (JSON) for workflow")
 	compInvokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous workflow invocation")
@@ -231,9 +230,8 @@ func invoke(cmd *cobra.Command, args []string) {
 
 	// Prepare request
 	request := client.InvocationRequest{
-		Params:   paramsMap,
-		QoSClass: api.DecodeServiceClass(qosClass),
-		// QoSClass:        qosClass,
+		Params:          paramsMap,
+		QoSClass:        qosClass,
 		QoSMaxRespT:     qosMaxRespT,
 		CanDoOffloading: true,
 		ReturnOutput:    returnOutput,
@@ -530,7 +528,11 @@ func invokeWorkflow(cmd *cobra.Command, args []string) {
 	request := client.WorkflowInvocationRequest{
 		Params:          paramsMap,
 		CanDoOffloading: true,
-		Async:           asyncInvocation}
+		QoS: function.RequestQoS{
+			Class:    qosClass,
+			MaxRespT: qosMaxRespT,
+		},
+		Async: asyncInvocation}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
 		cmd.Help()

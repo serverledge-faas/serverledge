@@ -7,7 +7,7 @@ import (
 // InvocationRequest is an external invocation of a function (from API or CLI)
 type InvocationRequest struct {
 	Params          map[string]interface{}
-	QoSClass        function.ServiceClass
+	QoSClass        int64
 	QoSMaxRespT     float64
 	CanDoOffloading bool
 	Async           bool

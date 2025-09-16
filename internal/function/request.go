@@ -19,7 +19,7 @@ type Request struct {
 }
 
 type RequestQoS struct {
-	Class    ServiceClass
+	Class    int64
 	MaxRespT float64
 }
 
@@ -50,11 +50,3 @@ func (r *Request) Id() string {
 func (r *Request) String() string {
 	return fmt.Sprintf("[%s] Rq-%s", r.Fun.Name, r.Id())
 }
-
-type ServiceClass int64
-
-const (
-	LOW               ServiceClass = 0
-	HIGH_PERFORMANCE               = 1
-	HIGH_AVAILABILITY              = 2
-)
