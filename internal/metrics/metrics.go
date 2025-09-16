@@ -20,7 +20,8 @@ var ScrapingHandler http.Handler = nil
 var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15, 0.3, 0.6, 1.0}
 
 const (
-	COMPLETIONS         = "completed_total"
+	COMPLETIONS         = "completed_count"
+	COLD_STARTS         = "cold_starts_count"
 	EXECUTION_TIME      = "execution_time"
 	INITIALIZATION_TIME = "init_time"
 	OUTPUT_SIZE         = "output_size"
@@ -30,8 +31,12 @@ const (
 var (
 	metricCompletions = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: COMPLETIONS,
-		Help: "Number of completed function invocations",
-	}, []string{"node", "function"})
+		Help: "Number of completed function invocations per area",
+	}, []string{"area", "function"})
+	metricColdStarts = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: COLD_STARTS,
+		Help: "Number of cold starts per function and area",
+	}, []string{"area", "function"})
 	metricExecutionTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    EXECUTION_TIME,
 		Help:    "Function duration",
@@ -52,19 +57,19 @@ var (
 )
 
 type RetrievedMetrics struct {
-	Completions            map[string]float64
-	AvgRemoteExecutionTime map[string]float64
-	AvgEdgeExecutionTime   map[string]map[string]float64
-	AvgRemoteInitTime      map[string]float64
-	AvgEdgeInitTime        map[string]map[string]float64
-	AvgOutputSize          map[string]float64
-	BranchFrequency        map[string]map[string]float64
+	RemoteColdStartProbability map[string]float64
+	AvgRemoteExecutionTime     map[string]float64
+	AvgEdgeExecutionTime       map[string]map[string]float64
+	AvgRemoteInitTime          map[string]float64
+	AvgEdgeInitTime            map[string]map[string]float64
+	AvgOutputSize              map[string]float64
+	BranchFrequency            map[string]map[string]float64
 }
 
 func (r RetrievedMetrics) String() string {
 	s := ""
-	s += "COMPLETIONS:\n"
-	s += fmt.Sprintf("  %v\n\n", r.Completions)
+	s += "REMOTE COLD START PROB:\n"
+	s += fmt.Sprintf("  %v\n\n", r.RemoteColdStartProbability)
 	s += "REMOTE EXEC TIMES:\n"
 	s += fmt.Sprintf("  %v\n\n", r.AvgRemoteExecutionTime)
 	s += "EDGE EXEC TIMES:\n"
@@ -91,6 +96,7 @@ func Init() {
 	}
 
 	registry.MustRegister(metricCompletions)
+	registry.MustRegister(metricColdStarts)
 	registry.MustRegister(metricExecutionTime)
 	registry.MustRegister(metricInitializationTime)
 	registry.MustRegister(metricOutputSize)
@@ -102,8 +108,11 @@ func Init() {
 	go MetricsRetriever()
 }
 
-func AddCompletedInvocation(funcName string) {
-	metricCompletions.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Inc()
+func AddCompletedInvocation(funcName string, coldStart bool) {
+	metricCompletions.With(prometheus.Labels{"function": funcName, "area": node.LocalNode.Area}).Inc()
+	if coldStart {
+		metricColdStarts.With(prometheus.Labels{"function": funcName, "area": node.LocalNode.Area}).Inc()
+	}
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
 	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(duration)

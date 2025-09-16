@@ -63,10 +63,12 @@ func Run(p Policy) {
 			p.OnCompletion(c.fun, c.executionReport)
 
 			if metrics.Enabled && c.executionReport != nil {
-				metrics.AddCompletedInvocation(c.fun.Name)
+				metrics.AddCompletedInvocation(c.fun.Name, !c.executionReport.IsWarmStart)
 				if c.executionReport.SchedAction != SCHED_ACTION_OFFLOAD {
 					metrics.AddFunctionDurationValue(c.fun.Name, c.executionReport.Duration)
-					metrics.AddFunctionInitTimeValue(c.fun.Name, c.executionReport.InitTime)
+					if !c.executionReport.IsWarmStart {
+						metrics.AddFunctionInitTimeValue(c.fun.Name, c.executionReport.InitTime)
+					}
 				}
 				outputSize := len(c.executionReport.Result)
 				metrics.AddFunctionOutputSizeValue(r.Fun.Name, float64(outputSize))

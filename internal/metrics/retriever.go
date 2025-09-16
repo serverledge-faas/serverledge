@@ -9,7 +9,6 @@ import (
 
 	"github.com/prometheus/common/model"
 	"github.com/serverledge-faas/serverledge/internal/config"
-	"github.com/serverledge-faas/serverledge/internal/node"
 
 	promapi "github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -170,14 +169,7 @@ func MetricsRetriever() {
 		select {
 		case <-ticker.C:
 
-			query := fmt.Sprintf("%s{node=\"%s\"}", COMPLETIONS, node.LocalNode)
-			completionsPerFunction, err := retrieveByFunction(query, api, ctx)
-			if err != nil {
-				log.Printf("Error in retrieveByFunction: %v", err)
-			}
-			retrievedMetrics.Completions = completionsPerFunction
-
-			query = fmt.Sprintf("%s_sum{}/%s_count{}", OUTPUT_SIZE, OUTPUT_SIZE)
+			query := fmt.Sprintf("%s_sum{}/%s_count{}", OUTPUT_SIZE, OUTPUT_SIZE)
 			avgOutputSize, err := retrieveByFunction(query, api, ctx)
 			if err != nil {
 				log.Printf("Error in retrieveByFunction: %v", err)
@@ -212,6 +204,13 @@ func MetricsRetriever() {
 			// CLOUD
 			cloudArea := config.GetString(config.REGISTRY_REMOTE_AREA, "")
 			if cloudArea != "" {
+				query = fmt.Sprintf("%s{area=\"%s\"}/%s{area=\"%s\"}", COLD_STARTS, cloudArea, COMPLETIONS, cloudArea)
+				coldStartProbPerFunction, err := retrieveByFunction(query, api, ctx)
+				if err != nil {
+					log.Printf("Error in retrieveByFunction: %v", err)
+				}
+				retrievedMetrics.RemoteColdStartProbability = coldStartProbPerFunction
+
 				query = fmt.Sprintf("%s_sum{node=~\"\\\\(%s\\\\).*\"}/%s_count{node=~\"\\\\(%s\\\\).*\"}",
 					EXECUTION_TIME, cloudArea, EXECUTION_TIME, cloudArea)
 				avgFunDuration, err := retrieveByFunction(query, api, ctx)
