@@ -78,29 +78,29 @@ const TRACING_ENABLED = "tracing.enabled"
 // Custom output file for traces
 const TRACING_OUTFILE = "tracing.outfile"
 
-// Offloading policy to use
+// Workflow offloading policy to use
 // Possible values: "disable", "ilp"
-const OFFLOADING_POLICY = "offloading.policy"
+const WORKFLOW_OFFLOADING_POLICY = "workflow.offloading.policy"
 
 // Port used by ILP Offloading Policy for solving the ILP formulation
-const OFFLOADING_POLICY_OPTIMIZER_PORT = "offloading.policy.optimizer.port"
+const WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_PORT = "workflow.offloading.policy.optimizer.port"
 
 // IP address / hostname used by ILP Offloading Policy for solving the ILP formulation
-const OFFLOADING_POLICY_OPTIMIZER_HOST = "offloading.policy.optimizer.host"
+const WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_HOST = "workflow.offloading.policy.optimizer.host"
 
 // Number of times a scheduling plan can be reused before being re-computed
-const OFFLOADING_POLICY_ILP_PLACEMENT_TTL = "offloading.policy.ilp.placement.ttl"
+const WORKFLOW_OFFLOADING_POLICY_ILP_PLACEMENT_TTL = "workflow.offloading.policy.ilp.placement.ttl"
 
 // Monetary computation cost per region (Map: string -> float)
-const OFFLOADING_POLICY_REGION_COST = "offloading.policy.region.cost"
+const WORKFLOW_OFFLOADING_POLICY_REGION_COST = "workflow.offloading.policy.region.cost"
 
 // Weight of objective terms in the ILP offloading policy
-const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS = "offloading.policy.ilp.obj.violations"
-const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS = "offloading.policy.ilp.obj.data"
-const OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST = "offloading.policy.ilp.obj.cost"
+const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS = "workflow.offloading.policy.ilp.obj.violations"
+const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS = "workflow.offloading.policy.ilp.obj.data"
+const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST = "workflow.offloading.policy.ilp.obj.cost"
 
 // Estimated bandwidth between the current node and the data store
-const OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "offloading.policy.node2datastore.bandwidth"
+const WORKFLOW_OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "workflow.offloading.policy.node2datastore.bandwidth"
 
 // Estimated bandwidth between cloud nodes and the data store
-const OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH = "offloading.policy.cloud2datastore.bandwidth"
+const WORKFLOW_OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH = "workflow.offloading.policy.cloud2datastore.bandwidth"

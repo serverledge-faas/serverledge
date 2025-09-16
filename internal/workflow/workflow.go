@@ -28,7 +28,7 @@ import (
 var offloadingPolicy OffloadingPolicy = &IlpOffloadingPolicy{}
 
 func CreateOffloadingPolicy() {
-	policyConf := config.GetString(config.OFFLOADING_POLICY, "disable")
+	policyConf := config.GetString(config.WORKFLOW_OFFLOADING_POLICY, "disable")
 	log.Printf("Configured offloading policy: %s\n", policyConf)
 	if policyConf == "ilp" {
 		offloadingPolicy = &IlpOffloadingPolicy{}

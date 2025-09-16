@@ -42,8 +42,8 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	}
 
 	// Create POST request
-	ilpOptimizerHost := config.GetString(config.OFFLOADING_POLICY_OPTIMIZER_HOST, "localhost")
-	ilpOptimizerPort := config.GetInt(config.OFFLOADING_POLICY_OPTIMIZER_PORT, 8080)
+	ilpOptimizerHost := config.GetString(config.WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_HOST, "localhost")
+	ilpOptimizerPort := config.GetInt(config.WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_PORT, 8080)
 	url := fmt.Sprintf("http://%s:%d/ilp", ilpOptimizerHost, ilpOptimizerPort)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
@@ -72,7 +72,7 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 		return OffloadingDecision{Offload: false}, fmt.Errorf("decoding response: %w", err)
 	}
 
-	defaultTTL := config.GetInt(config.OFFLOADING_POLICY_ILP_PLACEMENT_TTL, 2) - 1
+	defaultTTL := config.GetInt(config.WORKFLOW_OFFLOADING_POLICY_ILP_PLACEMENT_TTL, 2) - 1
 	cacheSolution(r, &placement, defaultTTL)
 
 	for k, v := range placement {

@@ -38,6 +38,7 @@ func (policy *HEFTlessPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecis
 
 	params := prepareParameters(r, p)
 	if r.QoS.MaxRespT <= 0.0 {
+		// User did not specify a deadline
 		params.Deadline = 99999
 	}
 
@@ -48,8 +49,8 @@ func (policy *HEFTlessPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecis
 	}
 
 	// Create POST request
-	optimizerHost := config.GetString(config.OFFLOADING_POLICY_OPTIMIZER_HOST, "localhost")
-	optimizerPort := config.GetInt(config.OFFLOADING_POLICY_OPTIMIZER_PORT, 8080)
+	optimizerHost := config.GetString(config.WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_HOST, "localhost")
+	optimizerPort := config.GetInt(config.WORKFLOW_OFFLOADING_POLICY_OPTIMIZER_PORT, 8080)
 	url := fmt.Sprintf("http://%s:%d/heftless", optimizerHost, optimizerPort)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {

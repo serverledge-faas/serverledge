@@ -181,12 +181,12 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	params.HandlingNode = LOCAL
 	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
 
-	wViolations := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.33)
-	wDataTransfers := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.33)
-	wCost := config.GetFloat(config.OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST, 0.33)
+	wViolations := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.33)
+	wDataTransfers := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.33)
+	wCost := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST, 0.33)
 	params.ObjWeights = []float64{wViolations, wDataTransfers, wCost}
 
-	regionCost := config.GetStringMapFloat64(config.OFFLOADING_POLICY_REGION_COST)
+	regionCost := config.GetStringMapFloat64(config.WORKFLOW_OFFLOADING_POLICY_REGION_COST)
 	// TODO: ToLower() is needed because viper (used to parse configuration files) is not case sensitive
 	localCost, ok := regionCost[strings.ToLower(registration.SelfRegistration.Area)]
 	if !ok {
@@ -262,13 +262,13 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	}
 
 	// Bandwidth (we assume identical)
-	dsBandwidth := config.GetFloat(config.OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
+	dsBandwidth := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
 	for _, n := range params.EdgeNodes {
 		params.DSBandwidth[n] = dsBandwidth
 	}
 
 	if len(params.CloudNodes) > 0 {
-		params.DSBandwidth[CLOUD] = config.GetFloat(config.OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
+		params.DSBandwidth[CLOUD] = config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
 	}
 
 	localWarmStatus := node.WarmStatus()
