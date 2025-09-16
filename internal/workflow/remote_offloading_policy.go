@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -342,16 +343,18 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 				}
 
 				// Init Time
-				coldStart := true // TODO: assuming cold start
-				if !coldStart {
-					params.InitTime[tupleKey(string(tid), CLOUD)] = 0
+				coldStartProb := retrievedMetrics.RemoteColdStartProbability[f.Name]
+				if math.IsNaN(coldStartProb) || math.IsInf(coldStartProb, 1) {
+					coldStartProb = 1.0
+				} else if coldStartProb < 0.0 {
+					log.Printf("Cold start probability is negative: %f", coldStartProb)
+					coldStartProb = 0.0
+				}
+				t, found = retrievedMetrics.AvgRemoteInitTime[f.Name]
+				if found {
+					params.InitTime[tupleKey(string(tid), CLOUD)] = t * coldStartProb
 				} else {
-					t, found = retrievedMetrics.AvgRemoteInitTime[f.Name]
-					if found {
-						params.InitTime[tupleKey(string(tid), CLOUD)] = t
-					} else {
-						params.InitTime[tupleKey(string(tid), CLOUD)] = 0.01 // no data: just guessing
-					}
+					params.InitTime[tupleKey(string(tid), CLOUD)] = 0.01 * coldStartProb // no data about init time: just guessing
 				}
 			}
 		} else {
