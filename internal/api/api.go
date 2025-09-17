@@ -230,6 +230,7 @@ func GetServerStatus(c echo.Context) error {
 	response := registration.StatusInformation{
 		AvailableWarmContainers: node.WarmStatus(),
 		AvailableMemMB:          node.Resources.AvailableMemMB,
+		UsedMemMB:               node.Resources.UsedMemMB,
 		AvailableCPUs:           node.Resources.AvailableCPUs,
 		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
 		LoadAvg:                 loadAvgValues,

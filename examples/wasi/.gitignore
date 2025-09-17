@@ -1,0 +1,4 @@
+*.wasm
+python/lib/
+python/python-3.13.0-wasi_sdk-24.zip
+python/sieve_python-3.13.0-wasi.tar

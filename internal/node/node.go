@@ -30,6 +30,7 @@ func NewIdentifier(area string) NodeID {
 type NodeResources struct {
 	sync.RWMutex
 	AvailableMemMB int64
+	UsedMemMB      int64 // memory occupied by busy containers
 	AvailableCPUs  float64
 	DropCount      int64
 	ContainerPools map[string]*ContainerPool
