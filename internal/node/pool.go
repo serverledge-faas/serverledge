@@ -78,7 +78,7 @@ func acquireResources(cpuDemand float64, memDemand int64, isMemoryReclaimable bo
 			return false
 		}
 
-		enoughMem, _ := dismissContainer(memDemand)
+		enoughMem, _ := dismissContainer(memDemand - Resources.AvailableMemMB)
 		if !enoughMem {
 			return false
 		}
@@ -254,9 +254,9 @@ type itemToDismiss struct {
 // 2-phases: first, we find idle container and collect them as a slice, second (cleanup phase) we delete the container only and only if
 // the sum of their memory is >= requiredMemoryMB is
 func dismissContainer(requiredMemoryMB int64) (bool, error) {
+	log.Printf("Trying to dismiss containers to free up at least %d MB", requiredMemoryMB)
 	var cleanedMB int64 = 0
 	var containerToDismiss []itemToDismiss
-	res := false
 
 	//first phase, research
 	for _, funPool := range Resources.ContainerPools {
@@ -287,15 +287,14 @@ cleanup: // second phase, cleanup
 			item.pool.idle.Remove(item.elem)      // remove the container from the funPool
 			err := container.Destroy(item.contID) // destroy the container
 			if err != nil {
-				res = false
-				return res, nil
+				return false, err
 			}
 			releaseResources(0, 0, item.memory)
 		}
-
-		res = true
+	} else {
+		log.Printf("Not enough containers to free up at least %d MB (avail to dismiss: %d)", requiredMemoryMB, cleanedMB)
 	}
-	return res, nil
+	return true, nil
 }
 
 // DeleteExpiredContainer is called by the container cleaner

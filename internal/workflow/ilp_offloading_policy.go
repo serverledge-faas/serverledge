@@ -11,6 +11,9 @@ import (
 
 type IlpOffloadingPolicy struct{}
 
+func (policy *IlpOffloadingPolicy) Init() {
+}
+
 func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {
 
 	completed := 0

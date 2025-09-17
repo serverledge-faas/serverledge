@@ -7,6 +7,7 @@ type OffloadingDecision struct {
 }
 
 type OffloadingPolicy interface {
+	Init()
 	Evaluate(r *Request, p *Progress) (OffloadingDecision, error)
 }
 
@@ -15,6 +16,9 @@ type OffloadingPlan struct {
 }
 
 type NoOffloadingPolicy struct{}
+
+func (policy *NoOffloadingPolicy) Init() {
+}
 
 func (policy *NoOffloadingPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {
 

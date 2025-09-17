@@ -11,6 +11,10 @@ import (
 
 type HEFTlessPolicy struct{}
 
+func (policy *HEFTlessPolicy) Init() {
+
+}
+
 func (policy *HEFTlessPolicy) Evaluate(r *Request, p *Progress) (OffloadingDecision, error) {
 
 	completed := 0

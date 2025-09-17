@@ -34,9 +34,13 @@ func CreateOffloadingPolicy() {
 		offloadingPolicy = &IlpOffloadingPolicy{}
 	} else if policyConf == "heftless" {
 		offloadingPolicy = &HEFTlessPolicy{}
+	} else if policyConf == "threshold" {
+		offloadingPolicy = &ThresholdBasedPolicy{}
 	} else { // default, disable offloading
 		offloadingPolicy = &NoOffloadingPolicy{}
 	}
+
+	offloadingPolicy.Init()
 }
 
 // Workflow is a Workflow to drive the execution of the workflow
