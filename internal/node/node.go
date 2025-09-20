@@ -27,17 +27,31 @@ func NewIdentifier(area string) NodeID {
 	return NodeID{Area: area, Key: id}
 }
 
-type NodeResources struct {
+type Resources struct {
 	sync.RWMutex
-	AvailableMemMB int64
-	UsedMemMB      int64 // memory occupied by busy containers
-	AvailableCPUs  float64
-	DropCount      int64
-	ContainerPools map[string]*ContainerPool
+	TotalMemory     int64
+	TotalCPUs       float64
+	BusyPoolUsedMem int64
+	WarmPoolUsedMem int64
+	UsedCPUs        float64
+	ContainerPools  map[string]*ContainerPool
 }
 
-func (n *NodeResources) String() string {
-	return fmt.Sprintf("[CPUs: %f - Mem: %d]", n.AvailableCPUs, n.AvailableMemMB)
+func (n *Resources) String() string {
+	return fmt.Sprintf("[CPUs: %f/%f - Mem: %d(%d warm)/%d]", n.UsedCPUs, n.TotalCPUs, n.BusyPoolUsedMem, n.WarmPoolUsedMem, n.TotalMemory)
 }
 
-var Resources NodeResources
+func (n *Resources) FreeMemory() int64 {
+	return n.TotalMemory - n.BusyPoolUsedMem - n.WarmPoolUsedMem
+}
+
+// AvailableMemory returns amount of memory that is free or reclaimable from warm containers
+func (n *Resources) AvailableMemory() int64 {
+	return n.TotalMemory - n.BusyPoolUsedMem
+}
+
+func (n *Resources) AvailableCPUs() float64 {
+	return n.TotalCPUs - n.UsedCPUs
+}
+
+var LocalResources Resources

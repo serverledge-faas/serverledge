@@ -10,12 +10,10 @@ import (
 
 type ThresholdBasedPolicy struct{}
 
-var nodeTotalMemory float64 = -1
 var utilizationThreshold float64
 var maxOffloadedTasks int
 
 func (policy *ThresholdBasedPolicy) Init() {
-	nodeTotalMemory = float64(config.GetInt(config.POOL_MEMORY_MB, 1024))
 	utilizationThreshold = config.GetFloat(config.WORKFLOW_THRESHOLD_BASED_POLICY_THRESHOLD, 0.75)
 	maxOffloadedTasks = config.GetInt(config.WORKFLOW_THRESHOLD_BASED_POLICY_MAX_OFFLOADED, 5)
 }
@@ -26,7 +24,7 @@ func (policy *ThresholdBasedPolicy) Evaluate(r *Request, p *Progress) (Offloadin
 		return OffloadingDecision{Offload: false}, nil
 	}
 
-	usedMemory := node.Resources.UsedMemMB
+	usedMemory := node.LocalResources.BusyPoolUsedMem
 	nextTaskId := p.ReadyToExecute[0] // TODO: update in case of parallel branches
 	nextTask := r.W.Tasks[nextTaskId]
 
@@ -43,7 +41,7 @@ func (policy *ThresholdBasedPolicy) Evaluate(r *Request, p *Progress) (Offloadin
 		return OffloadingDecision{Offload: false}, nil
 	}
 
-	if float64(usedMemory+f.MemoryMB)/nodeTotalMemory <= utilizationThreshold {
+	if float64(usedMemory+f.MemoryMB)/float64(node.LocalResources.TotalMemory) <= utilizationThreshold {
 		log.Printf("Threshold OK...executing locally %v", nextTaskId)
 		// execute locally next task
 		return OffloadingDecision{Offload: false}, nil
@@ -72,7 +70,7 @@ func (policy *ThresholdBasedPolicy) Evaluate(r *Request, p *Progress) (Offloadin
 				log.Printf("Could not find function for task %s", nextTaskId)
 				break
 			}
-			if float64(usedMemory+f.MemoryMB)/nodeTotalMemory > utilizationThreshold {
+			if float64(usedMemory+f.MemoryMB)/float64(node.LocalResources.TotalMemory) > utilizationThreshold {
 				log.Printf("%v also violates threshold", nextTaskId)
 				offloadedMemory += f.MemoryMB
 				offloadedTasks = append(offloadedTasks, nextTaskId)

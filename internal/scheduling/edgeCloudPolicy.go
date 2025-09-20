@@ -18,7 +18,7 @@ func (p *CloudEdgePolicy) OnCompletion(_ *function.Function, _ *function.Executi
 }
 
 func (p *CloudEdgePolicy) OnArrival(r *scheduledRequest) {
-	containerID, warm, err := node.AcquireContainer(r.Fun)
+	containerID, warm, err := node.AcquireContainer(r.Fun, false)
 	if err == nil {
 		execLocally(r, containerID, warm)
 	} else if r.CanDoOffloading {

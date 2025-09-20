@@ -23,7 +23,7 @@ func (p *EdgePolicy) OnArrival(r *scheduledRequest) {
 			return
 		}
 	} else {
-		containerID, warm, err := node.AcquireContainer(r.Fun)
+		containerID, warm, err := node.AcquireContainer(r.Fun, false)
 		if err == nil {
 			execLocally(r, containerID, warm)
 			return

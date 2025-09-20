@@ -217,8 +217,8 @@ func DeleteFunction(c echo.Context) error {
 
 // GetServerStatus simple api to check the current server status
 func GetServerStatus(c echo.Context) error {
-	node.Resources.RLock()
-	defer node.Resources.RUnlock()
+	node.LocalResources.RLock()
+	defer node.LocalResources.RUnlock()
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
@@ -229,9 +229,9 @@ func GetServerStatus(c echo.Context) error {
 	// TODO: use a different type
 	response := registration.StatusInformation{
 		AvailableWarmContainers: node.WarmStatus(),
-		AvailableMemMB:          node.Resources.AvailableMemMB,
-		UsedMemMB:               node.Resources.UsedMemMB,
-		AvailableCPUs:           node.Resources.AvailableCPUs,
+		AvailableMemMB:          node.LocalResources.AvailableMemory(),
+		UsedMemMB:               node.LocalResources.BusyPoolUsedMem,
+		AvailableCPUs:           node.LocalResources.AvailableCPUs(),
 		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
 		LoadAvg:                 loadAvgValues,
 	}

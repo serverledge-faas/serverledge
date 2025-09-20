@@ -180,7 +180,7 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	params.EdgeNodes = []string{LOCAL}
 	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds()
 	params.HandlingNode = LOCAL
-	params.NodeMemory[LOCAL] = (float64)(node.Resources.AvailableMemMB)
+	params.NodeMemory[LOCAL] = (float64)(node.LocalResources.AvailableMemory())
 
 	wViolations := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.33)
 	wDataTransfers := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.33)

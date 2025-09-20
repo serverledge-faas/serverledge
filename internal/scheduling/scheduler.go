@@ -29,10 +29,11 @@ func Run(p Policy) {
 
 	// initialize resources
 	availableCores := runtime.NumCPU()
-	node.Resources.AvailableMemMB = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
-	node.Resources.AvailableCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
-	node.Resources.ContainerPools = make(map[string]*node.ContainerPool)
-	log.Printf("Current resources: %v\n", &node.Resources)
+
+	node.LocalResources.TotalMemory = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
+	node.LocalResources.TotalCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
+	node.LocalResources.ContainerPools = make(map[string]*node.ContainerPool)
+	log.Printf("Current resources: %v\n", &node.LocalResources)
 
 	container.InitDockerContainerFactory()
 
