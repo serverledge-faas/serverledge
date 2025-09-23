@@ -201,9 +201,9 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	nearbyServers := registration.GetFullNeighborInfo()
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
-			if v.AvailableMemMB > 0 && v.AvailableCPUs > 0 {
+			if (v.TotalMemory-v.UsedMemory) > 0 && (v.TotalCPU-v.UsedCPU) > 0 {
 				params.EdgeNodes = append(params.EdgeNodes, k)
-				params.NodeMemory[k] = float64(v.AvailableMemMB)
+				params.NodeMemory[k] = float64(v.TotalMemory - v.UsedMemory)
 
 				// Cost (assuming that Edge nodes are all in the same area)
 				params.Cost[k] = localCost

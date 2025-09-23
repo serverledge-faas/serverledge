@@ -20,12 +20,12 @@ var NoWarmFoundErr = errors.New("no warm container is available")
 
 // GetContainerPool retrieves (or creates) the container pool for a function.
 func GetContainerPool(f *function.Function) *ContainerPool {
-	if fp, ok := LocalResources.ContainerPools[f.Name]; ok {
+	if fp, ok := LocalResources.containerPools[f.Name]; ok {
 		return fp
 	}
 
 	fp := newContainerPool()
-	LocalResources.ContainerPools[f.Name] = fp
+	LocalResources.containerPools[f.Name] = fp
 	return fp
 }
 
@@ -73,9 +73,9 @@ func acquireNewMemory(mem int64, forWarmPool bool) bool {
 	}
 
 	if forWarmPool {
-		LocalResources.WarmPoolUsedMem += mem
+		LocalResources.warmPoolUsedMem += mem
 	} else {
-		LocalResources.BusyPoolUsedMem += mem
+		LocalResources.busyPoolUsedMem += mem
 	}
 
 	return true
@@ -113,8 +113,8 @@ func acquireWarmContainer(f *function.Function) (*container.Container, error) {
 		//log.Printf("Not enough CPU to start a warm container for %s", f)
 		return nil, OutOfResourcesErr
 	}
-	LocalResources.BusyPoolUsedMem += f.MemoryMB
-	LocalResources.WarmPoolUsedMem -= f.MemoryMB
+	LocalResources.busyPoolUsedMem += f.MemoryMB
+	LocalResources.warmPoolUsedMem -= f.MemoryMB
 	LocalResources.usedCPUs += f.CPUDemand
 
 	// add container to the busy pool
@@ -172,9 +172,9 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 		cont.ExpirationTime = time.Now().Add(d).UnixNano()
 		fp.idle.PushBack(cont)
 
-		LocalResources.UsedCPUs -= f.CPUDemand
-		LocalResources.BusyPoolUsedMem -= f.MemoryMB
-		LocalResources.WarmPoolUsedMem += f.MemoryMB
+		LocalResources.usedCPUs -= f.CPUDemand
+		LocalResources.busyPoolUsedMem -= f.MemoryMB
+		LocalResources.warmPoolUsedMem += f.MemoryMB
 	}
 }
 
@@ -191,7 +191,7 @@ func AcquireResourcesForNewContainer(fun *function.Function, forWarmPool bool) b
 	}
 
 	if !forWarmPool {
-		LocalResources.UsedCPUs += fun.CPUDemand
+		LocalResources.usedCPUs += fun.CPUDemand
 	}
 	return true
 }
@@ -209,8 +209,8 @@ func NewContainerWithAcquiredResources(fun *function.Function, startAsIdle bool,
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 	if err != nil {
-		LocalResources.BusyPoolUsedMem -= fun.MemoryMB
-		LocalResources.UsedCPUs -= fun.CPUDemand
+		LocalResources.busyPoolUsedMem -= fun.MemoryMB
+		LocalResources.usedCPUs -= fun.CPUDemand
 		return nil, err
 	}
 
@@ -236,8 +236,8 @@ func NewContainerWithAcquiredResourcesAsync(fun *function.Function, okCallback f
 		LocalResources.Lock()
 		defer LocalResources.Unlock()
 		if err != nil {
-			LocalResources.BusyPoolUsedMem -= fun.MemoryMB
-			LocalResources.UsedCPUs -= fun.CPUDemand
+			LocalResources.busyPoolUsedMem -= fun.MemoryMB
+			LocalResources.usedCPUs -= fun.CPUDemand
 			return
 		}
 
@@ -264,7 +264,7 @@ func dismissContainer(requiredMemoryMB int64) (bool, error) {
 	var containerToDismiss []itemToDismiss
 
 	//first phase, research
-	for _, funPool := range LocalResources.ContainerPools {
+	for _, funPool := range LocalResources.containerPools {
 		if funPool.idle.Len() > 0 {
 			// every container into the funPool has the same memory (same function)
 			//so it is not important which one you destroy
@@ -294,7 +294,7 @@ cleanup: // second phase, cleanup
 			if err != nil {
 				return false, err
 			}
-			LocalResources.WarmPoolUsedMem -= item.memory
+			LocalResources.warmPoolUsedMem -= item.memory
 		}
 	} else {
 		log.Printf("Not enough containers to free up at least %d MB (avail to dismiss: %d)", requiredMemoryMB, cleanedMB)
@@ -310,7 +310,7 @@ func DeleteExpiredContainer() {
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
-	for _, pool := range LocalResources.ContainerPools {
+	for _, pool := range LocalResources.containerPools {
 		elem := pool.idle.Front()
 		for ok := elem != nil; ok; ok = elem != nil {
 			warm := elem.Value.(*container.Container)
@@ -321,7 +321,7 @@ func DeleteExpiredContainer() {
 				pool.idle.Remove(temp) // remove the expired element
 
 				memory, _ := container.GetMemoryMB(warm.ID)
-				LocalResources.WarmPoolUsedMem -= memory
+				LocalResources.warmPoolUsedMem -= memory
 				err := container.Destroy(warm.ID)
 				if err != nil {
 					log.Printf("Error while destroying container %s: %s\n", warm.ID, err)
@@ -341,7 +341,7 @@ func ShutdownWarmContainersFor(f *function.Function) {
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
-	fp, ok := LocalResources.ContainerPools[f.Name]
+	fp, ok := LocalResources.containerPools[f.Name]
 	if !ok {
 		return
 	}
@@ -357,7 +357,7 @@ func ShutdownWarmContainersFor(f *function.Function) {
 		fp.idle.Remove(temp)
 
 		memory, _ := container.GetMemoryMB(warmed.ID)
-		LocalResources.WarmPoolUsedMem -= memory
+		LocalResources.warmPoolUsedMem -= memory
 		containersToDelete = append(containersToDelete, warmed.ID)
 	}
 
@@ -378,7 +378,7 @@ func ShutdownAllContainers() {
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
-	for fun, pool := range LocalResources.ContainerPools {
+	for fun, pool := range LocalResources.containerPools {
 		functionDescriptor, _ := function.GetFunction(fun)
 
 		for elem := pool.idle.Front(); elem != nil; elem = elem.Next() {
@@ -391,7 +391,7 @@ func ShutdownAllContainers() {
 			if err != nil {
 				log.Printf("Error while destroying container %s: %s", warmed.ID, err)
 			}
-			LocalResources.WarmPoolUsedMem -= functionDescriptor.MemoryMB
+			LocalResources.warmPoolUsedMem -= functionDescriptor.MemoryMB
 		}
 
 		for elem := pool.busy.Front(); elem != nil; elem = elem.Next() {
@@ -406,8 +406,8 @@ func ShutdownAllContainers() {
 				continue
 			}
 
-			LocalResources.UsedCPUs -= functionDescriptor.CPUDemand
-			LocalResources.BusyPoolUsedMem -= functionDescriptor.MemoryMB
+			LocalResources.usedCPUs -= functionDescriptor.CPUDemand
+			LocalResources.busyPoolUsedMem -= functionDescriptor.MemoryMB
 		}
 	}
 }
@@ -417,7 +417,7 @@ func WarmStatus() map[string]int {
 	LocalResources.RLock()
 	defer LocalResources.RUnlock()
 	warmPool := make(map[string]int)
-	for funcName, pool := range LocalResources.ContainerPools {
+	for funcName, pool := range LocalResources.containerPools {
 		warmPool[funcName] = pool.idle.Len()
 	}
 

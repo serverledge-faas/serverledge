@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lithammer/shortuuid"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -29,29 +31,52 @@ func NewIdentifier(area string) NodeID {
 
 type Resources struct {
 	sync.RWMutex
-	TotalMemory     int64
-	TotalCPUs       float64
-	BusyPoolUsedMem int64
-	WarmPoolUsedMem int64
-	UsedCPUs        float64
-	ContainerPools  map[string]*ContainerPool
+	totalMemory     int64
+	totalCPUs       float64
+	busyPoolUsedMem int64
+	warmPoolUsedMem int64
+	usedCPUs        float64
+	containerPools  map[string]*ContainerPool
+}
+
+func (n *Resources) Init() {
+	availableCores := runtime.NumCPU()
+	n.totalCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
+	n.totalMemory = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
+	n.containerPools = make(map[string]*ContainerPool)
 }
 
 func (n *Resources) String() string {
-	return fmt.Sprintf("[CPUs: %f/%f - Mem: %d(%d warm)/%d]", n.UsedCPUs, n.TotalCPUs, n.BusyPoolUsedMem, n.WarmPoolUsedMem, n.TotalMemory)
+	return fmt.Sprintf("[CPUs: %f/%f - Mem: %d(%d warm)/%d]", n.usedCPUs, n.totalCPUs, n.busyPoolUsedMem, n.warmPoolUsedMem, n.totalMemory)
 }
 
 func (n *Resources) FreeMemory() int64 {
-	return n.TotalMemory - n.BusyPoolUsedMem - n.WarmPoolUsedMem
+	return n.totalMemory - n.busyPoolUsedMem - n.warmPoolUsedMem
 }
 
 // AvailableMemory returns amount of memory that is free or reclaimable from warm containers
 func (n *Resources) AvailableMemory() int64 {
-	return n.TotalMemory - n.BusyPoolUsedMem
+	return n.totalMemory - n.busyPoolUsedMem
 }
 
 func (n *Resources) AvailableCPUs() float64 {
-	return n.TotalCPUs - n.UsedCPUs
+	return n.totalCPUs - n.usedCPUs
+}
+
+func (n *Resources) UsedMemory() int64 {
+	return n.busyPoolUsedMem
+}
+
+func (n *Resources) UsedCPUs() float64 {
+	return n.usedCPUs
+}
+
+func (n *Resources) TotalCPUs() float64 {
+	return n.totalCPUs
+}
+
+func (n *Resources) TotalMemory() int64 {
+	return n.totalMemory
 }
 
 var LocalResources Resources

@@ -5,10 +5,8 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/registration"
 	"log"
 	"net/http"
-	"runtime"
 	"time"
 
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/metrics"
@@ -27,12 +25,7 @@ func Run(p Policy) {
 	requests = make(chan *scheduledRequest, 500)
 	completions = make(chan *completionNotification, 500)
 
-	// initialize resources
-	availableCores := runtime.NumCPU()
-
-	node.LocalResources.TotalMemory = int64(config.GetInt(config.POOL_MEMORY_MB, 1024))
-	node.LocalResources.TotalCPUs = config.GetFloat(config.POOL_CPUS, float64(availableCores))
-	node.LocalResources.ContainerPools = make(map[string]*node.ContainerPool)
+	node.LocalResources.Init()
 	log.Printf("Current resources: %v\n", &node.LocalResources)
 
 	container.InitDockerContainerFactory()

@@ -229,9 +229,10 @@ func GetServerStatus(c echo.Context) error {
 	// TODO: use a different type
 	response := registration.StatusInformation{
 		AvailableWarmContainers: node.WarmStatus(),
-		AvailableMemMB:          node.LocalResources.AvailableMemory(),
-		UsedMemMB:               node.LocalResources.BusyPoolUsedMem,
-		AvailableCPUs:           node.LocalResources.AvailableCPUs(),
+		TotalMemory:             node.LocalResources.TotalMemory(),
+		UsedMemory:              node.LocalResources.UsedMemory(),
+		TotalCPU:                node.LocalResources.TotalCPUs(),
+		UsedCPU:                 node.LocalResources.UsedCPUs(),
 		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
 		LoadAvg:                 loadAvgValues,
 	}
