@@ -115,6 +115,7 @@ func acquireWarmContainer(f *function.Function) (*container.Container, error) {
 	}
 	LocalResources.BusyPoolUsedMem += f.MemoryMB
 	LocalResources.WarmPoolUsedMem -= f.MemoryMB
+	LocalResources.usedCPUs += f.CPUDemand
 
 	// add container to the busy pool
 	c.RequestsCount = 1
@@ -148,8 +149,6 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
-	log.Printf("Handling completion of %s. Res: %s", f.Name, &LocalResources)
-
 	cont.RequestsCount--
 	if cont.RequestsCount == 0 {
 		// the container is now idle and must be moved to the warm pool
@@ -177,8 +176,6 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 		LocalResources.BusyPoolUsedMem -= f.MemoryMB
 		LocalResources.WarmPoolUsedMem += f.MemoryMB
 	}
-
-	log.Printf("Handled completion of %s. Res: %s", f.Name, &LocalResources)
 }
 
 func AcquireResourcesForNewContainer(fun *function.Function, forWarmPool bool) bool {
