@@ -33,9 +33,9 @@ type Resources struct {
 	sync.RWMutex
 	totalMemory     int64
 	totalCPUs       float64
-	busyPoolUsedMem int64
-	warmPoolUsedMem int64
-	usedCPUs        float64
+	busyPoolUsedMem int64   // amount of memory used by functions currently running
+	warmPoolUsedMem int64   // amount of memory used by warm containers
+	usedCPUs        float64 // number of CPU used by functions currently running
 	containerPools  map[string]*ContainerPool
 }
 
@@ -54,7 +54,7 @@ func (n *Resources) FreeMemory() int64 {
 	return n.totalMemory - n.busyPoolUsedMem - n.warmPoolUsedMem
 }
 
-// AvailableMemory returns amount of memory that is free or reclaimable from warm containers
+// AvailableMemory returns the amount of memory that is free or reclaimable from warm containers
 func (n *Resources) AvailableMemory() int64 {
 	return n.totalMemory - n.busyPoolUsedMem
 }
