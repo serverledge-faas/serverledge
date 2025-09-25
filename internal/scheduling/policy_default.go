@@ -32,42 +32,44 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 
 	p.queue.Lock()
 	defer p.queue.Unlock()
-	if p.queue.len() == 0 {
-		return
-	}
 
-	// TODO: loop
-	req := p.queue.front()
+	tryDequeueing := !p.queue.isEmpty()
 
-	containerID, _, err := node.AcquireContainer(req.Fun, true)
-	if err == nil {
-		p.queue.dequeue()
-		log.Printf("[%s] Exec warm from the queue (length=%d)\n", req, p.queue.len())
-		execLocally(req, containerID, true)
-		return
-	}
+	for tryDequeueing {
+		req := p.queue.front()
 
-	if errors.Is(err, node.NoWarmFoundErr) {
-		if node.AcquireResourcesForNewContainer(req.Fun, false) {
-			log.Printf("[%s] Cold start from the queue\n", req)
+		containerID, _, err := node.AcquireContainer(req.Fun, true)
+		if err == nil {
 			p.queue.dequeue()
-
-			// This avoids blocking the thread during the cold
-			// start, but also allows us to check for resource
-			// availability before dequeueing
-			node.NewContainerWithAcquiredResourcesAsync(req.Fun, func(c *container.Container) {
-				execLocally(req, c, false)
-			}, func(e error) {
-				dropRequest(req)
-			})
+			log.Printf("[%s] Exec warm from the queue (length=%d)\n", req, p.queue.len())
+			execLocally(req, containerID, true)
+			continue
 		}
-	} else if errors.Is(err, node.OutOfResourcesErr) {
-	} else {
-		// other error
-		log.Printf("%v", err)
-		p.queue.dequeue()
-		dropRequest(req)
+
+		if errors.Is(err, node.NoWarmFoundErr) {
+			if node.AcquireResourcesForNewContainer(req.Fun, false) {
+				log.Printf("[%s] Cold start from the queue\n", req)
+				p.queue.dequeue()
+
+				// This avoids blocking the thread during the cold
+				// start, but also allows us to check for resource
+				// availability before dequeueing
+				node.NewContainerWithAcquiredResourcesAsync(req.Fun, func(c *container.Container) {
+					execLocally(req, c, false)
+				}, func(e error) {
+					dropRequest(req)
+				})
+			}
+		} else if errors.Is(err, node.OutOfResourcesErr) {
+			tryDequeueing = false
+		} else {
+			// other error
+			log.Printf("%v", err)
+			p.queue.dequeue()
+			dropRequest(req)
+		}
 	}
+
 }
 
 // OnArrival for default policy is executed every time a function is invoked, before invoking the function
