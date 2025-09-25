@@ -19,7 +19,7 @@ func (p *DefaultLocalPolicy) Init() {
 	queueCapacity := config.GetInt(config.SCHEDULER_QUEUE_CAPACITY, 0)
 	if queueCapacity > 0 {
 		log.Printf("Configured queue with capacity %d\n", queueCapacity)
-		p.queue = NewFIFOQueue(queueCapacity)
+		p.queue = newFIFOQueue(queueCapacity)
 	} else {
 		p.queue = nil
 	}
@@ -32,17 +32,17 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 
 	p.queue.Lock()
 	defer p.queue.Unlock()
-	if p.queue.Len() == 0 {
+	if p.queue.len() == 0 {
 		return
 	}
 
 	// TODO: loop
-	req := p.queue.Front()
+	req := p.queue.front()
 
 	containerID, _, err := node.AcquireContainer(req.Fun, true)
 	if err == nil {
-		p.queue.Dequeue()
-		log.Printf("[%s] Exec warm from the queue (length=%d)\n", req, p.queue.Len())
+		p.queue.dequeue()
+		log.Printf("[%s] Exec warm from the queue (length=%d)\n", req, p.queue.len())
 		execLocally(req, containerID, true)
 		return
 	}
@@ -50,7 +50,7 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 	if errors.Is(err, node.NoWarmFoundErr) {
 		if node.AcquireResourcesForNewContainer(req.Fun, false) {
 			log.Printf("[%s] Cold start from the queue\n", req)
-			p.queue.Dequeue()
+			p.queue.dequeue()
 
 			// This avoids blocking the thread during the cold
 			// start, but also allows us to check for resource
@@ -65,7 +65,7 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 	} else {
 		// other error
 		log.Printf("%v", err)
-		p.queue.Dequeue()
+		p.queue.dequeue()
 		dropRequest(req)
 	}
 }
@@ -91,8 +91,8 @@ func (p *DefaultLocalPolicy) OnArrival(r *scheduledRequest) {
 	if p.queue != nil {
 		p.queue.Lock()
 		defer p.queue.Unlock()
-		if p.queue.Enqueue(r) {
-			log.Printf("[%s] Added to queue (length=%d)\n", r, p.queue.Len())
+		if p.queue.enqueue(r) {
+			log.Printf("[%s] Added to queue (length=%d)\n", r, p.queue.len())
 			return
 		}
 	}

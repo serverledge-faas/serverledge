@@ -3,16 +3,18 @@ package scheduling
 import "sync"
 
 type queue interface {
-	Enqueue(r *scheduledRequest) bool
-	Dequeue() *scheduledRequest
-	Front() *scheduledRequest
-	Len() int
+	enqueue(r *scheduledRequest) bool
+	dequeue() *scheduledRequest
+	front() *scheduledRequest
+	len() int
+	isEmpty() bool
+	isFull() bool
 	Lock()
 	Unlock()
 }
 
-// FIFOQueue defines a circular queue
-type FIFOQueue struct {
+// circularFifoQueue defines a circular queue
+type circularFifoQueue struct {
 	sync.Mutex
 	data     []*scheduledRequest
 	capacity int
@@ -21,12 +23,12 @@ type FIFOQueue struct {
 	size     int
 }
 
-// NewFIFOQueue creates a queue
-func NewFIFOQueue(n int) *FIFOQueue {
+// newFIFOQueue creates a queue
+func newFIFOQueue(n int) queue {
 	if n < 1 {
 		return nil
 	}
-	return &FIFOQueue{
+	return &circularFifoQueue{
 		data:     make([]*scheduledRequest, n),
 		capacity: n,
 		head:     0,
@@ -35,19 +37,19 @@ func NewFIFOQueue(n int) *FIFOQueue {
 	}
 }
 
-// IsEmpty returns true if queue is empty
-func (q *FIFOQueue) IsEmpty() bool {
+// isEmpty returns true if queue is empty
+func (q *circularFifoQueue) isEmpty() bool {
 	return q != nil && q.size == 0
 }
 
-// IsFull returns true if queue is full
-func (q *FIFOQueue) IsFull() bool {
+// isFull returns true if queue is full
+func (q *circularFifoQueue) isFull() bool {
 	return q.size == q.capacity
 }
 
 // Enqueue pushes an element to the back
-func (q *FIFOQueue) Enqueue(v *scheduledRequest) bool {
-	if q.IsFull() {
+func (q *circularFifoQueue) enqueue(v *scheduledRequest) bool {
+	if q.isFull() {
 		return false
 	}
 
@@ -58,8 +60,8 @@ func (q *FIFOQueue) Enqueue(v *scheduledRequest) bool {
 }
 
 // Dequeue fetches a element from queue
-func (q *FIFOQueue) Dequeue() *scheduledRequest {
-	if q.IsEmpty() {
+func (q *circularFifoQueue) dequeue() *scheduledRequest {
+	if q.isEmpty() {
 		return nil
 	}
 	v := q.data[q.head]
@@ -68,8 +70,8 @@ func (q *FIFOQueue) Dequeue() *scheduledRequest {
 	return v
 }
 
-func (q *FIFOQueue) Front() *scheduledRequest {
-	if q.IsEmpty() {
+func (q *circularFifoQueue) front() *scheduledRequest {
+	if q.isEmpty() {
 		return nil
 	}
 	v := q.data[q.head]
@@ -77,6 +79,6 @@ func (q *FIFOQueue) Front() *scheduledRequest {
 }
 
 // Len returns the current length of the queue
-func (q *FIFOQueue) Len() int {
+func (q *circularFifoQueue) len() int {
 	return q.size
 }
