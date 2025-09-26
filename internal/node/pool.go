@@ -380,6 +380,10 @@ func ShutdownAllContainers() {
 
 	for fun, pool := range LocalResources.containerPools {
 		functionDescriptor, _ := function.GetFunction(fun)
+		if functionDescriptor == nil {
+			log.Printf("Could not find function, cannot shutdown containers: %s\n", fun)
+			continue // should not happen
+		}
 
 		for elem := pool.idle.Front(); elem != nil; elem = elem.Next() {
 			warmed := elem.Value.(*container.Container)
