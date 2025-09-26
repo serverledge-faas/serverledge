@@ -7,13 +7,12 @@ import (
 
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/executor"
-	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
 const HANDLER_DIR = "/app"
 
 // Execute serves a request on the specified container.
-func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) (function.ExecutionReport, error) {
+func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error {
 
 	log.Printf("[%s] Executing on container: %v", r.Fun, cont.ID)
 
@@ -48,28 +47,26 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) (funct
 		}
 
 		// notify scheduler
-		completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: nil}
-		return function.ExecutionReport{}, fmt.Errorf("[%s] Execution failed on container %v: %v ", r, cont.ID, err)
+		completions <- &completionNotification{r: r, cont: cont, failed: true}
+		return fmt.Errorf("[%s] Execution failed on container %v: %v ", r, cont.ID, err)
 	}
 
 	if !response.Success {
 		// notify scheduler
-		completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: nil}
-		return function.ExecutionReport{}, fmt.Errorf("[%s] Function execution failed %v", r, cont.ID)
+		completions <- &completionNotification{r: r, cont: cont, failed: true}
+		return fmt.Errorf("[%s] Function execution failed %v", r, cont.ID)
 	}
 
-	report := function.ExecutionReport{Result: response.Result,
-		Output:       response.Output,
-		IsWarmStart:  isWarm,
-		Duration:     time.Now().Sub(t0).Seconds() - invocationWait.Seconds(),
-		ResponseTime: time.Now().Sub(r.Arrival).Seconds()}
-
-	// initializing containers may require invocation retries, adding
-	// latency
-	report.InitTime = initTime + invocationWait.Seconds()
+	r.Result = response.Result
+	r.Output = response.Output
+	r.IsWarmStart = isWarm
+	r.Duration = time.Now().Sub(t0).Seconds() - invocationWait.Seconds()
+	r.ResponseTime = time.Now().Sub(r.Arrival).Seconds()
+	// initializing containers may require invocation retries, adding // latency
+	r.InitTime = initTime + invocationWait.Seconds()
 
 	// notify scheduler
-	completions <- &completionNotification{fun: r.Fun, cont: cont, executionReport: &report}
+	completions <- &completionNotification{r: r, cont: cont, failed: false}
 
-	return report, nil
+	return nil
 }

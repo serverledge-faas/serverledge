@@ -53,18 +53,18 @@ func Run(p Policy) {
 		case r = <-requests: // receive request
 			go p.OnArrival(r)
 		case c = <-completions:
-			node.HandleCompletion(c.cont, c.fun)
-			p.OnCompletion(c.fun, c.executionReport)
+			node.HandleCompletion(c.cont, c.r.Fun)
+			p.OnCompletion(c.r.Fun, c.r.ExecutionReport)
 
-			if metrics.Enabled && c.executionReport != nil {
-				metrics.AddCompletedInvocation(c.fun.Name, !c.executionReport.IsWarmStart)
-				if c.executionReport.SchedAction != SCHED_ACTION_OFFLOAD {
-					metrics.AddFunctionDurationValue(c.fun.Name, c.executionReport.Duration)
-					if !c.executionReport.IsWarmStart {
-						metrics.AddFunctionInitTimeValue(c.fun.Name, c.executionReport.InitTime)
+			if metrics.Enabled && !c.failed && c.r.ExecutionReport != nil {
+				metrics.AddCompletedInvocation(c.r.Fun.Name, !c.r.ExecutionReport.IsWarmStart)
+				if !c.r.offloaded {
+					metrics.AddFunctionDurationValue(c.r.Fun.Name, c.r.ExecutionReport.Duration)
+					if !c.r.ExecutionReport.IsWarmStart {
+						metrics.AddFunctionInitTimeValue(c.r.Fun.Name, c.r.ExecutionReport.InitTime)
 					}
 				}
-				outputSize := len(c.executionReport.Result)
+				outputSize := len(c.r.ExecutionReport.Result)
 				metrics.AddFunctionOutputSizeValue(r.Fun.Name, float64(outputSize))
 			}
 		}
@@ -73,9 +73,10 @@ func Run(p Policy) {
 }
 
 // SubmitRequest submits a newly arrived request for scheduling and execution
-func SubmitRequest(r *function.Request) (function.ExecutionReport, error) {
+func SubmitRequest(r *function.Request) (*function.ExecutionReport, error) {
 	schedRequest := scheduledRequest{
 		Request:         r,
+		ExecutionReport: &function.ExecutionReport{},
 		decisionChannel: make(chan schedDecision, 1)}
 	requests <- &schedRequest
 
@@ -86,7 +87,7 @@ func SubmitRequest(r *function.Request) (function.ExecutionReport, error) {
 	// wait on channel for scheduling action
 	schedDecision, ok := <-schedRequest.decisionChannel
 	if !ok {
-		return function.ExecutionReport{}, fmt.Errorf("could not schedule the request")
+		return nil, fmt.Errorf("could not schedule the request")
 	}
 	//log.Printf("[%s] Scheduling decision: %v", r, schedDecision)
 
@@ -96,12 +97,14 @@ func SubmitRequest(r *function.Request) (function.ExecutionReport, error) {
 
 	if schedDecision.action == DROP {
 		//log.Printf("[%s] Dropping request", r)
-		return function.ExecutionReport{}, node.OutOfResourcesErr
+		return nil, node.OutOfResourcesErr
 	} else if schedDecision.action == EXEC_REMOTE {
 		//log.Printf("Offloading request")
-		return Offload(r, schedDecision.remoteHost)
+		err := Offload(&schedRequest, schedDecision.remoteHost)
+		return schedRequest.ExecutionReport, err
 	} else {
-		return Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
+		err := Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
+		return schedRequest.ExecutionReport, err
 	}
 }
 
@@ -109,6 +112,7 @@ func SubmitRequest(r *function.Request) (function.ExecutionReport, error) {
 func SubmitAsyncRequest(r *function.Request) {
 	schedRequest := scheduledRequest{
 		Request:         r,
+		ExecutionReport: &function.ExecutionReport{},
 		decisionChannel: make(chan schedDecision, 1)}
 	requests <- &schedRequest // send async request
 
@@ -129,12 +133,12 @@ func SubmitAsyncRequest(r *function.Request) {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
 		}
 	} else {
-		report, err := Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
+		err = Execute(schedDecision.cont, &schedRequest, schedDecision.useWarm)
 		if err != nil {
 			publishAsyncResponse(r.Id(), function.Response{Success: false})
 			return
 		}
-		publishAsyncResponse(r.Id(), function.Response{Success: true, ExecutionReport: report})
+		publishAsyncResponse(r.Id(), function.Response{Success: true, ExecutionReport: *schedRequest.ExecutionReport})
 	}
 }
 

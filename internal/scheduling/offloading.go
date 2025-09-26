@@ -16,8 +16,6 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
-const SCHED_ACTION_OFFLOAD = "O"
-
 func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
 	// TODO: better to cache choice for a while
 	// TODO: check available mem as well
@@ -30,13 +28,13 @@ func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
 	return randomItem.APIUrl()
 }
 
-func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, error) {
+func Offload(r *scheduledRequest, serverUrl string) error {
 	// Prepare request
 	request := client.InvocationRequest{Params: r.Params, QoSClass: r.Class, QoSMaxRespT: r.MaxRespT}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
 		log.Print(err)
-		return function.ExecutionReport{}, err
+		return err
 	}
 	sendingTime := time.Now() // used to compute latency later on
 	resp, err := offloadingClient.Post(serverUrl+"/invoke/"+r.Fun.Name, "application/json",
@@ -44,13 +42,13 @@ func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, e
 
 	if err != nil {
 		log.Print(err)
-		return function.ExecutionReport{}, err
+		return err
 	}
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return function.ExecutionReport{}, node.OutOfResourcesErr
+			return node.OutOfResourcesErr
 		}
-		return function.ExecutionReport{}, fmt.Errorf("Remote returned: %v", resp.StatusCode)
+		return fmt.Errorf("Remote returned: %v", resp.StatusCode)
 	}
 
 	var response function.Response
@@ -62,19 +60,17 @@ func Offload(r *function.Request, serverUrl string) (function.ExecutionReport, e
 	}(resp.Body)
 	body, _ := io.ReadAll(resp.Body)
 	if err = json.Unmarshal(body, &response); err != nil {
-		return function.ExecutionReport{}, err
+		return err
 	}
 	now := time.Now()
 
-	execReport := &response.ExecutionReport
-	execReport.ResponseTime = now.Sub(r.Arrival).Seconds()
+	originalArrivalTime := r.Arrival
+	r.ExecutionReport = &response.ExecutionReport // switching execution report
+	r.ResponseTime = now.Sub(originalArrivalTime).Seconds()
+	r.OffloadLatency = now.Sub(sendingTime).Seconds() - r.Duration - r.InitTime
+	r.offloaded = true
 
-	// TODO: check how this is used in the QoSAware policy
-	// It was originially computed as "report.Arrival - sendingTime"
-	execReport.OffloadLatency = now.Sub(sendingTime).Seconds() - execReport.Duration - execReport.InitTime
-	execReport.SchedAction = SCHED_ACTION_OFFLOAD
-
-	return response.ExecutionReport, nil
+	return nil
 }
 
 func OffloadAsync(r *function.Request, serverUrl string) error {

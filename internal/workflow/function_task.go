@@ -102,7 +102,7 @@ func (s *FunctionTask) exec(compRequest *Request, params ...map[string]interface
 	}
 
 	// saving execution report for this function
-	compRequest.ExecReport.Reports[CreateExecutionReportId(s)] = &report
+	compRequest.ExecReport.Reports[CreateExecutionReportId(s)] = report
 
 	return outputData, nil
 }

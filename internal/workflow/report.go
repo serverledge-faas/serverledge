@@ -21,18 +21,14 @@ func (cer *ExecutionReport) String() string {
 	str += "\n\tReports: "
 
 	for id, report := range cer.Reports {
-		schedAction := "''"
-		if report.SchedAction != "" {
-			schedAction = report.SchedAction
-		}
 		output := "''"
 		if report.Output != "" {
 			output = report.Output
 		}
 
 		str += fmt.Sprintf("\n\t\t%s: {ResponseTime: %f, IsWarmStart: %v, InitTime: %f, OffloadLatency: %f,"+
-			" Duration: %f, SchedAction: %v, Output: %s, Result: %s}", id, report.ResponseTime, report.IsWarmStart,
-			report.InitTime, report.OffloadLatency, report.Duration, schedAction, output, report.Result)
+			" Duration: %f,  Output: %s, Result: %s}", id, report.ResponseTime, report.IsWarmStart,
+			report.InitTime, report.OffloadLatency, report.Duration, output, report.Result)
 		str += ",\n"
 	}
 

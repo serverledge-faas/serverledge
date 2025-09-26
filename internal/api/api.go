@@ -97,7 +97,7 @@ func InvokeFunction(c echo.Context) error {
 		log.Printf("Invocation failed: %v\n", err)
 		return c.String(http.StatusInternalServerError, "Node has not enough resources")
 	} else {
-		return c.JSON(http.StatusOK, function.Response{Success: true, ExecutionReport: executionReport})
+		return c.JSON(http.StatusOK, function.Response{Success: true, ExecutionReport: *executionReport})
 	}
 }
 

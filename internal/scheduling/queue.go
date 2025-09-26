@@ -1,6 +1,9 @@
 package scheduling
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type queue interface {
 	enqueue(r *scheduledRequest) bool
@@ -67,6 +70,9 @@ func (q *circularFifoQueue) dequeue() *scheduledRequest {
 	v := q.data[q.head]
 	q.head = (q.head + 1) % q.capacity
 	q.size = q.size - 1
+
+	v.QueueingTime = time.Now().Sub(v.Arrival).Seconds()
+
 	return v
 }
 
