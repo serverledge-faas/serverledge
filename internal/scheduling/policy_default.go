@@ -2,9 +2,10 @@ package scheduling
 
 import (
 	"errors"
+	"log"
+
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
-	"log"
 
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -33,9 +34,9 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 	p.queue.Lock()
 	defer p.queue.Unlock()
 
-	tryDequeueing := !p.queue.isEmpty()
+	tryDequeueing := true
 
-	for tryDequeueing {
+	for !p.queue.isEmpty() && tryDequeueing {
 		req := p.queue.front()
 
 		containerID, _, err := node.AcquireContainer(req.Fun, true)
