@@ -1,0 +1,63 @@
+{
+  "Comment": "A simple sentiment analysis application, trained on Amazon Reviews (https://s3.amazonaws.com/fast-ai-nlp/amazon_review_polarity_csv.tgz)",
+  "StartAt": "RetrieveState",
+  "States": {
+    "RetrieveState": {
+      "Comment": "Retrieve the dataset",
+      "Type": "Task",
+      "Resource": "sa_retrieve",
+      "Next": "ExtractState"
+    },
+    "ExtractState": {
+      "Comment": "Preprocess the dataset",
+      "Type": "Task",
+      "Resource": "sa_extract",
+      "Next": "ChoiceState"
+    },
+    "ChoiceState": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.model",
+          "NumericLessThan": 2,
+          "Next": "LATrainState"
+        },
+        {
+          "Variable": "$.model",
+          "NumericGreaterThanEquals": 2,
+          "Next": "HATrainState"
+        }
+      ],
+      "Default": "FailState"
+    },
+    "LATrainState": {
+      "Comment": "The training task of the low-accuracy sentiment analysis model",
+      "Type": "Task",
+      "Resource": "sa_train",
+      "Next": "LAEvaluateFinalState"
+    }, 
+    "LAEvaluateFinalState": {
+      "Comment": "The final task of the low-accuracy sentiment analysis model",
+      "Type": "Task",
+      "Resource": "sa_evaluate",
+      "End": true
+    }, 
+    "HATrainState": {
+      "Comment": "The training task of the high-accuracy sentiment analysis model",
+      "Type": "Task",
+      "Resource": "sa_train",
+      "Next": "HAEvaluateFinalState"
+    }, 
+    "HAEvaluateFinalState": {
+      "Comment": "The final task of the high-accuracy sentiment analysis model",
+      "Type": "Task",
+      "Resource": "sa_evaluate",
+      "End": true
+    }, 
+    "FailState": {
+      "Type": "Fail",
+      "Error": "ErrorA",
+      "Cause": "Unknown"
+    }
+  }
+}
