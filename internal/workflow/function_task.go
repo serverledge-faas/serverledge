@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/node"
 
 	"github.com/lithammer/shortuuid"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -36,6 +37,24 @@ func (s *FunctionTask) SetNext(nextTask Task) error {
 }
 
 func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interface{}, error) {
+
+	// FIXME: We are adding additional inputs from r.Params to match the function signature. This workaround should be
+	// dropped when we introduce the possibility to specify additional parameters for functions in a workflow.
+
+	funct, exists := function.GetFunction(s.Func)
+	if !exists {
+		return nil, fmt.Errorf("funtion %s doesn't exists", s.Func)
+	}
+	if funct.Signature == nil {
+		return nil, fmt.Errorf("signature of function %s is nil. Recreate the function with a valid signature.\n", funct.Name)
+	}
+	for _, inputDef := range funct.Signature.GetInputs() {
+		v, found := r.Params[inputDef.Name]
+		_, alreadyDefined := input.Data[inputDef.Name]
+		if found && !alreadyDefined {
+			input.Data[inputDef.Name] = v
+		}
+	}
 
 	err := s.CheckInput(input.Data)
 	if err != nil {
