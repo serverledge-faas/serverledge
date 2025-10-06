@@ -35,14 +35,15 @@ Serverledge has been used in other scientific papers, including:
 
 - A. Semjonov, H. Bornholdt, J. Edinger, G. Russo Russo, *Wasimoff: Distributed Computation Offloading Using WebAssembly in the Browser*, Proc. of \*LESS 2024 (in conjunction with IEEE PerCom '24), 203-208, [doi](https://doi.org/10.1109/PerComWorkshops59983.2024.10503392)
 
+## Requirements
+
+- **Linux** OS
+- [Docker Engine](https://docs.docker.com/engine/) 
+- Golang 1.24+
 
 ## Building from sources
 
-1. Check that Golang 1.20+ is installed.
-
-2. Download a copy of the source code.
-
-3. Build the project:
+Download a copy of the source code and build the project:
 
 ```
 $ make
