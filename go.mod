@@ -1,11 +1,8 @@
 module github.com/serverledge-faas/serverledge
 
-go 1.21
-
-toolchain go1.22.5
+go 1.24
 
 require (
-	github.com/LK4D4/trylock v0.0.0-20191027065348-ff7e133a5c54
 	github.com/buger/jsonparser v1.1.1
 	github.com/docker/docker v24.0.5+incompatible
 	github.com/hexablock/vivaldi v0.0.0-20180727225019-07adad3f2b5f
