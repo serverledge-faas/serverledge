@@ -73,8 +73,8 @@ Register a function `func` from example python code (the handler is formatted li
 
 Register a function `func` from example javascript code (the handler is formatted like this: $(filename) and the name of the function is "handler"):
 
-	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.js --runtime nodejs17 --handler "hello"
-    $ bin/serverledge-cli create -f func --memory 600 --src examples/inc.js --runtime nodejs17 --handler "inc"
+	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.js --runtime nodejs17ng --handler "hello"
+    $ bin/serverledge-cli create -f func --memory 600 --src examples/inc.js --runtime nodejs17ng --handler "inc"
 
 Invoke `func` with arguments `a=2` and `b=3`:
 
