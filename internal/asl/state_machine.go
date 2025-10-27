@@ -112,6 +112,9 @@ func parseStates(statesData string) (map[string]State, error) {
 		}
 
 		parseable := emptyParsableFromType(StateType(stateType))
+		if parseable == nil {
+			return fmt.Errorf("invalid state type %s", stateType)
+		}
 		parsedState, err := parseable.ParseFrom(value)
 		if err != nil {
 			return fmt.Errorf("failed to parse state %s ...\n%v", value[:40], err)
