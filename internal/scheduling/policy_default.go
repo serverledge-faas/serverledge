@@ -60,6 +60,8 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 				}, func(e error) {
 					dropRequest(req)
 				})
+			} else {
+				tryDequeueing = false
 			}
 		} else if errors.Is(err, node.OutOfResourcesErr) {
 			tryDequeueing = false
