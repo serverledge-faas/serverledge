@@ -47,7 +47,7 @@ func (n *Resources) Init() {
 }
 
 func (n *Resources) String() string {
-	return fmt.Sprintf("[CPUs: %f/%f - Mem: %d(%d warm)/%d]", n.usedCPUs, n.totalCPUs, n.busyPoolUsedMem, n.warmPoolUsedMem, n.totalMemory)
+	return fmt.Sprintf("[CPUs: %f/%f - Mem: %d(+%d warm)/%d]", n.usedCPUs, n.totalCPUs, n.busyPoolUsedMem, n.warmPoolUsedMem, n.totalMemory)
 }
 
 func (n *Resources) FreeMemory() int64 {
