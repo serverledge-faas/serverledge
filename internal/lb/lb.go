@@ -23,9 +23,11 @@ var targetsMutex sync.RWMutex
 var currentTargets map[string]registration.NodeRegistration
 
 func newPolicy() policy {
-	policyName := config.GetString(config.LOAD_BALANCER_POLICY, "round-robin")
+	policyName := config.GetString(config.LOAD_BALANCER_POLICY, "const-hash")
 	if policyName == "random" {
 		return &randomPolicy{}
+	} else if policyName == "const-hash" {
+		return newConstHashBalancer()
 	} else {
 		panic("unknown policy: " + policyName)
 	}
@@ -35,10 +37,19 @@ func handleInvoke(c echo.Context) error {
 
 	funcName := c.Param("fun")
 	// Select backend
-	targetURL, err := lbPolicy.Route(funcName)
+	targetKey, err := lbPolicy.Route(funcName)
+	if err != nil {
+		return c.JSON(http.StatusTooManyRequests, map[string]string{"error": err.Error()})
+	}
+	targetsMutex.RLock()
+	targetNode, ok := currentTargets[targetKey]
+	if !ok {
+		return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "missing target"})
+	}
+	targetsMutex.RUnlock()
 
 	// Create a new HTTP request to forward to the selected backend
-	newURL, _ := url.JoinPath(targetURL, c.Request().RequestURI)
+	newURL, _ := url.JoinPath(targetNode.APIUrl(), c.Request().RequestURI)
 	req, err := http.NewRequest(c.Request().Method, newURL, c.Request().Body)
 	if err != nil {
 		return err
@@ -55,7 +66,7 @@ func handleInvoke(c echo.Context) error {
 
 	if resp.StatusCode == http.StatusOK {
 		// function has been actually executed
-		// TODO: update info?
+		lbPolicy.OnRequestComplete(funcName, targetKey)
 	}
 
 	res := c.Response()
@@ -126,7 +137,7 @@ func StartReverseProxy(e *echo.Echo, region string) {
 	log.Printf("Initializing with %d targets.\n", len(currentTargets))
 	lbPolicy = newPolicy()
 
-	go updateTargets(region)
+	updateTargets(region)
 
 	tr := &http.Transport{
 		MaxIdleConns:        2500,
@@ -151,30 +162,49 @@ func StartReverseProxy(e *echo.Echo, region string) {
 }
 
 func updateTargets(region string) {
-	for {
-		time.Sleep(10 * time.Second) // TODO: configure
 
-		newTargets, err := registration.GetNodesInArea(region, false, 0)
-		if err != nil || newTargets == nil {
-			log.Printf("Cannot update targets: %v\n", err)
-		}
+	interval := config.GetInt(config.LOAD_BALANCER_TARGET_UPDATE_INTERVAL, 30)
+	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 
-		targetsMutex.Lock()
-		for k, _ := range currentTargets {
-			if _, ok := newTargets[k]; !ok {
-				// this target is not present any more
-				log.Printf("Removing target: %s\n", k)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				// retrieve new targets
+				newTargets, err := registration.GetNodesInArea(region, false, 0)
+				if err != nil || newTargets == nil {
+					log.Printf("Cannot update targets: %v\n", err)
+				}
+
+				targetsMutex.Lock()
+				for k, v := range currentTargets {
+					if _, ok := newTargets[k]; !ok {
+						// this target is not present any more
+						log.Printf("Removing target: %s\n", k)
+						lbPolicy.OnNodeDeletion(&v)
+					}
+				}
+
+				for k, v := range newTargets {
+					if _, ok := currentTargets[k]; !ok {
+						// this target was not present
+						log.Printf("Adding new target: %s\n", k)
+						lbPolicy.OnNodeArrival(&v)
+					}
+				}
+
+				currentTargets = newTargets
+				targetsMutex.Unlock()
+
+				// query status of each target
+				for _, v := range currentTargets {
+					status, err := getTargetStatus(v.APIUrl())
+					if err == nil {
+						lbPolicy.OnStatusUpdate(&v, status)
+					}
+				}
 			}
 		}
+	}()
 
-		for k, _ := range newTargets {
-			if _, ok := currentTargets[k]; !ok {
-				// this target was not present
-				log.Printf("Adding new target: %s\n", k)
-			}
-		}
-
-		currentTargets = newTargets
-		targetsMutex.Unlock()
-	}
 }
