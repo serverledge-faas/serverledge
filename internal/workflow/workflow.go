@@ -441,8 +441,12 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 	for len(progress.ReadyToExecute) > 0 {
 		decision, err := offloadingPolicy.Evaluate(r, progress)
-		if err == nil && decision.Offload {
 
+		if err != nil {
+			return fmt.Errorf("an error occurred in policy evaluation: %v", err)
+		}
+
+		if decision.Offload {
 			err := progress.Save()
 			if err != nil {
 				return fmt.Errorf("Could not save progress: %v", err)
@@ -471,7 +475,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 				return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
 			}
 			log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
-		} else if err == nil {
+		} else {
 			// pick next executable task
 			var taskToExecute TaskId = ""
 			for _, task := range progress.ReadyToExecute {
@@ -537,8 +541,6 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 				return nil
 			}
-		} else {
-			return fmt.Errorf("an error occurred in policy evaluation: %v", err)
 		}
 
 	}
