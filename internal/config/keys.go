@@ -111,4 +111,5 @@ const WORKFLOW_THRESHOLD_BASED_POLICY_THRESHOLD = "workflow.offloading.policy.th
 // Max number of tasks offloaded at once in the threshold-based offloading policy
 const WORKFLOW_THRESHOLD_BASED_POLICY_MAX_OFFLOADED = "workflow.offloading.policy.threshold.offloaded.max"
 
-const LOAD_BALANCER_POLICY = "load.balancer.policy"
+const LOAD_BALANCER_POLICY = "loadbalancer.policy"
+const LOAD_BALANCER_TARGET_UPDATE_INTERVAL = "loadbalancer.targets.interval"
