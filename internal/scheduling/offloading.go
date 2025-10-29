@@ -39,7 +39,6 @@ func Offload(r *scheduledRequest, serverUrl string) error {
 	sendingTime := time.Now() // used to compute latency later on
 	resp, err := offloadingClient.Post(serverUrl+"/invoke/"+r.Fun.Name, "application/json",
 		bytes.NewBuffer(invocationBody))
-
 	if err != nil {
 		log.Print(err)
 		return err

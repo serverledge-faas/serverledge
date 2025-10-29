@@ -174,7 +174,7 @@ func GetNodesInArea(area string, includeSelf bool, limit int64) (map[string]Node
 		reg, err := parseEtcdRegisteredNode(area, key, s.Value)
 		if err == nil {
 			servers[key] = reg
-			fmt.Printf("Server found: %v (%v-udp:%d)\n", servers[key], reg.IPAddress, reg.UDPPort)
+			//fmt.Printf("Server found: %v (%v-udp:%d)\n", servers[key], reg.IPAddress, reg.UDPPort)
 		}
 	}
 

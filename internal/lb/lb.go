@@ -3,10 +3,12 @@ package lb
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -15,92 +17,164 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
-var currentTargets []*middleware.ProxyTarget
+var client *http.Client
+var lbPolicy policy
+var targetsMutex sync.RWMutex
+var currentTargets map[string]registration.NodeRegistration
 
-func newBalancer(targets []*middleware.ProxyTarget) middleware.ProxyBalancer {
-	return middleware.NewRoundRobinBalancer(targets)
+func newPolicy() policy {
+	policyName := config.GetString(config.LOAD_BALANCER_POLICY, "round-robin")
+	if policyName == "random" {
+		return &randomPolicy{}
+	} else {
+		panic("unknown policy: " + policyName)
+	}
+}
+
+func handleInvoke(c echo.Context) error {
+
+	funcName := c.Param("fun")
+	// Select backend
+	targetURL, err := lbPolicy.Route(funcName)
+
+	// Create a new HTTP request to forward to the selected backend
+	newURL, _ := url.JoinPath(targetURL, c.Request().RequestURI)
+	req, err := http.NewRequest(c.Request().Method, newURL, c.Request().Body)
+	if err != nil {
+		return err
+	}
+	// Copy the request headers to the new request
+	req.Header = c.Request().Header
+
+	// Send the request to the backend using the global HTTP client
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		// function has been actually executed
+		// TODO: update info?
+	}
+
+	res := c.Response()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			res.Header().Add(key, value)
+		}
+	}
+
+	// Set status code and copy body
+	res.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(res.Writer, resp.Body)
+	return err
+
+}
+
+func handleOtherRequest(c echo.Context) error {
+
+	res := c.Response()
+	// TODO: status should be handled differently
+
+	var targetURL string
+	for _, target := range currentTargets {
+		targetURL = target.APIUrl()
+		break
+	}
+	// Create a new HTTP request to forward to the selected backend
+	newURL, _ := url.JoinPath(targetURL, c.Request().RequestURI)
+	req, err := http.NewRequest(c.Request().Method, newURL, c.Request().Body)
+	if err != nil {
+		return err
+	}
+	// Copy the request headers to the new request
+	req.Header = c.Request().Header
+
+	// Send the request to the backend using the global HTTP client
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			res.Header().Add(key, value)
+		}
+	}
+
+	// Set status code and copy body
+	res.WriteHeader(resp.StatusCode)
+	_, err = io.Copy(res.Writer, resp.Body)
+	return err
+
 }
 
 func StartReverseProxy(e *echo.Echo, region string) {
-	targets, err := getTargets(region)
+	var err error
+
+	currentTargets, err = registration.GetNodesInArea(region, false, 0)
 	if err != nil {
 		log.Printf("Cannot connect to registry to retrieve targets: %v\n", err)
 		os.Exit(2)
 	}
 
-	log.Printf("Initializing with %d targets.\n", len(targets))
-	balancer := newBalancer(targets)
-	currentTargets = targets
-	e.Use(middleware.Proxy(balancer))
+	log.Printf("Initializing with %d targets.\n", len(currentTargets))
+	lbPolicy = newPolicy()
 
-	go updateTargets(balancer, region)
+	go updateTargets(region)
+
+	tr := &http.Transport{
+		MaxIdleConns:        2500,
+		MaxIdleConnsPerHost: 2500,
+		MaxConnsPerHost:     0,
+		IdleConnTimeout:     10 * time.Minute,
+	}
+	client = &http.Client{Transport: tr}
+
+	e.HideBanner = true
+	e.Use(middleware.Recover())
+
+	// Routes
+	e.POST("/invoke/:fun", handleInvoke)
+	e.Any("/*", handleOtherRequest)
 
 	portNumber := config.GetInt(config.API_PORT, 1323)
 	if err := e.Start(fmt.Sprintf(":%d", portNumber)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		e.Logger.Fatal("shutting down the server")
 	}
+
 }
 
-func getTargets(region string) ([]*middleware.ProxyTarget, error) {
-	cloudNodes, err := registration.GetNodesInArea(region, false, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	targets := make([]*middleware.ProxyTarget, 0, len(cloudNodes))
-	for _, target := range cloudNodes {
-		log.Printf("Found target: %v\n", target.Key)
-		// TODO: etcd should NOT contain URLs, but only host and port...
-		parsedUrl, err := url.Parse(target.APIUrl())
-		if err != nil {
-			return nil, err
-		}
-		targets = append(targets, &middleware.ProxyTarget{Name: target.Key, URL: parsedUrl})
-	}
-
-	log.Printf("Found %d targets\n", len(targets))
-
-	return targets, nil
-}
-
-func updateTargets(balancer middleware.ProxyBalancer, region string) {
+func updateTargets(region string) {
 	for {
-		time.Sleep(30 * time.Second) // TODO: configure
+		time.Sleep(10 * time.Second) // TODO: configure
 
-		targets, err := getTargets(region)
-		if err != nil {
+		newTargets, err := registration.GetNodesInArea(region, false, 0)
+		if err != nil || newTargets == nil {
 			log.Printf("Cannot update targets: %v\n", err)
 		}
 
-		toKeep := make([]bool, len(currentTargets))
-		for i := range currentTargets {
-			toKeep[i] = false
-		}
-		for _, t := range targets {
-			toAdd := true
-			for i, curr := range currentTargets {
-				if curr.Name == t.Name {
-					toKeep[i] = true
-					toAdd = false
-				}
-			}
-			if toAdd {
-				log.Printf("Adding %s\n", t.Name)
-				balancer.AddTarget(t)
+		targetsMutex.Lock()
+		for k, _ := range currentTargets {
+			if _, ok := newTargets[k]; !ok {
+				// this target is not present any more
+				log.Printf("Removing target: %s\n", k)
 			}
 		}
 
-		toRemove := make([]string, 0)
-		for i, curr := range currentTargets {
-			if !toKeep[i] {
-				log.Printf("Removing %s\n", curr.Name)
-				toRemove = append(toRemove, curr.Name)
+		for k, _ := range newTargets {
+			if _, ok := currentTargets[k]; !ok {
+				// this target was not present
+				log.Printf("Adding new target: %s\n", k)
 			}
 		}
-		for _, curr := range toRemove {
-			balancer.RemoveTarget(curr)
-		}
 
-		currentTargets = targets
+		currentTargets = newTargets
+		targetsMutex.Unlock()
 	}
 }
