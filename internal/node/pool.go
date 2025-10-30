@@ -295,10 +295,11 @@ cleanup: // second phase, cleanup
 			}
 			LocalResources.warmPoolUsedMem -= item.memory
 		}
+		return true, nil
 	} else {
 		log.Printf("Not enough containers to free up at least %d MB (avail to dismiss: %d)", requiredMemoryMB, cleanedMB)
+		return false, nil
 	}
-	return true, nil
 }
 
 // DeleteExpiredContainer is called by the container cleaner
