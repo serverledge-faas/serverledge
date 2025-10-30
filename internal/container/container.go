@@ -133,6 +133,7 @@ func GetMemoryMB(id ContainerID) (int64, error) {
 }
 
 func Destroy(id ContainerID) error {
+	log.Printf("Destroying container %s\n", id)
 	return cf.Destroy(id)
 }
 

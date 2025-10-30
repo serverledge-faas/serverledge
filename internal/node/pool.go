@@ -3,6 +3,7 @@ package node
 import (
 	"container/list"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -175,6 +176,8 @@ func HandleCompletion(cont *container.Container, f *function.Function) {
 		LocalResources.usedCPUs -= f.CPUDemand
 		LocalResources.busyPoolUsedMem -= f.MemoryMB
 		LocalResources.warmPoolUsedMem += f.MemoryMB
+
+		logPoolStatus()
 	}
 }
 
@@ -193,6 +196,18 @@ func AcquireResourcesForNewContainer(fun *function.Function, forWarmPool bool) b
 	if !forWarmPool {
 		LocalResources.usedCPUs += fun.CPUDemand
 	}
+
+	// Check
+	if LocalResources.AvailableCPUs() < 0 {
+		panic("negative CPU availability")
+	}
+	if LocalResources.busyPoolUsedMem+LocalResources.warmPoolUsedMem > LocalResources.TotalMemory() {
+		panic("allocated more memory than available")
+	}
+
+	log.Printf("Acquired resources for %s; now: %v", fun.Name, LocalResources.String())
+	logPoolStatus()
+
 	return true
 }
 
@@ -442,4 +457,12 @@ func PrewarmInstances(f *function.Function, count int64, forcePull bool) (int64,
 	}
 
 	return spawned, nil
+}
+func logPoolStatus() {
+	currPool := make(map[string]string)
+	for funcName, pool := range LocalResources.containerPools {
+		currPool[funcName] = fmt.Sprintf("%d(+%d)", pool.idle.Len(), pool.busy.Len())
+	}
+
+	log.Printf("Pool status: %v\n", currPool)
 }
