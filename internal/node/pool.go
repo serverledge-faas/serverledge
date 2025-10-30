@@ -205,7 +205,7 @@ func AcquireResourcesForNewContainer(fun *function.Function, forWarmPool bool) b
 		panic("allocated more memory than available")
 	}
 
-	log.Printf("Acquired resources for %s; now: %v", fun.Name, LocalResources.String())
+	log.Printf("Acquired resources for %s", fun.Name)
 	logPoolStatus()
 
 	return true
@@ -464,5 +464,6 @@ func logPoolStatus() {
 		currPool[funcName] = fmt.Sprintf("%d(+%d)", pool.idle.Len(), pool.busy.Len())
 	}
 
+	log.Printf("Resources: %v\n", LocalResources.String())
 	log.Printf("Pool status: %v\n", currPool)
 }
