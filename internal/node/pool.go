@@ -123,6 +123,7 @@ func acquireWarmContainer(f *function.Function) (*container.Container, error) {
 	fp.busy.PushBack(c)
 
 	log.Printf("Using warm %s for %s. Now: %v", c.ID, f, &LocalResources)
+	logPoolStatus()
 	return c, nil
 }
 
