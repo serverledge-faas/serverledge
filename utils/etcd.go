@@ -33,8 +33,6 @@ func GetEtcdClient() (*clientv3.Client, error) {
 		return nil, fmt.Errorf("Could not connect to etcd: %v", err)
 	}
 
-	log.Println("Connected to etcd")
-
 	etcdClient = cli
 	return cli, nil
 }
