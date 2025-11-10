@@ -65,7 +65,7 @@ func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interfac
 
 	if config.GetBool(config.WORKFLOW_SAVE_FUNCTION_INPUT_TO_FILE, false) {
 		// Create directory if it doesn't exist
-		dirname := "saved-inputs"
+		dirname := fmt.Sprintf("saved-inputs/%s", s.Func)
 		err := os.MkdirAll(dirname, 0755)
 		if err != nil {
 			log.Printf("could not create directory: %v", err)
@@ -76,7 +76,7 @@ func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interfac
 			log.Printf("could not marshal input data: %v", err)
 		} else {
 			// Write to file
-			filename := fmt.Sprintf("%s/%s-%s-%s.json", dirname, s.Id, s.Func, r.Id)
+			filename := fmt.Sprintf("%s/%s-%s.json", dirname, s.Id, r.Id)
 			err = os.WriteFile(filename, payload, 0644)
 			if err != nil {
 				log.Printf("could not write input data to file: %v", err)
