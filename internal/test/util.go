@@ -41,8 +41,8 @@ func initializeExamplePyFunction() (*function.Function, error) {
 		Handler:         "inc.handler", // on python, for now is needed file name and handler name!!
 		TarFunctionCode: encoded,
 		Signature: function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build(),
 	}
 	err = f.SaveToEtcd()
@@ -72,8 +72,8 @@ func initializeExampleJSFunction() (*function.Function, error) {
 		Handler:         "inc", // for js, only the file name is needed!!
 		TarFunctionCode: encoded,
 		Signature: function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build(),
 	}
 	err = f.SaveToEtcd()
@@ -140,15 +140,15 @@ func initializePyFunctionFromName(t *testing.T, name string) *function.Function 
 	switch name {
 	case "inc":
 		f1, err := InitializePyFunction(name, "handler", function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build())
 		utils.AssertNil(t, err)
 		f = f1
 	case "double":
 		f2, err := InitializePyFunction(name, "handler", function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build())
 		utils.AssertNil(t, err)
 		f = f2
@@ -161,8 +161,8 @@ func initializePyFunctionFromName(t *testing.T, name string) *function.Function 
 		f = f3
 	default: // inc
 		fd, err := InitializePyFunction("inc", "handler", function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build())
 		utils.AssertNil(t, err)
 		f = fd

@@ -6,17 +6,17 @@
         "Type": "Choice",
         "Choices": [
           {
-            "Variable": "$.input",
+            "Variable": "$.n",
             "NumericEquals": 1,
             "Next": "FirstMatchState"
           },
           {
-            "Variable": "$.input",
+            "Variable": "$.n",
             "NumericEquals": 2,
             "Next": "SecondMatchState"
           },
           {
-            "Variable": "$.input",
+            "Variable": "$.n",
             "NumericEquals": 3,
             "Next": "ThirdMatchState"
           }
@@ -45,7 +45,7 @@
       "DefaultState": {
         "Comment": "Lang=Python",
         "Type": "Task",
-        "Resource": "hello",
+        "Resource": "inc",
         "End": true
       },
   

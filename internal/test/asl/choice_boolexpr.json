@@ -15,19 +15,19 @@
           {
             "And": [
               {
-                "Variable": "$.value",
+                "Variable": "$.n",
                 "IsPresent": true
               },
               {
-                "Variable": "$.value",
+                "Variable": "$.n",
                 "IsNumeric": true
               },
               {
-                "Variable": "$.value",
+                "Variable": "$.n",
                 "NumericGreaterThanEquals": 20
               },
               {
-                "Variable": "$.value",
+                "Variable": "$.n",
                 "NumericLessThan": 30
               }
             ],

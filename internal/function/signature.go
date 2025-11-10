@@ -189,23 +189,11 @@ func (s *Signature) CheckOrMatchInputs(inputMap map[string]interface{}) error {
 	for _, def := range s.Inputs {
 		err := def.CheckInput(inputMap)
 
-		if err != nil && len(s.Inputs) == 1 {
-			// TODO: Consider a better solution. If there is a single input parameter, we just try to match type
-			key, ok := def.FindEntryThatTypeChecks(inputMap)
-			if ok {
-				val := inputMap[key]
-				delete(inputMap, key)
-				inputMap[def.Name] = val
-				err = nil
-			} else {
-				err = fmt.Errorf("no output entry input-checks with the next function")
-			}
-		}
-
 		if err != nil {
-			errors += fmt.Sprintf("type-error: %v", err)
+			errors += fmt.Sprintf("no output entry input-checks with the next function")
 		}
 	}
+
 	if errors != "" {
 		return fmt.Errorf("%s", errors)
 	}

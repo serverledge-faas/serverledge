@@ -118,14 +118,12 @@ func startReliably(startScript string) error {
 
 // run the bash script to initialize serverledge
 func setupServerledge(outboundIp string) (*echo.Echo, error) {
-	_ = startReliably("../../scripts/start-etcd" + getShellExt())
 	echoServer := testStartServerledge(false, outboundIp)
 	return echoServer, nil
 }
 
 // run the bash script to stop serverledge
 func teardownServerledge(e *echo.Echo) error {
-	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/stop-etcd"+getShellExt())
 
 	node.ShutdownAllContainers()
 
@@ -136,6 +134,5 @@ func teardownServerledge(e *echo.Echo) error {
 	errEcho := e.Shutdown(ctx)
 
 	errRegistry := registration.Deregister()
-	err1 := cmd1.Run()
-	return u.ReturnNonNilErr(errEcho, errRegistry, err1)
+	return u.ReturnNonNilErr(errEcho, errRegistry)
 }

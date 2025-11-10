@@ -23,8 +23,8 @@ func TestContainerPool(t *testing.T) {
 	funcs := []string{"inc", "double"}
 	for _, name := range funcs {
 		fn, err := InitializePyFunction(name, "handler", function.NewSignature().
-			AddInput("input", function.Int{}).
-			AddOutput("result", function.Int{}).
+			AddInput("n", function.Int{}).
+			AddOutput("n", function.Int{}).
 			Build())
 		utils.AssertNil(t, err)
 
@@ -36,7 +36,7 @@ func TestContainerPool(t *testing.T) {
 	for i := 0; i < n; i++ {
 		for _, name := range funcs {
 			x := make(map[string]interface{})
-			x["input"] = 1
+			x["n"] = 1
 			fnName := name
 			go func() {
 				time.Sleep(50 * time.Millisecond)
@@ -70,8 +70,8 @@ func TestCreateWorkflow(t *testing.T) {
 	}
 
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
@@ -99,8 +99,8 @@ func TestInvokeWorkflow(t *testing.T) {
 	}
 	fcName := "sequence"
 	fn, err := initializeJsFunction("inc", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
@@ -114,7 +114,7 @@ func TestInvokeWorkflow(t *testing.T) {
 
 	// === this is the test ===
 	params := make(map[string]interface{})
-	params["input"] = 1
+	params["n"] = 1
 	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
@@ -133,13 +133,13 @@ func TestInvokeWorkflow_DifferentFunctions(t *testing.T) {
 	}
 	fcName := "sequence"
 	fnJs, err := initializeJsFunction("inc", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize javascript function")
 	fnPy, err := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize python function")
 	wflow, err := CreateSequenceWorkflow(fnPy, fnJs, fnPy, fnJs)
@@ -153,7 +153,7 @@ func TestInvokeWorkflow_DifferentFunctions(t *testing.T) {
 
 	// === this is the test ===
 	params := make(map[string]interface{})
-	params["input"] = 1
+	params["n"] = 1
 	invokeWorkflowApiTest(t, params, fcName, HOST, PORT, false)
 
 	// here we do not use REST API
@@ -172,16 +172,16 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 	fcName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	if err != nil {
 		fmt.Printf("inc creation failed: %v\n", err)
 		t.Fail()
 	}
 	db, err := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	wflow, err := CreateSequenceWorkflow(fn, db, fn)
@@ -212,8 +212,8 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 	fcName := "sequence"
 
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	utils.AssertNilMsg(t, err, "failed to initialize function")
 	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
@@ -227,7 +227,7 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 
 	// === this is the test ===
 	params := make(map[string]interface{})
-	params["input"] = 1
+	params["n"] = 1
 	invocationResult := invokeWorkflowApiTest(t, params, fcName, HOST, PORT, true)
 
 	reqIdStruct := &function.AsyncResponse{}
@@ -251,7 +251,7 @@ func TestAsyncInvokeWorkflow(t *testing.T) {
 			i++
 			time.Sleep(200 * time.Millisecond)
 		} else {
-			utils.AssertEquals(t, 4, cast.ToInt(response.Result["result"]))
+			utils.AssertEquals(t, 4, cast.ToInt(response.Result["n"]))
 			break
 		}
 	}

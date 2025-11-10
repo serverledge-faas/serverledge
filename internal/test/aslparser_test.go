@@ -32,7 +32,7 @@ func TestParsedWorkflowName(t *testing.T) {
 
 // commonTest creates a function, parses a json AWS State Language file producing a function composition,
 // then checks if the composition is saved onto ETCD. Lastly, it runs the composition and expects the correct result.
-func commonTest(t *testing.T, name string, expectedResult int) {
+func commonTest(t *testing.T, name string, paramName string, paramValue string) {
 	all, err := workflow.GetAllWorkflows()
 	utils.AssertNil(t, err)
 
@@ -60,7 +60,7 @@ func commonTest(t *testing.T, name string, expectedResult int) {
 
 	// runs the workflow
 	params := make(map[string]interface{})
-	params["input"] = "0"
+	params[paramName] = paramValue
 	request := workflow.NewRequest(shortuuid.New(), comp, params, approximateMapSize(params))
 	err2 := comp.Invoke(request)
 	utils.AssertNil(t, err2)
@@ -74,7 +74,7 @@ func TestParsingSimple(t *testing.T) {
 	}
 
 	initializeAllPyFunctionFromNames(t, "hello")
-	commonTest(t, "simple", 2)
+	commonTest(t, "simple", "input", "0")
 	deleteApiTest(t, "hello", HOST, PORT)
 }
 
@@ -86,7 +86,7 @@ func TestParsingSequence(t *testing.T) {
 
 	InitializePyFunction("noop", "handler", function.NewSignature().Build())
 
-	commonTest(t, "sequence", 5)
+	commonTest(t, "sequence", "input", "0")
 	deleteApiTest(t, "noop", HOST, PORT)
 
 }
@@ -98,7 +98,7 @@ func TestParsingMixedUpSequence(t *testing.T) {
 	}
 
 	initializeAllPyFunctionFromNames(t, "double", "inc")
-	commonTest(t, "mixed_sequence", 5)
+	commonTest(t, "mixed_sequence", "n", "0")
 	deleteApiTest(t, "double", HOST, PORT)
 	deleteApiTest(t, "inc", HOST, PORT)
 }
@@ -155,7 +155,7 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 	// Creates "inc", "double" and "hello" python functions
-	funcs := initializeAllPyFunctionFromNames(t, "inc", "double", "hello")
+	funcs := initializeAllPyFunctionFromNames(t, "inc", "double")
 
 	// reads the file
 	body, err := os.ReadFile("asl/choice_datatestexpr.json")
@@ -190,13 +190,12 @@ func TestParsingChoiceWorkflowWithDataTestExpr(t *testing.T) {
 
 	// runs the workflow (default choice branch)
 	paramsDefault := make(map[string]interface{})
-	paramsDefault[incFn.Signature.GetInputs()[0].Name] = "Giacomo"
+	paramsDefault[incFn.Signature.GetInputs()[0].Name] = 3
 	requestDefault := workflow.NewRequest(shortuuid.New(), comp, paramsDefault, approximateMapSize(paramsDefault))
 	errDef := comp.Invoke(requestDefault)
 	utils.AssertNil(t, errDef)
 
 	deleteApiTest(t, "inc", HOST, PORT)
-	deleteApiTest(t, "hello", HOST, PORT)
 	deleteApiTest(t, "double", HOST, PORT)
 }
 
@@ -218,7 +217,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	// 1st branch (type != "Private")
 	params := make(map[string]interface{})
 	params["type"] = "Public"
-	params["value"] = 1
+	params["n"] = 1
 	//params["input"] = 1
 	request := workflow.NewRequest(shortuuid.New(), comp, params, approximateMapSize(params))
 	err1 := comp.Invoke(request)
@@ -232,7 +231,7 @@ func TestParsingChoiceWorkflowWithBoolExpr(t *testing.T) {
 	// 2nd branch (type == "Private", value is present, value is numeric, value >= 20, value < 30)
 	params2 := make(map[string]interface{})
 	params2["type"] = "Private"
-	params2["value"] = 20
+	params2["n"] = 20
 	request2 := workflow.NewRequest(shortuuid.New(), comp, params2, approximateMapSize(params2))
 	err2 := comp.Invoke(request2)
 	utils.AssertNil(t, err2)

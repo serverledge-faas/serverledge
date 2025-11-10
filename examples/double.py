@@ -1,2 +1,2 @@
 def handler(params, context):
-    return int(params["input"]) * 2
+    return int(params["n"]) * 2

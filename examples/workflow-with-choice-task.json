@@ -12,12 +12,12 @@
         "Type": "Choice",
         "Choices": [
           {
-            "Variable": "$.result",
+            "Variable": "$.n",
             "NumericLessThan": 10,
             "Next": "BranchOneSecondState"
           },
           {
-            "Variable": "$.result",
+            "Variable": "$.n",
             "NumericGreaterThanEquals": 10,
             "Next": "BranchTwoSecondState"
           }

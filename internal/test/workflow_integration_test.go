@@ -17,8 +17,8 @@ import (
 func TestMarshalingFunctionWorkflow(t *testing.T) {
 	workflowName := "sequence"
 	fn, err := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	u.AssertNilMsg(t, err, "failed to initialize function")
 	wflow, err := CreateSequenceWorkflow(fn, fn, fn)
@@ -51,7 +51,7 @@ func TestComposeFC(t *testing.T) {
 	workflowName := "test"
 	// CREATE - we create a test function composition
 	m := make(map[string]interface{})
-	m["input"] = 0
+	m["n"] = 0
 	length := 3
 	_, fArr, err := initializeSameFunctionSlice(length, "js")
 	u.AssertNil(t, err)
@@ -138,8 +138,8 @@ func TestInvokeChoiceFC(t *testing.T) {
 	incPy, errPy := initializeExamplePyFunction()
 	u.AssertNil(t, errPy)
 	doublePy, errDp := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).Build())
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
 	wflow, err := workflow.NewBuilder().
@@ -187,14 +187,14 @@ func TestInvokeFC_DifferentFunctions(t *testing.T) {
 	workflowName := "test"
 	// CREATE - we create a test function composition
 	fDouble, errF1 := InitializePyFunction("double", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	u.AssertNil(t, errF1)
 
 	fInc, errF2 := initializeJsFunction("inc", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).
 		Build())
 	u.AssertNil(t, errF2)
 
@@ -329,8 +329,8 @@ func TestInvokeSieveChoice(t *testing.T) {
 	u.AssertNil(t, errPy)
 
 	incPy, errDp := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).Build())
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
 	wflow, err := workflow.NewBuilder().
@@ -379,8 +379,8 @@ func TestInvokeWorkflowError(t *testing.T) {
 	workflowName := "error"
 
 	incPy, errDp := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).Build())
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 
 	wflow, err := workflow.NewBuilder().
@@ -461,8 +461,8 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	}
 
 	incPy, errDp := InitializePyFunction("inc", "handler", function.NewSignature().
-		AddInput("input", function.Int{}).
-		AddOutput("result", function.Int{}).Build())
+		AddInput("n", function.Int{}).
+		AddOutput("n", function.Int{}).Build())
 	u.AssertNil(t, errDp)
 	wflow, err := workflow.NewBuilder().
 		AddFunctionTask(incPy).
@@ -476,7 +476,7 @@ func TestInvokeWorkflowPassDoNothing(t *testing.T) {
 	u.AssertNil(t, err1)
 
 	params := make(map[string]interface{})
-	params["input"] = 1
+	params["n"] = 1
 
 	request := workflow.NewRequest(shortuuid.New(), wflow, params, approximateMapSize(params))
 	request.CanDoOffloading = false
