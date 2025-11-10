@@ -190,6 +190,7 @@ func (s *Signature) CheckOrMatchInputs(inputMap map[string]interface{}) error {
 		err := def.CheckInput(inputMap)
 
 		if err != nil && len(s.Inputs) == 1 {
+			// TODO: Consider a better solution. If there is a single input parameter, we just try to match type
 			key, ok := def.FindEntryThatTypeChecks(inputMap)
 			if ok {
 				val := inputMap[key]
@@ -294,31 +295,4 @@ func datatypeToString(dataType DataTypeEnum) string {
 	default:
 		return ""
 	}
-}
-
-// SignatureInference is a best-effort function that tries to infer signature from a function without a defined signature. Maybe we do not need it.
-func SignatureInference(params map[string]interface{}) *Signature {
-	signatureBuilder := NewSignature()
-
-	for k, v := range params {
-		typeList := []DataTypeEnum{
-			Float{},
-			Int{},
-			Bool{},
-			Text{},
-			Array[Float]{},
-			Array[Int]{},
-			Array[Bool]{},
-			Array[Text]{},
-			Void{},
-		}
-		for _, t := range typeList {
-			if t.TypeCheck(v) == nil {
-				signatureBuilder.AddInput(k, t)
-				break
-			}
-		}
-	}
-
-	return signatureBuilder.AddOutput("result", Text{}).Build()
 }

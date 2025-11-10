@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/config"
+	"log"
+	"os"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/node"
@@ -40,7 +43,6 @@ func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interfac
 
 	// FIXME: We are adding additional inputs from r.Params to match the function signature. This workaround should be
 	// dropped when we introduce the possibility to specify additional parameters for functions in a workflow.
-
 	funct, exists := function.GetFunction(s.Func)
 	if !exists {
 		return nil, fmt.Errorf("funtion %s doesn't exists", s.Func)
@@ -60,6 +62,28 @@ func (s *FunctionTask) execute(input *TaskData, r *Request) (map[string]interfac
 	if err != nil {
 		return nil, err
 	}
+
+	if config.GetBool(config.WORKFLOW_SAVE_FUNCTION_INPUT_TO_FILE, false) {
+		// Create directory if it doesn't exist
+		dirname := "saved-inputs"
+		err := os.MkdirAll(dirname, 0755)
+		if err != nil {
+			log.Printf("could not create directory: %v", err)
+		}
+
+		payload, err := json.Marshal(input.Data)
+		if err != nil {
+			log.Printf("could not marshal input data: %v", err)
+		} else {
+			// Write to file
+			filename := fmt.Sprintf("%s/%s-%s-%s.json", dirname, s.Id, s.Func, r.Id)
+			err = os.WriteFile(filename, payload, 0644)
+			if err != nil {
+				log.Printf("could not write input data to file: %v", err)
+			}
+		}
+	}
+
 	output, err := s.exec(r, input.Data)
 	if err != nil {
 		return nil, err
