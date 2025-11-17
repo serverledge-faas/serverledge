@@ -2,9 +2,6 @@ package registration
 
 import (
 	"fmt"
-	"github.com/hexablock/vivaldi"
-	"github.com/serverledge-faas/serverledge/internal/node"
-	"golang.org/x/exp/maps"
 	"log"
 	"net"
 	"path"
@@ -13,6 +10,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hexablock/vivaldi"
+	"github.com/serverledge-faas/serverledge/internal/node"
+	"golang.org/x/exp/maps"
 
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/utils"
@@ -194,7 +195,8 @@ func GetOneNodeInArea(area string, includeSelf bool) (NodeRegistration, error) {
 }
 
 func GetLBInArea(area string) (map[string]NodeRegistration, error) {
-	baseDir := areaEtcdKey(area) + "/" + registryLoadBalancerDirectory
+	prefix := areaEtcdKey(area)
+	baseDir := path.Join(prefix, registryLoadBalancerDirectory)
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 
