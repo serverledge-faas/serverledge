@@ -166,6 +166,7 @@ func Init() {
 	rootCmd.AddCommand(compCreateCmd)
 	compCreateCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
 	compCreateCmd.Flags().StringVarP(&jsonSrc, "src", "s", "", "source Amazon States Language file  that defines the workflow")
+	compCreateCmd.Flags().BoolVarP(&update, "update", "u", false, "Update workflow (if exists)")
 
 	rootCmd.AddCommand(compDeleteCmd)
 	compDeleteCmd.Flags().StringVarP(&compName, "workflow", "f", "", "name of the workflow")
@@ -573,8 +574,10 @@ func createWorkflow(cmd *cobra.Command, args []string) {
 	}
 	encoded := base64.StdEncoding.EncodeToString(src)
 	request := client.WorkflowCreationRequest{
-		Name:   compName,
-		ASLSrc: encoded}
+		Name:              compName,
+		ASLSrc:            encoded,
+		OverwriteIfExists: update,
+	}
 
 	requestBody, err := json.Marshal(request)
 	if err != nil {

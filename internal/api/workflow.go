@@ -33,7 +33,7 @@ func CreateWorkflowFromASL(e echo.Context) error {
 
 	// checking if the function already exists. If exists we return an error
 	_, found := workflow.Get(creationRequest.Name)
-	if found {
+	if found && !creationRequest.OverwriteIfExists {
 		log.Printf("Dropping request for already existing workflow '%s'", creationRequest.Name)
 		return e.JSON(http.StatusConflict, "workflow already exists")
 	}

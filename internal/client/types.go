@@ -29,6 +29,7 @@ type WorkflowInvocationRequest struct {
 }
 
 type WorkflowCreationRequest struct {
-	Name   string // Name of the new workflow
-	ASLSrc string // Specification source in Amazon State Language (encoded in Base64)
+	Name              string // Name of the new workflow
+	ASLSrc            string // Specification source in Amazon State Language (encoded in Base64)
+	OverwriteIfExists bool
 }
