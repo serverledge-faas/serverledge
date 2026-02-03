@@ -59,6 +59,12 @@ const METRICS_PROMETHEUS_PORT = "metrics.prometheus.port"
 // Prometheus IP address / hostname
 const METRICS_PROMETHEUS_HOST = "metrics.prometheus.host"
 
+// Port used by optional Prometheus Pushgateway
+const METRICS_PROMETHEUS_PUSHGATEWAY_PORT = "metrics.prometheus.pushgateway.port"
+
+// Prometheus optional Pushgateway IP address / hostname
+const METRICS_PROMETHEUS_PUSHGATEWAY_HOST = "metrics.prometheus.pushgateway.host"
+
 // Interval (in seconds) for metrics retriever
 const METRICS_RETRIEVER_INTERVAL = "metrics.retriever.interval"
 

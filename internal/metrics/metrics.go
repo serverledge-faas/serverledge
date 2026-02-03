@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/push"
 	"log"
+	"time"
 
 	"net/http"
 
@@ -17,7 +19,7 @@ import (
 var Enabled bool
 var registry = prometheus.NewRegistry()
 var ScrapingHandler http.Handler = nil
-var durationBuckets = []float64{0.002, 0.005, 0.010, 0.02, 0.03, 0.05, 0.1, 0.15, 0.3, 0.6, 1.0}
+var durationBuckets = prometheus.ExponentialBuckets(0.01, 2, 15)
 
 const (
 	COMPLETIONS         = "completed_count"
@@ -104,6 +106,31 @@ func Init() {
 
 	ScrapingHandler = promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		EnableOpenMetrics: true})
+
+	pushgatewayHost := config.GetString(config.METRICS_PROMETHEUS_PUSHGATEWAY_HOST, "")
+	if pushgatewayHost != "" {
+
+		pushgatewayPort := config.GetInt(config.METRICS_PROMETHEUS_PUSHGATEWAY_PORT, 9091)
+		hostport := fmt.Sprintf("http://%s:%d", pushgatewayHost, pushgatewayPort)
+
+		log.Println("Using Prometheus Pushgateway at:", hostport)
+
+		go func(pushgatewayUrl string) {
+			ticker := time.NewTicker(30 * time.Second)
+
+			for {
+				select {
+				case <-ticker.C:
+					// Push the entire registry in one go
+					err := push.New(pushgatewayUrl, "serverledge").Gatherer(registry).Push()
+					if err != nil {
+						log.Printf("Could not push metrics: %v", err)
+					}
+				}
+			}
+		}(hostport)
+
+	}
 
 	go MetricsRetriever()
 }
