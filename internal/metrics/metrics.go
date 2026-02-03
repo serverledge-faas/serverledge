@@ -43,11 +43,11 @@ var (
 		Name:    EXECUTION_TIME,
 		Help:    "Function duration",
 		Buckets: durationBuckets,
-	}, []string{"node", "function"})
+	}, []string{"function"})
 	metricInitializationTime = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: INITIALIZATION_TIME,
 		Help: "Function initialization time (cold start duration)",
-	}, []string{"node", "function"})
+	}, []string{"function"})
 	metricOutputSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: OUTPUT_SIZE,
 		Help: "Function output size",
@@ -122,7 +122,9 @@ func Init() {
 				select {
 				case <-ticker.C:
 					// Push the entire registry in one go
-					err := push.New(pushgatewayUrl, "serverledge").Gatherer(registry).Push()
+					err := push.New(pushgatewayUrl, "serverledge").Gatherer(registry).
+						Grouping("node", node.LocalNode.String()).
+						Add()
 					if err != nil {
 						log.Printf("Could not push metrics: %v", err)
 					}
@@ -142,10 +144,10 @@ func AddCompletedInvocation(funcName string, coldStart bool) {
 	}
 }
 func AddFunctionDurationValue(funcName string, duration float64) {
-	metricExecutionTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(duration)
+	metricExecutionTime.With(prometheus.Labels{"function": funcName}).Observe(duration)
 }
 func AddFunctionInitTimeValue(funcName string, initTime float64) {
-	metricInitializationTime.With(prometheus.Labels{"function": funcName, "node": node.LocalNode.String()}).Observe(initTime)
+	metricInitializationTime.With(prometheus.Labels{"function": funcName}).Observe(initTime)
 }
 func AddFunctionOutputSizeValue(funcName string, size float64) {
 	metricOutputSize.With(prometheus.Labels{"function": funcName}).Observe(size)

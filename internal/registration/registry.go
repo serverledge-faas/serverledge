@@ -98,10 +98,12 @@ func registerToEtcd(asLoadBalancer bool) error {
 	}
 
 	go func() {
+		ticker := time.NewTicker(etcdLeaseTTL * 0.75 * time.Second)
 		for {
-			interval := time.Duration(float64(etcdLeaseTTL) * 0.75 * float64(time.Second))
-			time.Sleep(interval)
-			keepAliveLease()
+			select {
+			case <-ticker.C:
+				keepAliveLease()
+			}
 		}
 	}()
 
@@ -206,6 +208,7 @@ func GetLBInArea(area string) (map[string]NodeRegistration, error) {
 	}
 
 	servers := make(map[string]NodeRegistration)
+
 	for _, s := range resp.Kvs {
 		key := path.Base(string(s.Key))
 		reg, err := parseEtcdRegisteredNode(area, key, s.Value)
