@@ -24,8 +24,12 @@ func (n NodeID) String() string {
 	return fmt.Sprintf("(%s)%s", n.Area, n.Key)
 }
 
-func NewIdentifier(area string) NodeID {
+func NewRandomIdentifier(area string) NodeID {
 	id := shortuuid.New() + strconv.FormatInt(time.Now().UnixNano(), 10)
+	return NodeID{Area: area, Key: id}
+}
+
+func NewIdentifier(id, area string) NodeID {
 	return NodeID{Area: area, Key: id}
 }
 

@@ -45,7 +45,7 @@ func main() {
 	config.ReadConfiguration(configFileName)
 
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
-	node.LocalNode = node.NewIdentifier(myArea)
+	node.LocalNode = node.NewRandomIdentifier(myArea)
 
 	err := registration.RegisterLoadBalancer()
 	if err != nil {

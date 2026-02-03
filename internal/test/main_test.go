@@ -47,7 +47,7 @@ func testStartServerledge(isInCloud bool, outboundIp string) *echo.Echo {
 	schedulingPolicy := &scheduling.DefaultLocalPolicy{}
 	// register to etcd, this way server is visible to the others under a given local area
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
-	node.LocalNode = node.NewIdentifier(myArea)
+	node.LocalNode = node.NewRandomIdentifier(myArea)
 
 	err := registration.RegisterNode()
 	if err != nil {

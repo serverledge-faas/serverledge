@@ -32,14 +32,11 @@ const CACHE_CLEANUP = "cache.cleanup"
 // default expiration time assigned to a cache item (Seconds)
 const CACHE_ITEM_EXPIRATION = "cache.expiration"
 
-// default policy is to persist cache (boolean). Use false in localonly deployments
-const CACHE_PERSISTENCE = "cache.persistence"
-
-// true if the current server is a remote cloud server
-const IS_IN_CLOUD = "cloud"
-
 // the area wich the server belongs to
 const REGISTRY_AREA = "registry.area"
+
+// (optional) ID of this node (must be unique in the area!)
+const REGISTRY_NODE_ID = "registry.node.id"
 
 // the area that acts as "remote cloud" for this node
 const REGISTRY_REMOTE_AREA = "registry.remote.area"

@@ -32,7 +32,12 @@ func main() {
 
 	// register to etcd, this way server is visible to the others under a given local area
 	myArea := config.GetString(config.REGISTRY_AREA, "ROME")
-	node.LocalNode = node.NewIdentifier(myArea)
+	myId := config.GetString(config.REGISTRY_NODE_ID, "")
+	if myId == "" {
+		node.LocalNode = node.NewRandomIdentifier(myArea)
+	} else {
+		node.LocalNode = node.NewIdentifier(myId, myArea)
+	}
 
 	err := registration.RegisterNode()
 	if err != nil {
