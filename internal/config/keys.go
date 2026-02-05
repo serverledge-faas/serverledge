@@ -68,6 +68,12 @@ const METRICS_PROMETHEUS_PUSHGATEWAY_HOST = "metrics.prometheus.pushgateway.host
 // Interval (in seconds) for metrics retriever
 const METRICS_RETRIEVER_INTERVAL = "metrics.retriever.interval"
 
+// Filename to dump retrieved metrics as JSON
+const METRICS_DUMP_JSON_FILE = "metrics.dump.json.file"
+
+// Filename to load metrics from JSON
+const METRICS_LOAD_JSON_FILE = "metrics.load.json.file"
+
 // Scheduling policy to use
 // Possible values: "qosaware", "default", "cloudonly"
 const SCHEDULING_POLICY = "scheduler.policy"

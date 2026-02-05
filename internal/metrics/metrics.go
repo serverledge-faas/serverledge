@@ -1,9 +1,11 @@
 package metrics
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus/push"
 	"log"
+	"os"
 	"time"
 
 	"net/http"
@@ -134,7 +136,29 @@ func Init() {
 
 	}
 
-	go MetricsRetriever()
+	jsonMetricsToLoad := config.GetString(config.METRICS_LOAD_JSON_FILE, "")
+	if jsonMetricsToLoad == "" {
+		go MetricsRetriever()
+	} else {
+		log.Println("Disabling metrics retriever and loading metrics from:", jsonMetricsToLoad)
+		err := loadMetricsFromJSON(jsonMetricsToLoad)
+		if err != nil {
+			log.Printf("Error loading metrics: %v\n", err)
+		}
+		log.Println(retrievedMetrics)
+	}
+}
+
+func loadMetricsFromJSON(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(&retrievedMetrics)
+	return err
 }
 
 func AddCompletedInvocation(funcName string, coldStart bool) {
