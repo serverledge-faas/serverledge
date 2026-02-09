@@ -133,5 +133,5 @@ func (c *constHashBalancer) OnStatusUpdate(registration *registration.NodeRegist
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	c.availMemory[registration.Key] = status.TotalMemory - status.UsedMemory
+	c.availMemory[registration.Key] = status.AvailableMemory
 }

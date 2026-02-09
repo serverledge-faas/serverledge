@@ -20,7 +20,8 @@ type NodeRegistration struct {
 type StatusInformation struct {
 	AvailableWarmContainers map[string]int // <k, v> = <function name, warm container number>
 	TotalMemory             int64
-	UsedMemory              int64
+	AvailableMemory         int64
+	FreeMemory              int64
 	TotalCPU                float64
 	UsedCPU                 float64
 	Coordinates             vivaldi.Coordinate

@@ -70,7 +70,8 @@ func getCurrentStatusInformation() (status []byte, err error) {
 		AvailableWarmContainers: node.WarmStatus(),
 		TotalMemory:             node.LocalResources.TotalMemory(),
 		TotalCPU:                node.LocalResources.TotalCPUs(),
-		UsedMemory:              node.LocalResources.UsedMemory(),
+		AvailableMemory:         node.LocalResources.AvailableMemory(),
+		FreeMemory:              node.LocalResources.FreeMemory(),
 		UsedCPU:                 node.LocalResources.UsedCPUs(),
 		Coordinates:             *VivaldiClient.GetCoordinate(),
 	}
