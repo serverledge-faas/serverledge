@@ -102,10 +102,10 @@ func (policy *ThresholdBasedPolicy) Evaluate(r *Request, p *Progress) (Offloadin
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
 			// TODO: apply a threshold here ?
-			if (v.TotalMemory - v.UsedMemory) >= offloadedMemory { // TODO: should look at free memory (ignoring warm containers)
-				if offloadingTarget == "" || (v.TotalMemory-v.UsedMemory) > offloadingTargetMem {
+			if (v.AvailableMemory) >= offloadedMemory { // TODO: should look at free memory for ranking (ignoring warm containers)
+				if offloadingTarget == "" || v.AvailableMemory > offloadingTargetMem {
 					offloadingTarget = k
-					offloadingTargetMem = v.TotalMemory - v.UsedMemory
+					offloadingTargetMem = v.AvailableMemory
 				}
 			} else {
 				log.Printf("Not enough memory to offload to %v", k)

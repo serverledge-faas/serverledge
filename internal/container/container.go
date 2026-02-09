@@ -168,7 +168,7 @@ func sendPostRequestWithRetries(url string, body *bytes.Buffer) (*http.Response,
 		}
 	}
 
-	return nil, time.Duration(totalWaitMillis * int(time.Millisecond)), err
+	return nil, time.Duration(totalWaitMillis * int(time.Millisecond)), fmt.Errorf("exceeded max number of retries: %v", err)
 }
 
 func minInt(a, b int) int {

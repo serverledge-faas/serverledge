@@ -7,6 +7,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/config"
 	"log"
 	"net/http"
+	"time"
 )
 
 type IlpOffloadingPolicy struct{}
@@ -38,6 +39,8 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 
 	params := prepareParameters(r, p)
 
+	t0 := time.Now()
+
 	// Serialize to JSON
 	jsonData, err := json.Marshal(params)
 	if err != nil {
@@ -66,6 +69,9 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	if statusCode != 200 {
 		return OffloadingDecision{Offload: false}, fmt.Errorf("scheduling failed with status code %d", statusCode)
 	}
+
+	solverTime := time.Since(t0)
+	log.Printf("solver time for %s: %v\n", r.W.Name, solverTime.Seconds())
 
 	// Read and print response
 	var placement taskPlacement

@@ -18,19 +18,20 @@ import (
 )
 
 type remotePolicyParams struct {
-	CloudNodes   []string            `json:"cloud_nodes"`  // Set of Cloud nodes
-	EdgeNodes    []string            `json:"edge_nodes"`   // Set of Edge nodes
-	NodeMemory   map[string]float64  `json:"node_memory"`  // Memory per node
-	DSLatency    map[string]float64  `json:"ds_latency"`   // Latency per node
-	DSBandwidth  map[string]float64  `json:"ds_bandwidth"` // Bandwidth per node
-	NodeLatency  map[string]float64  `json:"node_latency"` // map[json.dumps((src_node, dst_node))] = latency
-	HandlingNode string              `json:"handling_node"`
-	T            []string            `json:"T"`           // Set of tasks
-	Adj          map[string][]string `json:"adj"`         // Task adjacency list
-	TaskMemory   map[string]float64  `json:"task_memory"` // Memory per task
-	Deadline     float64             `json:"deadline"`    // Global deadline
-	OutputSize   map[string]float64  `json:"output_size"` // Output size per task
-	InputSize    float64             `json:"input_size"`  // Input data size
+	CloudNodes          []string            `json:"cloud_nodes"`           // Set of Cloud nodes
+	EdgeNodes           []string            `json:"edge_nodes"`            // Set of Edge nodes
+	NodeAvailableMemory map[string]float64  `json:"node_available_memory"` // Available memory per node
+	NodeFreeMemory      map[string]float64  `json:"node_free_memory"`      // Free memory per node
+	DSLatency           map[string]float64  `json:"ds_latency"`            // Latency per node
+	DSBandwidth         map[string]float64  `json:"ds_bandwidth"`          // Bandwidth per node
+	NodeLatency         map[string]float64  `json:"node_latency"`          // map[json.dumps((src_node, dst_node))] = latency
+	HandlingNode        string              `json:"handling_node"`
+	T                   []string            `json:"T"`           // Set of tasks
+	Adj                 map[string][]string `json:"adj"`         // Task adjacency list
+	TaskMemory          map[string]float64  `json:"task_memory"` // Memory per task
+	Deadline            float64             `json:"deadline"`    // Global deadline
+	OutputSize          map[string]float64  `json:"output_size"` // Output size per task
+	InputSize           float64             `json:"input_size"`  // Input data size
 
 	ObjWeights []float64           `json:"obj_weights"` // Objective terms weights
 	Cost       map[string]float64  `json:"cost"`        // Computation cost
@@ -45,19 +46,20 @@ type taskPlacement map[TaskId]string
 
 func initParams() remotePolicyParams {
 	return remotePolicyParams{
-		Adj:         make(map[string][]string),
-		ExecTime:    make(map[string]float64),
-		InitTime:    make(map[string]float64),
-		OutputSize:  make(map[string]float64),
-		NodeMemory:  make(map[string]float64),
-		Cost:        make(map[string]float64),
-		TaskMemory:  make(map[string]float64),
-		NodeLabels:  make(map[string][]string),
-		TaskLabels:  make(map[string][]string),
-		DSBandwidth: make(map[string]float64),
-		DSLatency:   make(map[string]float64),
-		NodeLatency: make(map[string]float64),
-		ObjWeights:  []float64{0.33, 0.33, 0.33},
+		Adj:                 make(map[string][]string),
+		ExecTime:            make(map[string]float64),
+		InitTime:            make(map[string]float64),
+		OutputSize:          make(map[string]float64),
+		NodeAvailableMemory: make(map[string]float64),
+		NodeFreeMemory:      make(map[string]float64),
+		Cost:                make(map[string]float64),
+		TaskMemory:          make(map[string]float64),
+		NodeLabels:          make(map[string][]string),
+		TaskLabels:          make(map[string][]string),
+		DSBandwidth:         make(map[string]float64),
+		DSLatency:           make(map[string]float64),
+		NodeLatency:         make(map[string]float64),
+		ObjWeights:          []float64{0.33, 0.33, 0.33},
 	}
 }
 
@@ -180,12 +182,14 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	params.EdgeNodes = []string{LOCAL}
 	params.Deadline = r.QoS.MaxRespT - time.Now().Sub(r.Arrival).Seconds()
 	params.HandlingNode = LOCAL
-	params.NodeMemory[LOCAL] = (float64)(node.LocalResources.AvailableMemory())
+	params.NodeAvailableMemory[LOCAL] = (float64)(node.LocalResources.AvailableMemory())
+	params.NodeFreeMemory[LOCAL] = (float64)(node.LocalResources.FreeMemory())
 
-	wViolations := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.33)
-	wDataTransfers := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.33)
-	wCost := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST, 0.33)
-	params.ObjWeights = []float64{wViolations, wDataTransfers, wCost}
+	wViolations := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS, 0.3)
+	wDataTransfers := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS, 0.3)
+	wCost := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST, 0.3)
+	wReclaimedMemory := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_RECLAIMED_MEMORY, 0.1)
+	params.ObjWeights = []float64{wViolations, wDataTransfers, wCost, wReclaimedMemory}
 
 	regionCost := config.GetStringMapFloat64(config.WORKFLOW_OFFLOADING_POLICY_REGION_COST)
 	// TODO: ToLower() is needed because viper (used to parse configuration files) is not case sensitive
@@ -201,9 +205,10 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	nearbyServers := registration.GetFullNeighborInfo()
 	if nearbyServers != nil {
 		for k, v := range nearbyServers {
-			if (v.TotalMemory-v.UsedMemory) > 0 && (v.TotalCPU-v.UsedCPU) > 0 {
+			if v.AvailableMemory > 0 && (v.TotalCPU-v.UsedCPU) > 0 {
 				params.EdgeNodes = append(params.EdgeNodes, k)
-				params.NodeMemory[k] = float64(v.TotalMemory - v.UsedMemory)
+				params.NodeAvailableMemory[k] = float64(v.AvailableMemory)
+				params.NodeFreeMemory[k] = float64(v.FreeMemory)
 
 				// Cost (assuming that Edge nodes are all in the same area)
 				params.Cost[k] = localCost

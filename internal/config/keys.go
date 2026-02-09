@@ -107,6 +107,7 @@ const WORKFLOW_OFFLOADING_POLICY_REGION_COST = "workflow.offloading.policy.regio
 const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_VIOLATIONS = "workflow.offloading.policy.ilp.obj.violations"
 const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_DATA_TRANSFERS = "workflow.offloading.policy.ilp.obj.data"
 const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_COST = "workflow.offloading.policy.ilp.obj.cost"
+const WORKFLOW_OFFLOADING_POLICY_ILP_OBJ_WEIGHT_RECLAIMED_MEMORY = "workflow.offloading.policy.ilp.obj.reclaimed"
 
 // Estimated bandwidth between the current node and the data store
 const WORKFLOW_OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH = "workflow.offloading.policy.node2datastore.bandwidth"
