@@ -10,3 +10,6 @@ etcd:
 container:
   pool:
     memory: 10000
+
+janitor:
+  interval: 60
