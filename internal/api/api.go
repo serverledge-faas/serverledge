@@ -267,8 +267,16 @@ func DeleteFunction(c echo.Context) error {
 
 // GetServerStatus simple api to check the current server status
 func GetServerStatus(c echo.Context) error {
-	node.LocalResources.RLock()
-	defer node.LocalResources.RUnlock()
+	// TODO this is causing a deadlock between GetServerStatus and node.WarmStatus at line 282!
+	// The deadlock happens if at the same time the AcquireWarmContainer is called in pool.go, which is triggered
+	// every time the node has to execute a function. If that call happens after this RLock, but before RLock in
+	// WarmStatus, go prevents WarmStatus from taking the RLock since a Lock is waiting, which causes the deadlock!
+	// As per Go docs: RLock locks rw for reading.
+	// It should not be used for recursive read locking; a blocked Lock call excludes new readers from acquiring the lock.
+	// This is a temporary solution, maybe a bigger refactor of this method is necessary in the future.
+
+	//node.LocalResources.RLock()
+	//defer node.LocalResources.RUnlock()
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
