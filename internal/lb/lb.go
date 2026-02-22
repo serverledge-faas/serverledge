@@ -81,19 +81,24 @@ func StartReverseProxy(e *echo.Echo, region string) {
 
 			nodeName := res.Header.Get("Serverledge-Node-Name")
 			freeMemStr := res.Header.Get("Serverledge-Free-Mem")
+			freeCpuStr := res.Header.Get("Serverledge-Free-CPU")
 
 			if nodeName != "" && freeMemStr != "" {
 				freeMem, err := strconv.ParseInt(freeMemStr, 10, 64)
-				if err == nil {
-					NodeMetrics.Update(nodeName, freeMem, 0, time.Now().Unix())
+				freeCpu, err2 := strconv.ParseFloat(freeCpuStr, 64)
+				if err == nil && err2 == nil {
+					NodeMetrics.Update(nodeName, freeMem, 0, time.Now().Unix(), freeCpu)
 
 					log.Printf("[LB-Update] Node %s reported %d MB free", nodeName, freeMem)
+				} else {
+					log.Printf("ERROR updating node stats: MEM error: %v, CPU error: %v", err, err2)
 				}
 			}
 
 			// Remove the no-longer-needed headers
 			res.Header.Del("Serverledge-Node-Name")
 			res.Header.Del("Serverledge-Free-Mem")
+			res.Header.Del("Serverledge-Free-CPU")
 			res.Header.Del("Serverledge-MAB-Request-ID")
 
 			// for experiments: we need to know which node ran the function
@@ -162,7 +167,8 @@ func updateTargets(balancer middleware.ProxyBalancer, region string) {
 					if nodeInfo != nil {
 						totalMemory := nodeInfo.TotalMemory
 						freeMemoryMB := totalMemory - nodeInfo.UsedMemory
-						NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime)
+						freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
+						NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 					}
 
 				}
@@ -184,7 +190,8 @@ func updateTargets(balancer middleware.ProxyBalancer, region string) {
 				if nodeInfo != nil {
 					totalMemory := nodeInfo.TotalMemory
 					freeMemoryMB := totalMemory - nodeInfo.UsedMemory
-					NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime)
+					freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
+					NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 				}
 			}
 		}

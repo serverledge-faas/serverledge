@@ -91,6 +91,7 @@ func InvokeFunction(c echo.Context) error {
 		c.Response().Header().Set("Serverledge-Node-Name", node.LocalNode.Key)
 		freeMem := node.LocalResources.AvailableMemory()
 		c.Response().Header().Set("Serverledge-Free-Mem", fmt.Sprintf("%d", freeMem))
+		c.Response().Header().Set("Serverledge-Free-CPU", fmt.Sprintf("%f", node.LocalResources.AvailableCPUs()))
 		c.Response().Header().Set("Serverledge-Node-Arch", runtime.GOARCH) // used by the MAB to update correct arm
 		if reqID := c.Request().Header.Get("Serverledge-MAB-Request-ID"); reqID != "" {
 			c.Response().Header().Set("Serverledge-MAB-Request-ID", reqID)

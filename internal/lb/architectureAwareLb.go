@@ -111,7 +111,8 @@ func (b *ArchitectureAwareBalancer) Next(c echo.Context) *middleware.ProxyTarget
 	if candidate != nil {
 		freeMemoryMB := NodeMetrics.GetFreeMemory(candidate.Name) - fun.MemoryMB
 		// Remove the memory that this function will use (this will then be updated again once the function is executed)
-		NodeMetrics.Update(candidate.Name, freeMemoryMB, 0, time.Now().Unix())
+		freeCpu := NodeMetrics.metrics[candidate.Name].FreeCPU - fun.CPUDemand
+		NodeMetrics.Update(candidate.Name, freeMemoryMB, 0, time.Now().Unix(), freeCpu)
 
 	}
 	return candidate
@@ -216,9 +217,10 @@ func (b *ArchitectureAwareBalancer) AddTarget(t *middleware.ProxyTarget) bool {
 	if nodeInfo != nil {
 		totalMemoryMb := nodeInfo.TotalMemory
 		freeMemoryMB := totalMemoryMb - nodeInfo.UsedMemory
+		freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
 		// Update will update the freeMemory only if the information in nodeInfo is fresher than what we
 		// already have in the NodeMetrics cache.
-		NodeMetrics.Update(t.Name, freeMemoryMB, totalMemoryMb, nodeInfo.LastUpdateTime)
+		NodeMetrics.Update(t.Name, freeMemoryMB, totalMemoryMb, nodeInfo.LastUpdateTime, freeCpu)
 	}
 	// Decide if target belongs to ARM or x86
 	if t.Meta["arch"] == container.ARM {
