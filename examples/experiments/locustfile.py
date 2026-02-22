@@ -63,7 +63,7 @@ class AmdUser(HttpUser):
 
     @task
     def invoke_amd_faster(self):
-        self.client.post("/invoke/amd_faster", json={"params": {}}, name="amd_faster", timeout=5)
+        self.client.post("/invoke/amd_faster", json={"params": {}}, name="amd_faster", timeout=10)
 
 class ArmUser(HttpUser):
     wait_time = constant(0.0)
@@ -71,12 +71,15 @@ class ArmUser(HttpUser):
 
     @task
     def invoke_arm_faster(self):
-        self.client.post("/invoke/arm_faster", json={"params": {}}, name="arm_faster", timeout=5)
+        self.client.post("/invoke/arm_faster", json={"params": {}}, name="arm_faster", timeout=10)
 
 class ThirdFunctionUser(HttpUser):
-    wait_time = constant(0.0)
-    weight = 0
+    wait_time = constant(30.0)
+    weight = 1
+
+    def on_start(self):
+        time.sleep(30)
 
     @task
     def invoke_third(self):
-        self.client.post("/invoke/third_function", json={"params": {}}, name="third_function", timeout=15)
+        self.client.post("/invoke/amd_only", json={"params": {}}, name="amd_only", timeout=20)
