@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
@@ -19,7 +20,7 @@ import (
 // Offloading choice caching
 var offloadingCache = make(map[string]*registration.NodeRegistration)
 var cacheExpiration = make(map[string]time.Time)
-var CacheValidity = 15 * time.Second
+var CacheValidity = 60 * time.Second
 var NoSuitableNode = errors.New("no node supporting the function's runtime found")
 var NoNeighbors = errors.New("the list of neighbors is empty")
 
@@ -54,6 +55,8 @@ func pickEdgeNodeForOffloading(r *scheduledRequest) (url string, err error) {
 	}
 
 	if bestNode != nil {
+		cacheValidityInt := config.GetInt(config.OFFLOADING_CACHE_VALIDITY, 60)
+		CacheValidity = time.Duration(cacheValidityInt) * time.Second
 		offloadingCache[r.Fun.Name] = bestNode
 		cacheExpiration[r.Fun.Name] = time.Now().Add(CacheValidity)
 		return bestNode.APIUrl(), nil

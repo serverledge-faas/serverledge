@@ -23,6 +23,9 @@ const POOL_CLEANUP_PERIOD = "janitor.interval"
 // container expiration time
 const CONTAINER_EXPIRATION_TIME = "container.expiration"
 
+// offloading cache validity time for EdgeOnlypolicy
+const OFFLOADING_CACHE_VALIDITY = "offloading.cache.validity"
+
 // cache capacity
 const CACHE_SIZE = "cache.size"
 
