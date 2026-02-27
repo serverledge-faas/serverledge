@@ -82,12 +82,15 @@ func StartReverseProxy(e *echo.Echo, region string) {
 			nodeName := res.Header.Get("Serverledge-Node-Name")
 			freeMemStr := res.Header.Get("Serverledge-Free-Mem")
 			freeCpuStr := res.Header.Get("Serverledge-Free-CPU")
+			timestampStr := res.Header.Get("Serverledge-Timestamp")
 
 			if nodeName != "" && freeMemStr != "" {
 				freeMem, err := strconv.ParseInt(freeMemStr, 10, 64)
 				freeCpu, err2 := strconv.ParseFloat(freeCpuStr, 64)
-				if err == nil && err2 == nil {
-					NodeMetrics.Update(nodeName, freeMem, 0, time.Now().Unix(), freeCpu)
+				timestamp, err3 := strconv.ParseInt(timestampStr, 10, 64)
+
+				if err == nil && err2 == nil && err3 == nil {
+					NodeMetrics.Update(nodeName, freeMem, 0, timestamp, freeCpu)
 
 					log.Printf("[LB-Update] Node %s reported %d MB free", nodeName, freeMem)
 				} else {

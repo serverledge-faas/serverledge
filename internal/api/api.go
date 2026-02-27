@@ -91,6 +91,7 @@ func InvokeFunction(c echo.Context) error {
 		c.Response().Header().Set("Serverledge-Node-Name", node.LocalNode.Key)
 		freeMem := node.LocalResources.AvailableMemory()
 		c.Response().Header().Set("Serverledge-Free-Mem", fmt.Sprintf("%d", freeMem))
+		c.Response().Header().Set("Serverledge-Timestamp", fmt.Sprintf("%d", time.Now().Unix()))
 		c.Response().Header().Set("Serverledge-Free-CPU", fmt.Sprintf("%f", node.LocalResources.AvailableCPUs()))
 		c.Response().Header().Set("Serverledge-Node-Arch", runtime.GOARCH) // used by the MAB to update correct arm
 		if reqID := c.Request().Header.Get("Serverledge-MAB-Request-ID"); reqID != "" {
@@ -268,16 +269,21 @@ func DeleteFunction(c echo.Context) error {
 
 // GetServerStatus simple api to check the current server status
 func GetServerStatus(c echo.Context) error {
-	// TODO this is causing a deadlock between GetServerStatus and node.WarmStatus at line 282!
-	// The deadlock happens if at the same time the AcquireWarmContainer is called in pool.go, which is triggered
-	// every time the node has to execute a function. If that call happens after this RLock, but before RLock in
-	// WarmStatus, go prevents WarmStatus from taking the RLock since a Lock is waiting, which causes the deadlock!
-	// As per Go docs: RLock locks rw for reading.
-	// It should not be used for recursive read locking; a blocked Lock call excludes new readers from acquiring the lock.
-	// This is a temporary solution, maybe a bigger refactor of this method is necessary in the future.
 
-	//node.LocalResources.RLock()
-	//defer node.LocalResources.RUnlock()
+	// THE ORDER IN WHICH THESE DATA IS GATHERED AND THE USE OF THE RLock and RUnlock ARE MEANT TO PREVENT A
+	// DEADLOCK THAT WAS AFFECTING THIS PORTION OF THE CODE:
+	// As stated in the docs: RLock locks rw for reading.
+	// It should not be used for recursive read locking; a blocked Lock call excludes new readers from acquiring the lock.
+	// Since AcquireWarmContainer uses a full Lock() on LocalResources, asking for a recursive lock here leads to a deadlock in high
+	// concurrency scenarios. In fact, node.WarmStatus uses a RLock on Local resources, same as what used to do this function
+	// in the very first lines. So it would ask for the lock a first time from GetServerStatus, and again for in WarmStatus.
+	// If AcquireWarmContainer would ask for the Lock() after the first RLock here, but before the second RLock in WarmStatus
+	// no one was able to actually use LocalResources anymore, neither for writing nor for reading, resulting in a deadlock.
+
+	// With this order of execution, we are sure that the lock is never taken recursively, avoiding said deadlock.
+
+	warmStatus := node.WarmStatus()
+	coords := *registration.VivaldiClient.GetCoordinate()
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
@@ -285,14 +291,21 @@ func GetServerStatus(c echo.Context) error {
 		loadAvgValues = []float64{loadAvg.LoadAverage1, loadAvg.LoadAverage5, loadAvg.LoadAverage10}
 	}
 
+	node.LocalResources.RLock()
+	totalMem := node.LocalResources.TotalMemory()
+	usedMem := node.LocalResources.UsedMemory()
+	totalCPU := node.LocalResources.TotalCPUs()
+	usedCPU := node.LocalResources.UsedCPUs()
+	node.LocalResources.RUnlock()
+
 	// TODO: use a different type
 	response := registration.StatusInformation{
-		AvailableWarmContainers: node.WarmStatus(),
-		TotalMemory:             node.LocalResources.TotalMemory(),
-		UsedMemory:              node.LocalResources.UsedMemory(),
-		TotalCPU:                node.LocalResources.TotalCPUs(),
-		UsedCPU:                 node.LocalResources.UsedCPUs(),
-		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
+		AvailableWarmContainers: warmStatus,
+		TotalMemory:             totalMem,
+		UsedMemory:              usedMem,
+		TotalCPU:                totalCPU,
+		UsedCPU:                 usedCPU,
+		Coordinates:             coords,
 		LoadAvg:                 loadAvgValues,
 		LastUpdateTime:          time.Now().Unix(),
 	}
