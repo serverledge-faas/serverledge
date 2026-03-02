@@ -164,8 +164,8 @@ func (p *LinUCBDisjointPolicy) UpdateReward(arm string, ctx *Context, isWarmStar
 }
 
 func memPenalty(memUsage float64) float64 {
-	// Grows from 0 at 0.7 utilization to 1 at 1.0 utilization
-	penalty := (memUsage - 0.75) / 0.3 // (memUsage - 0.7) / (1 - 0.7)
+	// Grows from 0 at 0.75 utilization to 1 at 1.0 utilization
+	penalty := (memUsage - 0.75) / 0.25 // (memUsage - 0.75) / (1 - 0.75)
 	return max(0.0, penalty)
 }
 
