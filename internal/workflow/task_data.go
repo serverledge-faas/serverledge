@@ -68,8 +68,7 @@ func (td *TaskData) Save(reqId ReqId, task TaskId) error {
 	}
 	// saves the json object into etcd
 	key := getTaskDataEtcdKey(reqId, task)
-	//log.Printf("Saving PD on etcd : %v\n", td.Data)
-	log.Printf("Saving PD on etcd with key: %s and payload: %v\n", key, string(payload))
+	log.Printf("Saving PD on etcd with key: %s\n", key)
 
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
@@ -89,7 +88,7 @@ func RetrievePartialData(reqId ReqId, task TaskId) (*TaskData, error) {
 	log.Printf("Retrieving partial data with key: %s\n", key)
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve partialDatas for requestId: %s", key)
+		return nil, fmt.Errorf("failed to retrieve PD for requestId %s: %v", key, err)
 	}
 	if len(getResponse.Kvs) > 1 {
 		return nil, fmt.Errorf("more than 1 TaskData associated with key: %s", key)

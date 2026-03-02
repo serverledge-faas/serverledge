@@ -500,7 +500,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 					}
 
 					if input != nil {
-						return fmt.Errorf("Merge of inputs not supported yet!")
+						return fmt.Errorf("merge of inputs not supported yet!")
 					}
 
 					input, found = dataMap[previousTask]
@@ -508,9 +508,8 @@ func (wflow *Workflow) Invoke(r *Request) error {
 						log.Printf("Input not found in dataMap for previousTask %s", previousTask)
 						input, err = RetrievePartialData(requestId, previousTask)
 						if err != nil {
-							return fmt.Errorf("Could not retrieve partial data: %v", err)
+							return fmt.Errorf("could not retrieve partial data: %v", err)
 						}
-						log.Printf("Input retrieved from etcd: %s", input)
 					}
 				}
 			}
