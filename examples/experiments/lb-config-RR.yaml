@@ -4,9 +4,9 @@ registry:
   udp.port: 9877
 
 lb:
-  replicas: 32
+  replicas: 128
   mode: "RoundRobin"
-  refresh_interval: 10
+  refresh_interval: 30
 
 
 etcd:

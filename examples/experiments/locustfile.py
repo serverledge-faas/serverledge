@@ -74,7 +74,7 @@ class ArmUser(HttpUser):
         self.client.post("/invoke/arm_faster", json={"params": {}}, name="arm_faster", timeout=10)
 
 class ThirdFunctionUser(HttpUser):
-    wait_time = constant(30.0)
+    wait_time = constant(20.0)
     weight = 1
 
     def on_start(self):
@@ -82,4 +82,4 @@ class ThirdFunctionUser(HttpUser):
 
     @task
     def invoke_third(self):
-        self.client.post("/invoke/amd_only", json={"params": {}}, name="amd_only", timeout=20)
+        self.client.post("/invoke/amd_only", json={"params": {"duration": 30}}, name="amd_only", timeout=50)
