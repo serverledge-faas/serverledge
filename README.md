@@ -100,25 +100,6 @@ You may want to see the content printed by the function to its standard output/e
 
 Note that we currently support output capture only for some runtimes (e.g., Python supports it).
 
-## Distributed Deployment
-
-[This repository](https://github.com/serverledge-faas/serverledge-deploy) provides an
-Ansible playbook to deploy Serverledge in a distributed configuration.
-
-In this case, you can instruct `serverledge-cli` to
-connect to a node other than `localhost` or use a non-default port
-by means of environment variables or command-line options:
-
-- Use `--host <HOST>` (or `-H <HOST>`) and/or `--port <PORT>` (or, `-P <PORT>`)
-  to specify the server
-  host and port on the command line
-- Alternatively, you can set the environment variables
-  `SERVERLEDGE_HOST` and/or `SERVERLEDGE_PORT`, which are read by the client.
-
-Example:
-
-    $ bin/serverledge-cli status -H <host ip-address> -P <port number>
-
 ## Configuration
 
 You can provide a configuration file using YAML or TOML syntax. Depending on the
@@ -142,6 +123,39 @@ The configuration file may look like this:
 	etcd.address: "1.2.3.4:2379"
 	scheduler.queue.capacity: 0
 	metrics.enabled: true
+
+## Distributed Deployment
+
+Distributed deployment can be easily achieved by running multiple Serverledge nodes on different machines. Just a few configuration changes are required to ensure
+that nodes coordinate with each other.
+
+### Node Configuration
+
+The following parameters in the configuration file are particularly relevant:
+
+- `etcd.address`: **Required**. Set this to the address of your `etcd` server (e.g., `192.168.1.10:2379`). All nodes in the same deployment **must** use the same `etcd` cluster.
+- `registry.area`: **Required**. The geographic or administrative area where the node is located (e.g., `EDGE_ZONE_1`). Nodes within the same area will coordinate with each other for horizontal offloading.
+- `registry.remote.area`: (Optional) The identifier of a "higher-layer" infrastructure area (e.g., `CLOUD`). This enables vertical offloading to a cloud-like layer when the local area is overloaded.
+- `api.ip`: (Optional) The IP address of the current node that other nodes can use to reach it. If not set, Serverledge attempts to auto-detect a public IP address.
+
+### Using the CLI
+
+You can instruct `serverledge-cli` to connect to a specific node by means of environment variables or command-line options:
+
+- Use `--host <HOST>` (or `-H <HOST>`) and/or `--port <PORT>` (or, `-P <PORT>`)
+  to specify the server host and port on the command line.
+- Alternatively, you can set the environment variables `SERVERLEDGE_HOST` and/or `SERVERLEDGE_PORT`, which are read by the client.
+
+Example:
+
+    $ bin/serverledge-cli status -H <host ip-address> -P <port number>
+
+### Emulating a (local) distributed deployment
+
+For testing, you can emulate a (local) distributed deployment by running multiple Serverledge nodes on the same machine. 
+Note that in this case it is fundamental to use different ports for each node. Specifically, you must configure different values for:
+- `api.port`
+- `registry.udp.port`
 
 ## Workflows
 
