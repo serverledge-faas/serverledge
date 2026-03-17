@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"io"
 	"net/http"
 	"sort"
@@ -518,7 +519,11 @@ func (wflow *Workflow) Invoke(r *Request) error {
 			}
 			output, err := wflow.ExecuteTask(r, taskToExecute, input, progress)
 			if err != nil {
-				return fmt.Errorf("failed wflow execution: %v", err)
+				if errors.Is(err, node.OutOfResourcesErr) {
+					return err
+				} else {
+					return fmt.Errorf("failed wflow execution: %v", err)
+				}
 			}
 
 			dataMap[taskToExecute] = output
@@ -584,7 +589,11 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 	url := fmt.Sprintf("%s/workflow/resume/%s", policyDecision.RemoteHost, r.W.Name)
 	resp, err := utils.PostJson(url, invocationBody)
 	if err != nil {
-		return fmt.Errorf("HTTP request for offloading failed: %v", err)
+		if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+			return node.OutOfResourcesErr
+		} else {
+			return fmt.Errorf("HTTP request for offloading failed: %v", err)
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {
