@@ -171,6 +171,8 @@ func ResumeWorkflow(e echo.Context) error {
 	req.Async = clientReq.Async
 	req.Resuming = true
 	req.Id = clientReq.ReqId
+	req.ExecReport.ResponseTime = 0.0
+	req.ExecReport.Result = map[string]interface{}{}
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	if clientReq.Plan.ToExecute != nil {
@@ -214,6 +216,8 @@ func InvokeWorkflow(e echo.Context) error {
 	req.Plan = nil
 	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.LocalNode.String()[len(node.LocalNode.String())-5:], req.Arrival.Nanosecond())
+	req.ExecReport.ResponseTime = 0.0
+	req.ExecReport.Result = map[string]interface{}{}
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	return handleWorkflowInvocation(e, req)
