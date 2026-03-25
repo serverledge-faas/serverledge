@@ -14,6 +14,7 @@ import (
 
 var etcdClient *clientv3.Client = nil
 var clientMutex sync.Mutex
+var startedConnMonitor bool
 
 func GetEtcdClient() (*clientv3.Client, error) {
 	clientMutex.Lock()
@@ -37,7 +38,10 @@ func GetEtcdClient() (*clientv3.Client, error) {
 
 	etcdClient = cli
 
-	startConnectionMonitor(etcdClient)
+	if !startedConnMonitor {
+		startConnectionMonitor(etcdClient)
+		startedConnMonitor = true
+	}
 
 	return cli, nil
 }
