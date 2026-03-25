@@ -32,7 +32,8 @@ type ExecutionReport struct {
 	OffloadLatency float64 // time spent offloading the request
 	Duration       float64 // execution (service) time
 	Output         string
-	Area           string
+	ExecutionArea  string
+	ExecutionNode  string
 }
 
 type Response struct {

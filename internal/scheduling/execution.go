@@ -65,7 +65,8 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error 
 	r.ResponseTime = time.Now().Sub(r.Arrival).Seconds()
 	// initializing containers may require invocation retries, adding // latency
 	r.InitTime = initTime + invocationWait.Seconds()
-	r.Area = node.LocalNode.Area
+	r.ExecutionArea = node.LocalNode.Area
+	r.ExecutionNode = node.LocalNode.Key
 
 	// notify scheduler
 	completions <- &completionNotification{funcName: r.Fun.Name, offloaded: r.offloaded, report: *r.ExecutionReport, cont: cont, failed: false}
