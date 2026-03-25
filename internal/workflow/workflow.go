@@ -412,7 +412,7 @@ func (wflow *Workflow) savePartialDataForReadyTasks(requestId ReqId, progress *P
 					return fmt.Errorf("Could not save partial data: %v", err)
 				}
 			} else {
-				log.Printf("PD not available locally for %s; they might be on Etcd already...", prev)
+				// PD not available locally; they might be on Etcd already...
 			}
 
 			handledTasks[prev] = true
