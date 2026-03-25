@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"fmt"
+	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
 	"time"
 
@@ -64,6 +65,7 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error 
 	r.ResponseTime = time.Now().Sub(r.Arrival).Seconds()
 	// initializing containers may require invocation retries, adding // latency
 	r.InitTime = initTime + invocationWait.Seconds()
+	r.Area = node.LocalNode.Area
 
 	// notify scheduler
 	completions <- &completionNotification{funcName: r.Fun.Name, offloaded: r.offloaded, report: *r.ExecutionReport, cont: cont, failed: false}
