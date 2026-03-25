@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"context"
 	"fmt"
+	"google.golang.org/grpc/connectivity"
 	"log"
 	"sync"
 	"time"
@@ -34,5 +36,49 @@ func GetEtcdClient() (*clientv3.Client, error) {
 	}
 
 	etcdClient = cli
+
+	startConnectionMonitor(etcdClient)
+
 	return cli, nil
+}
+
+func TryEtcdReconnection() {
+	log.Println("Trying Etcd Reconnection....")
+	etcdClient = nil
+	_, _ = GetEtcdClient()
+}
+
+func startConnectionMonitor(cli *clientv3.Client) {
+	conn := cli.ActiveConnection()
+
+	go func() {
+		for {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			changed := conn.WaitForStateChange(ctx, conn.GetState())
+			cancel()
+
+			if !changed {
+				// Timeout expired with no state change — still in same state
+				continue
+			}
+
+			state := conn.GetState()
+			log.Printf("etcd connection state: %v", state)
+
+			switch state {
+			case connectivity.Ready:
+				log.Println("etcd: connected and ready")
+			case connectivity.TransientFailure:
+				log.Println("etcd: transient failure, triggering reconnect")
+				conn.Connect() // Force reconnect attempt
+			case connectivity.Idle:
+				log.Println("etcd: idle, nudging connection")
+				conn.Connect()
+			case connectivity.Shutdown:
+				log.Println("etcd: connection shut down, exiting monitor")
+				return
+			default:
+			}
+		}
+	}()
 }

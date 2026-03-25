@@ -72,6 +72,7 @@ func (td *TaskData) Save(reqId ReqId, task TaskId) error {
 
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
+		utils.TryEtcdReconnection()
 		return fmt.Errorf("failed etcd Put partial data: %v", err)
 	}
 	return nil
@@ -88,7 +89,11 @@ func RetrievePartialData(reqId ReqId, task TaskId) (*TaskData, error) {
 	log.Printf("Retrieving partial data with key: %s\n", key)
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil {
+		utils.TryEtcdReconnection()
 		return nil, fmt.Errorf("failed to retrieve PD for requestId %s: %v", key, err)
+	}
+	if len(getResponse.Kvs) < 1 {
+		return nil, fmt.Errorf("not found PD for requestId %s: %v", key, err)
 	}
 	if len(getResponse.Kvs) > 1 {
 		return nil, fmt.Errorf("more than 1 TaskData associated with key: %s", key)
