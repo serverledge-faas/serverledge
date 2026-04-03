@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"net/http"
 	"time"
 
@@ -172,7 +173,7 @@ func ResumeWorkflow(e echo.Context) error {
 	req.Resuming = true
 	req.Id = clientReq.ReqId
 	req.ExecReport.ResponseTime = 0.0
-	req.ExecReport.Result = map[string]interface{}{}
+	req.ExecReport.Result = nil // NOTE: this should be nil until workflow completion
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	if clientReq.Plan.ToExecute != nil {
@@ -217,7 +218,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.LocalNode.String()[len(node.LocalNode.String())-5:], req.Arrival.Nanosecond())
 	req.ExecReport.ResponseTime = 0.0
-	req.ExecReport.Result = map[string]interface{}{}
+	req.ExecReport.Result = nil // NOTE: this should be nil until workflow completion
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
 	return handleWorkflowInvocation(e, req)
@@ -262,6 +263,9 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 		return e.JSON(http.StatusInternalServerError, err.Error())
 	} else {
 		req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
+
+		// TODO
+		log.Printf("Invocation succeeded. Returning %d reports for keys: %v", len(req.ExecReport.Reports), maps.Keys(req.ExecReport.Reports))
 
 		return e.JSON(http.StatusOK, workflow.InvocationResponse{
 			Success:      true,

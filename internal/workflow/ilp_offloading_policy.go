@@ -85,7 +85,14 @@ func (policy *IlpOffloadingPolicy) Evaluate(r *Request, p *Progress) (Offloading
 	cacheSolution(r, &placement, defaultTTL)
 
 	for k, v := range placement {
-		fmt.Printf("Task: %s -> %s \n", k, v)
+		taskType := ""
+		task, found := r.W.Tasks[k]
+		if !found {
+			taskType = "?"
+		} else {
+			taskType = fmt.Sprintf("%v", task.GetType())
+		}
+		fmt.Printf("[Req %s] Task: %s (%v) -> %s \n", r.Id, k, taskType, v)
 	}
 
 	// parse results and make a decision

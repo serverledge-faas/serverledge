@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/config"
@@ -72,9 +73,13 @@ type cachedPlacement struct {
 	ttl       int
 }
 
+var placementCacheMutex sync.Mutex = sync.Mutex{}
 var placementCache map[string]*cachedPlacement
 
 func getCachedSolution(r *Request) (*taskPlacement, bool) {
+	placementCacheMutex.Lock()
+	defer placementCacheMutex.Unlock()
+
 	if placementCache == nil {
 		placementCache = make(map[string]*cachedPlacement)
 		return nil, false
@@ -96,6 +101,9 @@ func getCachedSolution(r *Request) (*taskPlacement, bool) {
 }
 
 func cacheSolution(r *Request, sol *taskPlacement, ttl int) {
+	placementCacheMutex.Lock()
+	defer placementCacheMutex.Unlock()
+
 	if placementCache == nil {
 		placementCache = make(map[string]*cachedPlacement)
 	}

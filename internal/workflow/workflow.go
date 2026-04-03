@@ -26,7 +26,7 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/types"
 )
 
-var offloadingPolicy OffloadingPolicy = &IlpOffloadingPolicy{}
+var offloadingPolicy OffloadingPolicy = nil
 
 func CreateOffloadingPolicy() {
 	policyConf := config.GetString(config.WORKFLOW_OFFLOADING_POLICY, "disable")
@@ -475,6 +475,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 			if err != nil {
 				return fmt.Errorf("Could not retrieve progress after offloading: %v", err)
 			}
+
 			log.Printf("Ready to execute after offloading: %v", progress.ReadyToExecute)
 		} else {
 			// pick next executable task
