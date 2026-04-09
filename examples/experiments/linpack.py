@@ -1,61 +1,26 @@
+import numpy as np
+import os
 import time
-import random
-
-
-MATRIX_SIZE = 400
-
-def gaussian_elimination(A, B):
-
-    n = len(A)
-    M = [A[i][:] + [B[i]] for i in range(n)]
-
-    for i in range(n):
-        pivot = M[i][i]
-        if pivot == 0: pivot = 1.0e-10
-
-        for j in range(i + 1, n):
-            factor = M[j][i] / pivot
-            for k in range(i, n + 1):
-                M[j][k] -= factor * M[i][k]
-
-    x = [0.0] * n
-    for i in range(n - 1, -1, -1):
-        sum_ax = sum(M[i][j] * x[j] for j in range(i + 1, n))
-        x[i] = (M[i][n] - sum_ax) / M[i][i]
-
-    return x
 
 def handler(params, context):
-    n = MATRIX_SIZE
 
-    ops = (2.0 * n * n * n) / 3.0 + (2.0 * n * n)
+    os.environ["OMP_NUM_THREADS"] = "1"
+    os.environ["OPENBLAS_NUM_THREADS"] = "1"
+    os.environ["MKL_NUM_THREADS"] = "1"
 
-    A = []
-    for _ in range(n):
-        row = [(random.random() - 0.5) for _ in range(n)]
-        A.append(row)
+    n = int(params.get("n", 4000))
 
-    B = []
-    for row in A:
-        B.append(sum(row))
+    A = np.random.rand(n, n)
+    B = np.random.rand(n)
 
-    start = time.time()
+    start_time = time.time()
+    x = np.linalg.solve(A, B)
+    end_time = time.time()
 
-    x = gaussian_elimination(A, B)
-
-    duration = time.time() - start
-
-    if duration <= 0:
-        duration = 0.000001
-
-    mflops = (ops * 1e-6 / duration)
-
-    validity_check = abs(x[0] - 1.0) < 1e-4
+    execution_time = end_time - start_time
 
     return {
-        "function": "linpack_pure",
+        "status": "success",
         "matrix_size": n,
-        "mflops": mflops,
-        "latency_seconds": duration,
-        "valid": validity_check
+        "calc_time_seconds": round(execution_time, 4)
     }

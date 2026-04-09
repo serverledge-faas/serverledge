@@ -75,7 +75,7 @@ class ArmUser(HttpUser):
 
 class ThirdFunctionUser(HttpUser):
     wait_time = constant(20.0)
-    weight = 1
+    weight = 0
 
     def on_start(self):
         time.sleep(30)
@@ -83,3 +83,59 @@ class ThirdFunctionUser(HttpUser):
     @task
     def invoke_third(self):
         self.client.post("/invoke/amd_only", json={"params": {"duration": 30}}, name="amd_only", timeout=50)
+
+class PrimenumberUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_primenumber(self):
+        self.client.post("/invoke/primenumber", json={"params": {}}, name="primenumber", timeout=30)
+
+class ThreadUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_thread(self):
+        self.client.post("/invoke/thread", json={"params": {}}, name="thread", timeout=30)
+
+class ReadmemoryUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_readmemory(self):
+        self.client.post("/invoke/readmemory", json={"params": {}}, name="readmemory", timeout=30)
+
+class ReaddiskUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_readdisk(self):
+        self.client.post("/invoke/readdisk", json={"params": {}}, name="readdisk", timeout=30)
+
+class Chacha20User(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_chacha20(self):
+        self.client.post("/invoke/chacha20", json={"params": {}}, name="chacha20", timeout=30)
+
+class FilehandleUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_filehandle(self):
+        self.client.post("/invoke/filehandle", json={"params": {}}, name="filehandle", timeout=30)
+
+class LinpackUser(HttpUser):
+    wait_time = constant(0.0)
+    weight = 1
+
+    @task
+    def invoke_linpack(self):
+        self.client.post("/invoke/linpack", json={"params": {}}, name="linpack", timeout=30)
