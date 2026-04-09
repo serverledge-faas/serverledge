@@ -24,7 +24,14 @@ var currentTargets []*middleware.ProxyTarget
 
 func newBalancer(targets []*middleware.ProxyTarget) middleware.ProxyBalancer {
 	// old Load Balancer: return middleware.NewRoundRobinBalancer(targets)
-	return NewArchitectureAwareBalancer(targets)
+	isArchAware := config.GetBool(config.Arch_AWARENESS, true)
+
+	if isArchAware {
+		return NewArchitectureAwareBalancer(targets)
+
+	} else {
+		return NewArchitectureUNawareBalancer(targets)
+	}
 }
 
 func StartReverseProxy(e *echo.Echo, region string) {

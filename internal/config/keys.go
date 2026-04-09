@@ -62,6 +62,9 @@ const LB_REFRESH_INTERVAL = "lb.refresh_interval"
 // LoadBalancer working mode (i.e.: "MAB" or "RoundRobin")
 const LB_MODE = "lb.mode"
 
+// Select if the load balancer is architecture aware (useful for experiments)
+const Arch_AWARENESS = "lb.arch_awareness"
+
 // Policy for the Multi Armed Bandit (MAB) (i.e.: "LinUcb" or "UCB1")
 const MAB_POLICY = "mab.policy"
 

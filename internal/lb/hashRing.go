@@ -56,7 +56,7 @@ func (r *HashRing) Get(fun *function.Function) *middleware.ProxyTarget {
 	}
 	candidate := r.targets[r.ring[idx]] // here we use the map to get the node corresponding to the hash
 
-	if r.memChecker.HasEnoughMemory(candidate, fun) {
+	if r.memChecker.HasEnoughMemory(candidate, fun) && fun.SupportsArch(candidate.Meta["arch"].(string)) {
 		return candidate
 	}
 
@@ -78,7 +78,7 @@ func (r *HashRing) Get(fun *function.Function) *middleware.ProxyTarget {
 		candidate = r.targets[r.ring[idx]]     // new candidate: idx is the replica's index. candidate is the corresponding physical node
 		_, alreadySeen := seen[candidate.Name] // I check if it's in the map (meaning I already tried it)
 
-		if !alreadySeen && r.memChecker.HasEnoughMemory(candidate, fun) {
+		if !alreadySeen && r.memChecker.HasEnoughMemory(candidate, fun) && fun.SupportsArch(candidate.Meta["arch"].(string)) {
 			return candidate
 		} else {
 			seen[candidate.Name] = struct{}{} // it's a map, it doesn't really matter if alreadySeen was true or not, there are no duplicates
