@@ -2,7 +2,7 @@ import os
 
 def handler(params, context):
     n = int(params.get("n", 1000000))
-    file_path = "/tmp/dummy_handle.txt"
+    file_path = "dummy_handle.txt"
 
     with open(file_path, "w") as f:
         f.write("test data")

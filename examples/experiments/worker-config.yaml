@@ -9,7 +9,7 @@ etcd:
 
 container:
   pool:
-    memory: 10000
+    memory: 12000
 
 janitor:
   interval: 60
