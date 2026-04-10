@@ -22,16 +22,16 @@ import (
 
 var currentTargets []*middleware.ProxyTarget
 
-func newBalancer(targets []*middleware.ProxyTarget) middleware.ProxyBalancer {
+func newBalancer(targets []*middleware.ProxyTarget) (middleware.ProxyBalancer, bool) {
 	// old Load Balancer: return middleware.NewRoundRobinBalancer(targets)
 	isArchAware := config.GetBool(config.Arch_AWARENESS, true)
 
 	if isArchAware {
-		return NewArchitectureAwareBalancer(targets)
+		return NewArchitectureAwareBalancer(targets), true
 
-	} else {
-		return NewArchitectureUNawareBalancer(targets)
 	}
+
+	return NewArchitectureUNawareBalancer(targets), false
 }
 
 func StartReverseProxy(e *echo.Echo, region string) {
@@ -42,7 +42,7 @@ func StartReverseProxy(e *echo.Echo, region string) {
 	}
 
 	log.Printf("Initializing with %d targets.\n", len(targets))
-	balancer := newBalancer(targets)
+	balancer, isAware := newBalancer(targets)
 	currentTargets = targets
 
 	// Custom ProxyConfig to process custom headers and update available memory of each targets after they
@@ -80,6 +80,9 @@ func StartReverseProxy(e *echo.Echo, region string) {
 			reqID := res.Request.Header.Get("Serverledge-MAB-Request-ID")
 
 			go func(data []byte, path string, arch string, reqID string) {
+				if !isAware {
+					return // if we're using the unaware LB no need for bandit update (there isn't one)
+				}
 				err := mab.UpdateBandit(data, path, arch, reqID)
 				if err != nil {
 					log.Printf("Failed to update bandit: %v", err)
