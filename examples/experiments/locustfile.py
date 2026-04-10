@@ -90,7 +90,7 @@ class PrimenumberUser(HttpUser):
 
     @task
     def invoke_primenumber(self):
-        self.client.post("/invoke/primenumber", json={"params": {}}, name="primenumber", timeout=30)
+        self.client.post("/invoke/primenumber", json={"params": {}}, name="primenumber")
 
 class ThreadUser(HttpUser):
     wait_time = constant(0.0)
@@ -98,7 +98,7 @@ class ThreadUser(HttpUser):
 
     @task
     def invoke_thread(self):
-        self.client.post("/invoke/thread", json={"params": {}}, name="thread", timeout=30)
+        self.client.post("/invoke/thread", json={"params": {}}, name="thread")
 
 class ReadmemoryUser(HttpUser):
     wait_time = constant(0.0)
@@ -106,7 +106,7 @@ class ReadmemoryUser(HttpUser):
 
     @task
     def invoke_readmemory(self):
-        self.client.post("/invoke/readmemory", json={"params": {}}, name="readmemory", timeout=30)
+        self.client.post("/invoke/readmemory", json={"params": {}}, name="readmemory")
 
 class ReaddiskUser(HttpUser):
     wait_time = constant(0.0)
@@ -114,7 +114,7 @@ class ReaddiskUser(HttpUser):
 
     @task
     def invoke_readdisk(self):
-        self.client.post("/invoke/readdisk", json={"params": {}}, name="readdisk", timeout=30)
+        self.client.post("/invoke/readdisk", json={"params": {}}, name="readdisk")
 
 class Chacha20User(HttpUser):
     wait_time = constant(0.0)
@@ -122,7 +122,7 @@ class Chacha20User(HttpUser):
 
     @task
     def invoke_chacha20(self):
-        self.client.post("/invoke/chacha20", json={"params": {}}, name="chacha20", timeout=30)
+        self.client.post("/invoke/chacha20", json={"params": {}}, name="chacha20")
 
 class FilehandleUser(HttpUser):
     wait_time = constant(0.0)
@@ -130,7 +130,7 @@ class FilehandleUser(HttpUser):
 
     @task
     def invoke_filehandle(self):
-        self.client.post("/invoke/filehandle", json={"params": {}}, name="filehandle", timeout=30)
+        self.client.post("/invoke/filehandle", json={"params": {}}, name="filehandle")
 
 class LinpackUser(HttpUser):
     wait_time = constant(0.0)
@@ -138,4 +138,4 @@ class LinpackUser(HttpUser):
 
     @task
     def invoke_linpack(self):
-        self.client.post("/invoke/linpack", json={"params": {}}, name="linpack", timeout=30)
+        self.client.post("/invoke/linpack", json={"params": {}}, name="linpack")

@@ -3,7 +3,7 @@
 LB_IP="INSERIRE_IP_QUI"
 export LB_POLICY=${1:-"RoundRobin"}
 
-LOCUST_DURATION="10m"
+LOCUST_DURATION="20m"
 USERS=9
 SPAWN_RATE=9
 RESULT_FILE="experiment_results.csv"
