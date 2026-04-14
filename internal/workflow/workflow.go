@@ -505,7 +505,6 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 					input, found = dataMap[previousTask]
 					if !found {
-						log.Printf("Input not found in dataMap for previousTask %s", previousTask)
 						input, err = RetrievePartialData(requestId, previousTask)
 						if err != nil {
 							return fmt.Errorf("Could not retrieve partial data: %v", err)

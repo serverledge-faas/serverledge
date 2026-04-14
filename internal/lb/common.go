@@ -14,7 +14,7 @@ func getTargetStatus(targetUrl string) (registration.StatusInformation, error) {
 	path, _ := url.JoinPath(targetUrl, "/status")
 	resp, err := http.Get(path)
 	if err != nil {
-		log.Fatalf("Invocation to get status failed: %v", err)
+		log.Printf("Invocation to get status failed: %v", err)
 		return registration.StatusInformation{}, err
 	}
 	defer resp.Body.Close()
@@ -22,7 +22,7 @@ func getTargetStatus(targetUrl string) (registration.StatusInformation, error) {
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Error reading response body: %v", err)
+		log.Printf("Error reading response body: %v", err)
 		return registration.StatusInformation{}, err
 	}
 
@@ -30,7 +30,7 @@ func getTargetStatus(targetUrl string) (registration.StatusInformation, error) {
 	if resp.StatusCode == http.StatusOK {
 		var statusInfo registration.StatusInformation
 		if err := json.Unmarshal(body, &statusInfo); err != nil {
-			log.Fatalf("Error decoding JSON: %v", err)
+			log.Printf("Error decoding JSON: %v", err)
 			return registration.StatusInformation{}, errors.New("could not get status information")
 		}
 		return statusInfo, nil
