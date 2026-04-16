@@ -47,13 +47,13 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error 
 		}
 
 		// notify scheduler
-		completions <- &completionNotification{r: r, cont: cont, failed: true}
+		completions <- &completionNotification{funcName: r.Fun.Name, offloaded: r.offloaded, cont: cont, failed: true}
 		return fmt.Errorf("[%s] Execution failed on container %v: %v ", r, cont.ID, err)
 	}
 
 	if !response.Success {
 		// notify scheduler
-		completions <- &completionNotification{r: r, cont: cont, failed: true}
+		completions <- &completionNotification{funcName: r.Fun.Name, offloaded: r.offloaded, cont: cont, failed: true}
 		return fmt.Errorf("[%s] Function execution failed %v", r, cont.ID)
 	}
 
@@ -66,7 +66,7 @@ func Execute(cont *container.Container, r *scheduledRequest, isWarm bool) error 
 	r.InitTime = initTime + invocationWait.Seconds()
 
 	// notify scheduler
-	completions <- &completionNotification{r: r, cont: cont, failed: false}
+	completions <- &completionNotification{funcName: r.Fun.Name, offloaded: r.offloaded, report: *r.ExecutionReport, cont: cont, failed: false}
 
 	return nil
 }

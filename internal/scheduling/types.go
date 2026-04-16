@@ -14,9 +14,11 @@ type scheduledRequest struct {
 }
 
 type completionNotification struct {
-	failed bool
-	r      *scheduledRequest
-	cont   *container.Container
+	failed    bool
+	funcName  string
+	offloaded bool
+	report    function.ExecutionReport
+	cont      *container.Container
 }
 
 // schedDecision wraps a action made by the scheduler.
