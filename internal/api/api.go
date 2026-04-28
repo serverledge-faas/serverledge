@@ -176,12 +176,13 @@ func CreateOrUpdateFunction(c echo.Context) error {
 
 	// Check that the selected runtime exists
 	if f.Runtime != container.CUSTOM_RUNTIME {
-		runtime, ok := container.RuntimeToInfo[f.Runtime]
+		selectedRuntime, ok := container.RuntimeToInfo[f.Runtime]
 		if !ok {
-			return c.JSON(http.StatusNotFound, "Invalid runtime.")
+			log.Printf("User indicated unknown runtime: %s\n", f.Runtime)
+			return c.String(http.StatusNotFound, "Invalid runtime.")
 		}
 		f.SupportedArchs = []string{container.X86, container.ARM}
-		if f.MaxConcurrency > 1 && !runtime.ConcurrencySupported {
+		if f.MaxConcurrency > 1 && !selectedRuntime.ConcurrencySupported {
 			log.Printf("Forcing max concurrency = 1 for runtime %s\n", f.Runtime)
 			f.MaxConcurrency = 1
 		}
