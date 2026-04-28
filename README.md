@@ -69,7 +69,7 @@ Start a local Serverledge node:
 
 Register a function `func` from example python code (the handler is formatted like this: $(filename).$(functionName)):
 
-	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.py --runtime python310 --handler "hello.handler"
+	$ bin/serverledge-cli create -f func --memory 600 --src examples/hello.py --runtime python314 --handler "hello.handler"
 
 Register a function `func` from example javascript code (the handler is formatted like this: $(filename) and the name of the function is "handler"):
 

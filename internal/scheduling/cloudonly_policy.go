@@ -14,7 +14,7 @@ func (p *CloudOnlyPolicy) OnCompletion(_ *function.Function, _ *function.Executi
 
 func (p *CloudOnlyPolicy) OnArrival(r *scheduledRequest) {
 	if r.CanDoOffloading {
-		handleCloudOffload(r)
+		handleCloudOffload(r) // This will also check for architecture compatibility
 	} else {
 		dropRequest(r)
 	}

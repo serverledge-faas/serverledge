@@ -1,2 +1,4 @@
 #!/bin/sh
-docker kill Etcd-server
+docker stop Etcd-server
+docker rm Etcd-server
+rm -rf default.etcd/

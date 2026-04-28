@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 
@@ -84,12 +85,29 @@ func InvokeFunction(c echo.Context) error {
 		defer span.End()
 	}
 
+	setMetricsHeaders := func() {
+		// These headers will be used by the Load Balancer (if there is one), to get fresh updates on the free
+		// memory of each node after the execution of every function.
+		c.Response().Header().Set("Serverledge-Node-Name", node.LocalNode.Key)
+		freeMem := node.LocalResources.AvailableMemory()
+		c.Response().Header().Set("Serverledge-Free-Mem", fmt.Sprintf("%d", freeMem))
+		c.Response().Header().Set("Serverledge-Timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+		c.Response().Header().Set("Serverledge-Free-CPU", fmt.Sprintf("%f", node.LocalResources.AvailableCPUs()))
+		c.Response().Header().Set("Serverledge-Node-Arch", runtime.GOARCH) // used by the MAB to update correct arm
+		if reqID := c.Request().Header.Get("Serverledge-MAB-Request-ID"); reqID != "" {
+			c.Response().Header().Set("Serverledge-MAB-Request-ID", reqID)
+		}
+
+	}
+
 	if r.Async {
 		go scheduling.SubmitAsyncRequest(r)
+		setMetricsHeaders()
 		return c.JSON(http.StatusOK, function.AsyncResponse{ReqId: r.Id()})
 	}
 
 	executionReport, err := scheduling.SubmitRequest(r)
+	setMetricsHeaders()
 
 	if errors.Is(err, node.OutOfResourcesErr) {
 		return c.String(http.StatusTooManyRequests, "")
@@ -162,6 +180,7 @@ func CreateOrUpdateFunction(c echo.Context) error {
 		if !ok {
 			return c.JSON(http.StatusNotFound, "Invalid runtime.")
 		}
+		f.SupportedArchs = []string{container.X86, container.ARM}
 		if f.MaxConcurrency > 1 && !runtime.ConcurrencySupported {
 			log.Printf("Forcing max concurrency = 1 for runtime %s\n", f.Runtime)
 			f.MaxConcurrency = 1
@@ -171,6 +190,39 @@ func CreateOrUpdateFunction(c echo.Context) error {
 			log.Printf("Forcing max concurrency = 1 for runtime %s\n", f.Runtime)
 			f.MaxConcurrency = 1
 		}
+		// If we have a custom runtime, then f.CustomImage will contain the image name
+		runtime, ok := container.CustomRuntimeToInfo[f.CustomImage]
+		if !ok {
+			//If I've never seen this custom runtime before, I'll add it to the map
+			archs, err := container.GetFactory().GetImageArchitectures(f.CustomImage)
+			if err != nil {
+				log.Printf("Failed to get image architectures for image %s: %v\n", f.CustomImage, err)
+				return c.String(http.StatusInternalServerError, "Failed to get image architectures")
+			}
+
+			/* CustomRuntimeToInfo value "Image" is the empty string to save (just a little) memory. In fact, f.CustomImage
+			is the image name, and it's used as the key for the map. In the case of a custom runtime, the attribute f.Runtime
+			is simply "custom", and so it's not usable as a key for the map, and it's not worth keeping it in memory since it's
+			useless here (we already know is a custom runtime because the image is in CustomRuntimeToInfo). So what is actually
+			of interest here is the field Architectures, that will be used to keep track of where this function can be executed
+			(only x86 nodes, only ARM or both). I chose to use RuntimeInfo to keep it consistent with the map RuntimeToInfo
+			that we use for default runtimes (and images), without creating an overly specific data structure just for this case.
+			This way, future lookup for compatible architectures can be made the same way for both default and custom runtimes.
+			*/
+			runtime = container.RuntimeInfo{
+				Image:                "",
+				InvocationCmd:        nil,
+				ConcurrencySupported: false,
+				Architectures:        archs,
+			}
+
+			container.CustomRuntimeToInfo[f.CustomImage] = runtime
+		}
+
+		// Now we know that "runtime" contains info about the runtime of this function, both if it is a new one or one
+		// we already saw
+		f.SupportedArchs = runtime.Architectures // also inside the function to leverage etcd for offloading
+
 	}
 
 	if f.MemoryMB < 1 {
@@ -227,8 +279,21 @@ func DeleteFunction(c echo.Context) error {
 
 // GetServerStatus simple api to check the current server status
 func GetServerStatus(c echo.Context) error {
-	node.LocalResources.RLock()
-	defer node.LocalResources.RUnlock()
+
+	// THE ORDER IN WHICH THESE DATA IS GATHERED AND THE USE OF THE RLock and RUnlock ARE MEANT TO PREVENT A
+	// DEADLOCK THAT WAS AFFECTING THIS PORTION OF THE CODE:
+	// As stated in the docs: RLock locks rw for reading.
+	// It should not be used for recursive read locking; a blocked Lock call excludes new readers from acquiring the lock.
+	// Since AcquireWarmContainer uses a full Lock() on LocalResources, asking for a recursive lock here leads to a deadlock in high
+	// concurrency scenarios. In fact, node.WarmStatus uses a RLock on Local resources, same as what used to do this function
+	// in the very first lines. So it would ask for the lock a first time from GetServerStatus, and again for in WarmStatus.
+	// If AcquireWarmContainer would ask for the Lock() after the first RLock here, but before the second RLock in WarmStatus
+	// no one was able to actually use LocalResources anymore, neither for writing nor for reading, resulting in a deadlock.
+
+	// With this order of execution, we are sure that the lock is never taken recursively, avoiding said deadlock.
+
+	warmStatus := node.WarmStatus()
+	coords := *registration.VivaldiClient.GetCoordinate()
 
 	loadAvg, err := loadavg.Parse()
 	loadAvgValues := []float64{-1.0, -1.0, -1.0}
@@ -236,16 +301,25 @@ func GetServerStatus(c echo.Context) error {
 		loadAvgValues = []float64{loadAvg.LoadAverage1, loadAvg.LoadAverage5, loadAvg.LoadAverage10}
 	}
 
+	node.LocalResources.RLock()
+	totalMem := node.LocalResources.TotalMemory()
+	availMem := node.LocalResources.AvailableMemory()
+	freeMem := node.LocalResources.FreeMemory()
+	totalCPU := node.LocalResources.TotalCPUs()
+	usedCPU := node.LocalResources.UsedCPUs()
+	node.LocalResources.RUnlock()
+
 	// TODO: use a different type
 	response := registration.StatusInformation{
-		AvailableWarmContainers: node.WarmStatus(),
-		TotalMemory:             node.LocalResources.TotalMemory(),
-		AvailableMemory:         node.LocalResources.AvailableMemory(),
-		FreeMemory:              node.LocalResources.FreeMemory(),
-		TotalCPU:                node.LocalResources.TotalCPUs(),
-		UsedCPU:                 node.LocalResources.UsedCPUs(),
-		Coordinates:             *registration.VivaldiClient.GetCoordinate(),
+		AvailableWarmContainers: warmStatus,
+		TotalMemory:             totalMem,
+		AvailableMemory:         availMem,
+		FreeMemory:              freeMem,
+		TotalCPU:                totalCPU,
+		UsedCPU:                 usedCPU,
+		Coordinates:             coords,
 		LoadAvg:                 loadAvgValues,
+		LastUpdateTime:          time.Now().Unix(),
 	}
 
 	return c.JSON(http.StatusOK, response)

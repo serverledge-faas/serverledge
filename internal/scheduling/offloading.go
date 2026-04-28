@@ -3,34 +3,71 @@ package scheduling
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/internal/client"
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
-func pickEdgeNodeForOffloading(r *scheduledRequest) (url string) {
-	// TODO: better to cache choice for a while
-	// TODO: check available mem as well
-	nearestNeighbors := registration.GetNearestNeighbors()
-	if nearestNeighbors == nil {
-		return ""
+// Offloading choice caching
+var offloadingCache = make(map[string]*registration.NodeRegistration)
+var cacheExpiration = make(map[string]time.Time)
+var CacheValidity = 60 * time.Second
+var NoSuitableNode = errors.New("no node supporting the function's runtime found")
+var NoNeighbors = errors.New("the list of neighbors is empty")
+
+func pickEdgeNodeForOffloading(r *scheduledRequest) (url string, err error) {
+	// check cache first
+	cached, ok := offloadingCache[r.Fun.Name]
+	if ok && time.Now().Before(cacheExpiration[r.Fun.Name]) {
+		return cached.APIUrl(), nil
 	}
 
-	randomItem := nearestNeighbors[rand.Intn(len(nearestNeighbors))]
-	return randomItem.APIUrl()
+	// select best node
+	nearestNeighbors := registration.GetNearestNeighbors()
+	if nearestNeighbors == nil {
+		return "", NoNeighbors
+	}
+
+	neighborStatus := registration.GetFullNeighborInfo()
+
+	var bestNode *registration.NodeRegistration
+	maxMem := int64(0)
+
+	for _, nodeReg := range nearestNeighbors {
+		status, ok := neighborStatus[nodeReg.Key]
+		if !ok {
+			continue
+		}
+		availableMemory := status.TotalMemory - status.UsedMemory
+		if r.Fun.SupportsArch(nodeReg.Arch) && availableMemory > maxMem {
+			maxMem = availableMemory
+			bestNode = &nodeReg
+		}
+	}
+
+	if bestNode != nil {
+		cacheValidityInt := config.GetInt(config.OFFLOADING_CACHE_VALIDITY, 60)
+		CacheValidity = time.Duration(cacheValidityInt) * time.Second
+		offloadingCache[r.Fun.Name] = bestNode
+		cacheExpiration[r.Fun.Name] = time.Now().Add(CacheValidity)
+		return bestNode.APIUrl(), nil
+	}
+
+	return "", NoSuitableNode
 }
 
 func Offload(r *scheduledRequest, serverUrl string) error {
 	// Prepare request
-	request := client.InvocationRequest{Params: r.Params, QoSClass: r.Class, QoSMaxRespT: r.MaxRespT}
+	request := client.InvocationRequest{Params: r.Params, QoSClass: r.Class, QoSMaxRespT: r.MaxRespT, ReturnOutput: r.ReturnOutput}
 	invocationBody, err := json.Marshal(request)
 	if err != nil {
 		log.Print(err)

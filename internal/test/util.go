@@ -4,10 +4,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/serverledge-faas/serverledge/internal/node"
 
 	"github.com/serverledge-faas/serverledge/internal/cli"
 	"github.com/serverledge-faas/serverledge/internal/client"
@@ -18,6 +19,9 @@ import (
 
 const PY_MEMORY = 20
 const JS_MEMORY = 50
+const JAVA_MEMORY = 100
+const X86 = "amd64"
+const ARM = "arm64"
 
 func initializeExamplePyFunction() (*function.Function, error) {
 	oldF, found := function.GetFunction("inc")
@@ -35,10 +39,11 @@ func initializeExamplePyFunction() (*function.Function, error) {
 	encoded := base64.StdEncoding.EncodeToString(srcContent)
 	f := function.Function{
 		Name:            "inc",
-		Runtime:         "python310",
+		Runtime:         "python314",
 		MemoryMB:        PY_MEMORY,
-		CPUDemand:       1.0,
+		CPUDemand:       0.1,
 		Handler:         "inc.handler", // on python, for now is needed file name and handler name!!
+		SupportedArchs:  []string{X86, ARM},
 		TarFunctionCode: encoded,
 		Signature: function.NewSignature().
 			AddInput("n", function.Int{}).
@@ -68,8 +73,9 @@ func initializeExampleJSFunction() (*function.Function, error) {
 		Name:            "inc",
 		Runtime:         "nodejs17ng",
 		MemoryMB:        JS_MEMORY,
-		CPUDemand:       1.0,
+		CPUDemand:       0.1,
 		Handler:         "inc", // for js, only the file name is needed!!
+		SupportedArchs:  []string{X86, ARM},
 		TarFunctionCode: encoded,
 		Signature: function.NewSignature().
 			AddInput("n", function.Int{}).
@@ -97,10 +103,39 @@ func InitializePyFunction(name string, handler string, sign *function.Signature)
 	encoded := base64.StdEncoding.EncodeToString(srcContent)
 	f := function.Function{
 		Name:            name,
-		Runtime:         "python310",
+		Runtime:         "python314",
 		MemoryMB:        PY_MEMORY,
-		CPUDemand:       0.25,
+		CPUDemand:       0.1,
 		Handler:         fmt.Sprintf("%s.%s", name, handler), // on python, for now is needed file name and handler name!!
+		SupportedArchs:  []string{X86, ARM},
+		TarFunctionCode: encoded,
+		Signature:       sign,
+	}
+	err = f.SaveToEtcd()
+	return &f, err
+}
+
+func InitializeJavaFunction(name string, handler string, sign *function.Signature) (*function.Function, error) {
+	oldF, found := function.GetFunction(name)
+	if found {
+		// the function already exists; we delete it
+		oldF.Delete()
+		node.ShutdownWarmContainersFor(oldF)
+	}
+
+	srcPath := "../../examples/java_build/target/hello-function-1.0.0-jar-with-dependencies.jar"
+	srcContent, err := cli.ReadSourcesAsTar(srcPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read java sources %s as tar: %v", srcPath, err)
+	}
+	encoded := base64.StdEncoding.EncodeToString(srcContent)
+	f := function.Function{
+		Name:            name,
+		Runtime:         "java21",
+		MemoryMB:        JAVA_MEMORY,
+		CPUDemand:       0.1,
+		Handler:         handler,
+		SupportedArchs:  []string{X86, ARM},
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
@@ -126,8 +161,9 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 		Name:            name,
 		Runtime:         "nodejs17ng",
 		MemoryMB:        JS_MEMORY,
-		CPUDemand:       0.25,
+		CPUDemand:       0.1,
 		Handler:         name, // on js only file name is needed!!
+		SupportedArchs:  []string{X86, ARM},
 		TarFunctionCode: encoded,
 		Signature:       sign,
 	}
@@ -225,10 +261,14 @@ func createApiIfNotExistsTest(t *testing.T, fn *function.Function, host string, 
 }
 
 func invokeApiTest(fn string, params map[string]interface{}, host string, port int) error {
+	return invokeApiTestSetOffloading(fn, params, host, port, true)
+}
+
+func invokeApiTestSetOffloading(fn string, params map[string]interface{}, host string, port int, offloading bool) error {
 	request := client.InvocationRequest{
 		Params:          params,
 		QoSMaxRespT:     250,
-		CanDoOffloading: true,
+		CanDoOffloading: offloading,
 		Async:           false,
 	}
 	invocationBody, err1 := json.Marshal(request)

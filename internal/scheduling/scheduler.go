@@ -2,10 +2,11 @@ package scheduling
 
 import (
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/registration"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/registration"
 
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
@@ -170,7 +171,10 @@ func handleCloudOffload(r *scheduledRequest) {
 	if offloadingTarget == nil {
 		log.Printf("No remote offloading target available; dropping request")
 		r.decisionChannel <- schedDecision{action: DROP}
-	} else {
+		// TODO check if this is a correct assumption to make
+	} else if offloadingTarget.IsLoadBalancer || r.Fun.SupportsArch(node.LocalNode.Arch) {
 		handleOffload(r, offloadingTarget.APIUrl())
+	} else {
+		dropRequest(r)
 	}
 }

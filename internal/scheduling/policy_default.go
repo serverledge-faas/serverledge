@@ -4,10 +4,9 @@ import (
 	"errors"
 	"log"
 
+	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/container"
 	"github.com/serverledge-faas/serverledge/internal/function"
-
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
 
@@ -77,6 +76,14 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 
 // OnArrival for default policy is executed every time a function is invoked, before invoking the function
 func (p *DefaultLocalPolicy) OnArrival(r *scheduledRequest) {
+
+	if !r.Fun.SupportsArch(node.LocalNode.Arch) {
+		// If the current node architecture is not supported by the function's runtime, we can only drop it, since in
+		// this policy there is no offloading.
+		dropRequest(r)
+		return
+
+	}
 	containerID, warm, err := node.AcquireContainer(r.Fun, false)
 	if err == nil {
 		execLocally(r, containerID, warm) // decides to execute locally

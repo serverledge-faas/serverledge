@@ -3,12 +3,13 @@ package node
 import (
 	"errors"
 	"fmt"
-	"github.com/lithammer/shortuuid"
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"runtime"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/lithammer/shortuuid"
+	"github.com/serverledge-faas/serverledge/internal/config"
 )
 
 var OutOfResourcesErr = errors.New("not enough resources for function execution")
@@ -16,6 +17,7 @@ var OutOfResourcesErr = errors.New("not enough resources for function execution"
 type NodeID struct {
 	Area string
 	Key  string
+	Arch string
 }
 
 var LocalNode NodeID
@@ -26,7 +28,8 @@ func (n NodeID) String() string {
 
 func NewRandomIdentifier(area string) NodeID {
 	id := shortuuid.New() + strconv.FormatInt(time.Now().UnixNano(), 10)
-	return NodeID{Area: area, Key: id}
+	arch := runtime.GOARCH
+	return NodeID{Area: area, Key: id, Arch: arch}
 }
 
 func NewIdentifier(id, area string) NodeID {

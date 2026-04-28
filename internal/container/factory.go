@@ -15,6 +15,7 @@ type Factory interface {
 	GetIPAddress(ContainerID) (string, error)
 	GetMemoryMB(id ContainerID) (int64, error)
 	GetLog(id ContainerID) (string, error)
+	GetImageArchitectures(string) ([]string, error)
 }
 
 // ContainerOptions contains options for container creation.
@@ -35,3 +36,7 @@ type Container struct {
 
 // cf is the container factory for the node
 var cf Factory
+
+func GetFactory() Factory {
+	return cf
+}

@@ -1,6 +1,8 @@
 package lb
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -8,203 +10,236 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"sync"
+	"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/serverledge-faas/serverledge/internal/config"
+	"github.com/serverledge-faas/serverledge/internal/mab"
 	"github.com/serverledge-faas/serverledge/internal/registration"
 )
 
-var client *http.Client
-var lbPolicy policy
-var targetsMutex sync.RWMutex
-var currentTargets map[string]registration.NodeRegistration
+var currentTargets []*middleware.ProxyTarget
 
-func newPolicy() policy {
-	policyName := config.GetString(config.LOAD_BALANCER_POLICY, "const-hash")
-	if policyName == "random" {
-		return &randomPolicy{}
-	} else if policyName == "const-hash" {
-		return newConstHashBalancer()
-	} else {
-		panic("unknown policy: " + policyName)
-	}
-}
+func newBalancer(targets []*middleware.ProxyTarget) (middleware.ProxyBalancer, bool) {
+	// old Load Balancer: return middleware.NewRoundRobinBalancer(targets)
+	isArchAware := config.GetBool(config.Arch_AWARENESS, true)
 
-func handleInvoke(c echo.Context) error {
+	if isArchAware {
+		return NewArchitectureAwareBalancer(targets), true
 
-	funcName := c.Param("fun")
-	// Select backend
-	targetKey, err := lbPolicy.Route(funcName)
-	if err != nil {
-		return c.JSON(http.StatusTooManyRequests, map[string]string{"error": err.Error()})
-	}
-	targetsMutex.RLock()
-	targetNode, ok := currentTargets[targetKey]
-	if !ok {
-		return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "missing target"})
-	}
-	targetsMutex.RUnlock()
-
-	// Create a new HTTP request to forward to the selected backend
-	newURL, _ := url.JoinPath(targetNode.APIUrl(), c.Request().RequestURI)
-	req, err := http.NewRequest(c.Request().Method, newURL, c.Request().Body)
-	if err != nil {
-		return err
-	}
-	// Copy the request headers to the new request
-	req.Header = c.Request().Header
-
-	// Send the request to the backend using the global HTTP client
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusOK {
-		// function has been actually executed
-		lbPolicy.OnRequestComplete(funcName, targetKey)
 	}
 
-	res := c.Response()
-
-	// Copy response headers
-	for key, values := range resp.Header {
-		for _, value := range values {
-			res.Header().Add(key, value)
-		}
-	}
-
-	// Set status code and copy body
-	res.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(res.Writer, resp.Body)
-	return err
-
-}
-
-func handleOtherRequest(c echo.Context) error {
-
-	res := c.Response()
-	// TODO: status should be handled differently
-
-	var targetURL string
-	for _, target := range currentTargets {
-		targetURL = target.APIUrl()
-		break
-	}
-	// Create a new HTTP request to forward to the selected backend
-	newURL, _ := url.JoinPath(targetURL, c.Request().RequestURI)
-	req, err := http.NewRequest(c.Request().Method, newURL, c.Request().Body)
-	if err != nil {
-		return err
-	}
-	// Copy the request headers to the new request
-	req.Header = c.Request().Header
-
-	// Send the request to the backend using the global HTTP client
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	// Copy response headers
-	for key, values := range resp.Header {
-		for _, value := range values {
-			res.Header().Add(key, value)
-		}
-	}
-
-	// Set status code and copy body
-	res.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(res.Writer, resp.Body)
-	return err
-
+	return NewArchitectureUNawareBalancer(targets), false
 }
 
 func StartReverseProxy(e *echo.Echo, region string) {
-	var err error
-
-	currentTargets, err = registration.GetNodesInArea(region, false, 0)
+	targets, err := getTargets(region)
 	if err != nil {
 		log.Printf("Cannot connect to registry to retrieve targets: %v\n", err)
 		os.Exit(2)
 	}
 
-	log.Printf("Initializing with %d targets.\n", len(currentTargets))
-	lbPolicy = newPolicy()
+	log.Printf("Initializing with %d targets.\n", len(targets))
+	balancer, isAware := newBalancer(targets)
+	currentTargets = targets
 
-	updateTargets(region)
+	// Custom ProxyConfig to process custom headers and update available memory of each targets after they
+	// executed a function.
+	// These headers are set after the execution of the function on the target node, so the free memory already
+	// includes the memory freed by the function, once it's executed.
+	proxyConfig := middleware.ProxyConfig{
+		Balancer: balancer,
 
-	tr := &http.Transport{
-		MaxIdleConns:        2500,
-		MaxIdleConnsPerHost: 2500,
-		MaxConnsPerHost:     0,
-		IdleConnTimeout:     10 * time.Minute,
+		// We use ModifyResponse to process these headers
+		ModifyResponse: func(res *http.Response) error {
+
+			// Here we read the body, and then we restore it. This is done to avoid a potential race condition:
+			// the main thread of this LB will send the body back to the original user/caller, since it's acting as a
+			// reverse proxy. In the meantime UpdateBandit will try to read the same stream of data to get the
+			// stats about the execution, to update the bandit. Even if the goroutine tries to restore the response after
+			// reading it, chaches are that that won't happen quick eough (and it will not be a reliable solution anyway),
+			// so the solution here is the following:
+			// 1. We read the response body
+			// 2. We extract the fileds needed to update the bandit, and we pass those to UpdateBandit
+			// 3. We restore the response body so that it can be read by the ProxyBalancer in order to send it back to the user.
+			// All of this is because we don't want to call UpdateBandit synchronously, since that would add more
+			// latency for the final user.
+			bodyBytes, err := io.ReadAll(res.Body)
+			if err != nil {
+				return err
+			}
+			_ = res.Body.Close()
+
+			res.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // reset the body, as discussed earlier
+
+			// Extract the necessary data for UpdateBandit
+			nodeArch := res.Header.Get("Serverledge-Node-Arch")
+			reqPath := res.Request.URL.Path
+			reqID := res.Request.Header.Get("Serverledge-MAB-Request-ID")
+
+			go func(data []byte, path string, arch string, reqID string) {
+				if !isAware {
+					return // if we're using the unaware LB no need for bandit update (there isn't one)
+				}
+				err := mab.UpdateBandit(data, path, arch, reqID)
+				if err != nil {
+					log.Printf("Failed to update bandit: %v", err)
+				}
+			}(bodyBytes, reqPath, nodeArch, reqID)
+
+			nodeName := res.Header.Get("Serverledge-Node-Name")
+			freeMemStr := res.Header.Get("Serverledge-Free-Mem")
+			freeCpuStr := res.Header.Get("Serverledge-Free-CPU")
+			timestampStr := res.Header.Get("Serverledge-Timestamp")
+
+			if nodeName != "" && freeMemStr != "" {
+				freeMem, err := strconv.ParseInt(freeMemStr, 10, 64)
+				freeCpu, err2 := strconv.ParseFloat(freeCpuStr, 64)
+				timestamp, err3 := strconv.ParseInt(timestampStr, 10, 64)
+
+				if err == nil && err2 == nil && err3 == nil {
+					NodeMetrics.Update(nodeName, freeMem, 0, timestamp, freeCpu)
+
+					log.Printf("[LB-Update] Node %s reported %d MB free", nodeName, freeMem)
+				} else {
+					log.Printf("ERROR updating node stats: MEM error: %v, CPU error: %v", err, err2)
+				}
+			}
+
+			// Remove the no-longer-needed headers
+			res.Header.Del("Serverledge-Node-Name")
+			res.Header.Del("Serverledge-Free-Mem")
+			res.Header.Del("Serverledge-Free-CPU")
+			res.Header.Del("Serverledge-MAB-Request-ID")
+
+			// for experiments: we need to know which node ran the function
+			res.Header.Set("Serverledge-Node-Arch", nodeArch)
+
+			return nil
+		},
 	}
-	client = &http.Client{Transport: tr}
 
-	e.HideBanner = true
-	e.Use(middleware.Recover())
-
-	// Routes
-	e.POST("/invoke/:fun", handleInvoke)
-	e.Any("/*", handleOtherRequest)
+	e.Use(middleware.ProxyWithConfig(proxyConfig))
+	go updateTargets(balancer, region)
 
 	portNumber := config.GetInt(config.API_PORT, 1323)
 	if err := e.Start(fmt.Sprintf(":%d", portNumber)); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		e.Logger.Fatal("shutting down the server")
 	}
-
 }
 
-func updateTargets(region string) {
+func getTargets(region string) ([]*middleware.ProxyTarget, error) {
+	cloudNodes, err := registration.GetNodesInArea(region, false, 0)
+	if err != nil {
+		return nil, err
+	}
 
-	interval := config.GetInt(config.LOAD_BALANCER_TARGET_UPDATE_INTERVAL, 30)
-	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	targets := make([]*middleware.ProxyTarget, 0, len(cloudNodes))
+	for _, target := range cloudNodes {
+		log.Printf("Found target: %v\n", target.Key)
+		// TODO: etcd should NOT contain URLs, but only host and port...
+		parsedUrl, err := url.Parse(target.APIUrl())
+		if err != nil {
+			return nil, err
+		}
+		archMap := echo.Map{"arch": target.Arch}
+		targets = append(targets, &middleware.ProxyTarget{Name: target.Key, URL: parsedUrl, Meta: archMap})
+	}
 
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				// retrieve new targets
-				newTargets, err := registration.GetNodesInArea(region, false, 0)
-				if err != nil || newTargets == nil {
-					log.Printf("Cannot update targets: %v\n", err)
-				}
+	log.Printf("Found %d targets\n", len(targets))
 
-				targetsMutex.Lock()
-				for k, v := range currentTargets {
-					if _, ok := newTargets[k]; !ok {
-						// this target is not present any more
-						log.Printf("Removing target: %s\n", k)
-						lbPolicy.OnNodeDeletion(&v)
+	return targets, nil
+}
+
+func updateTargets(balancer middleware.ProxyBalancer, region string) {
+	var sleepTime = config.GetInt(config.LB_REFRESH_INTERVAL, 30)
+	for {
+		time.Sleep(time.Duration(sleepTime) * time.Second)
+		log.Printf("[LB]: Periodic targets update\n")
+
+		targets, err := getTargets(region)
+		if err != nil {
+			log.Printf("Cannot update targets: %v\n", err)
+			continue // otherwise we update everything with a nil target array, removing all targets from the LB list!
+		}
+
+		toKeep := make([]bool, len(currentTargets))
+		for i := range currentTargets {
+			toKeep[i] = false
+		}
+		for _, t := range targets {
+			toAdd := true
+			for i, curr := range currentTargets {
+				if curr.Name == t.Name {
+					toKeep[i] = true
+					toAdd = false
+					// Since we're keeping this node, we'll update it's free memory info.
+					nodeInfo := GetSingleTargetInfo(curr)
+					if nodeInfo != nil {
+						totalMemory := nodeInfo.TotalMemory
+						freeMemoryMB := totalMemory - nodeInfo.UsedMemory
+						freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
+						NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 					}
+
 				}
+			}
+			if toAdd {
+				log.Printf("Adding %s\n", t.Name)
+				balancer.AddTarget(t)
+			}
+		}
 
-				for k, v := range newTargets {
-					if _, ok := currentTargets[k]; !ok {
-						// this target was not present
-						log.Printf("Adding new target: %s\n", k)
-						lbPolicy.OnNodeArrival(&v)
-					}
-				}
-
-				currentTargets = newTargets
-				targetsMutex.Unlock()
-
-				// query status of each target
-				for _, v := range currentTargets {
-					status, err := getTargetStatus(v.APIUrl())
-					if err == nil {
-						lbPolicy.OnStatusUpdate(&v, status)
-					}
+		toRemove := make([]string, 0)
+		for i, curr := range currentTargets {
+			if !toKeep[i] {
+				log.Printf("Removing %s\n", curr.Name)
+				toRemove = append(toRemove, curr.Name)
+			} else {
+				// If we keep this node, then we'll update its info about free memory
+				nodeInfo := GetSingleTargetInfo(curr)
+				if nodeInfo != nil {
+					totalMemory := nodeInfo.TotalMemory
+					freeMemoryMB := totalMemory - nodeInfo.UsedMemory
+					freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
+					NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 				}
 			}
 		}
-	}()
+		for _, curr := range toRemove {
+			balancer.RemoveTarget(curr)
+		}
 
+		currentTargets = targets
+	}
+}
+
+func GetSingleTargetInfo(target *middleware.ProxyTarget) *registration.StatusInformation {
+
+	// Build the status URL and GET request to the target (not using UDP best-effort implementation)
+	targetUrl := fmt.Sprintf("%s/status", target.URL)
+
+	resp, err := http.Get(targetUrl)
+	if err != nil {
+		log.Printf("Failed to get status from target %s: %v", target.Name, err)
+		return nil
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}(resp.Body)
+
+	// Decode the JSON response to obtain the StatusInfo data structure
+	var statusInfo registration.StatusInformation
+	err = json.NewDecoder(resp.Body).Decode(&statusInfo)
+	if err != nil {
+		log.Printf("Failed to decode status response from target %s: %v", target.Name, err)
+		return nil
+	}
+
+	return &statusInfo
 }

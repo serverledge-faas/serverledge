@@ -2,14 +2,17 @@ package test
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/config"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/config"
 
 	"github.com/labstack/echo/v4"
 	"github.com/serverledge-faas/serverledge/internal/api"
@@ -95,6 +98,8 @@ func TestMain(m *testing.M) {
 		os.Exit(int(codes.Internal))
 	}
 
+	waitForServerReady()
+
 	// run all test independently
 	code := m.Run()
 
@@ -106,8 +111,36 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func waitForServerReady() {
+	// Wait for the server to be ready by polling the /status endpoint. There was a race condition in the test
+	// especially noticeable for less powerful hardware.
+	for i := 0; i < 50; i++ {
+		resp, err := http.Get(fmt.Sprintf("http://%s:%d/status", HOST, PORT))
+		if err == nil && resp.StatusCode == http.StatusOK {
+			log.Println("Server is ready.")
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	log.Fatal("Server not ready after timeout")
+}
+
 // startReliably can start the containers, or restart them if needed
 func startReliably(startScript string) error {
+	// make sure etcd is not already running, this will cause issues. Also clean etcd status for clean start
+	cmd1 := exec.CommandContext(context.Background(), getShell(), "../../scripts/stop-etcd"+getShellExt())
+	if err := cmd1.Run(); err != nil {
+		// If the container doesn't exist, `docker stop` and `docker rm` will fail.
+		// We can safely ignore this error and proceed.
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			// 1 indicates that the container does not exist.
+			if exitError.ExitCode() != 1 {
+				log.Printf("failed to stop etcd: %v", err)
+			}
+		}
+	}
+
 	cmd := exec.CommandContext(context.Background(), getShell(), startScript)
 	err := cmd.Run()
 	if err != nil {

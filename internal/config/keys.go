@@ -23,6 +23,9 @@ const POOL_CLEANUP_PERIOD = "janitor.interval"
 // container expiration time
 const CONTAINER_EXPIRATION_TIME = "container.expiration"
 
+// offloading cache validity time for EdgeOnlypolicy
+const OFFLOADING_CACHE_VALIDITY = "offloading.cache.validity"
+
 // cache capacity
 const CACHE_SIZE = "cache.size"
 
@@ -46,6 +49,30 @@ const REG_NEARBY_INTERVAL = "registry.nearby.interval"
 
 // long period for general monitoring inside the area
 const REG_MONITORING_INTERVAL = "registry.monitoring.interval"
+
+// ArchitectureAwareLb: number of replicas in the HashRing for each physical node
+const REPLICAS = "lb.replicas"
+
+// LoadBalancer refresh interval (in seconds)
+const LB_REFRESH_INTERVAL = "lb.refresh_interval"
+
+// LoadBalancer working mode (i.e.: "MAB" or "RoundRobin")
+const LB_MODE = "lb.mode"
+
+// Select if the load balancer is architecture aware (useful for experiments)
+const Arch_AWARENESS = "lb.arch_awareness"
+
+// Policy for the Multi Armed Bandit (MAB) (i.e.: "LinUcb" or "UCB1")
+const MAB_POLICY = "mab.policy"
+
+// C value for the UCB1 policy
+const MAB_UCB1_C = "mab.ucb1.c"
+
+// Aplha value for the LinUCB policy
+const MAB_LINUCB_ALPHA = "mab.linucb.alpha"
+
+// Lambda value for the LinUCB policy, used for the memory penalty of reward
+const MAB_LINUCB_LAMBDA = "mab.linucb.lambda"
 
 // port for udp status listener
 const LISTEN_UDP_PORT = "registry.udp.port"
@@ -77,6 +104,10 @@ const METRICS_LOAD_JSON_FILE = "metrics.load.json.file"
 // Scheduling policy to use
 // Possible values: "qosaware", "default", "cloudonly"
 const SCHEDULING_POLICY = "scheduler.policy"
+
+// If "edgeonly" policy is set, tries to execute the offloadable functions locally in the case
+// where all neighbors won't support the function's runtime architecture
+const SCHEDULING_FALLBACK_LOCAL = "scheduler.fallback.local"
 
 // Capacity of the queue (possibly) used by the scheduler
 const SCHEDULER_QUEUE_CAPACITY = "scheduler.queue.capacity"

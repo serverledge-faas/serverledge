@@ -5,11 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/function"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/function"
 
 	"github.com/serverledge-faas/serverledge/internal/executor"
 )
@@ -56,17 +58,31 @@ func newContainer(image, codeTar string, opts *ContainerOptions) (*Container, er
 	}
 
 	if len(codeTar) > 0 {
-		decodedCode, errDecode := base64.StdEncoding.DecodeString(codeTar)
-		if errDecode != nil {
-			log.Printf("Failed code decode\n")
-			return nil, errDecode
+		var r io.Reader
+		// Decoding codeTar
+		decodedCode, _ := base64.StdEncoding.DecodeString(codeTar)
+		// Check if decoded src is a url
+		u, err := url.ParseRequestURI(string(decodedCode))
+		if err == nil && u.Scheme != "" && u.Host != "" {
+			// codeTar is an URL; it has to be downloaded
+			resp, err := http.Get(string(decodedCode))
+			if err != nil {
+				log.Printf("Failed to download code %s", decodedCode)
+				return nil, err
+			}
+			defer resp.Body.Close()
+			r = resp.Body
+		} else {
+			// assuming decodedCode is base64 encoded tar
+			r = bytes.NewReader(decodedCode)
 		}
-		err = cf.CopyToContainer(contID, bytes.NewReader(decodedCode), "/app/")
+		err = cf.CopyToContainer(contID, r, "/app/")
 		if err != nil {
 			log.Printf("Failed code copy\n")
 			return nil, err
 		}
 	}
+
 	// Starts the container after copying the code in it
 	err = cf.Start(contID)
 	if err != nil {

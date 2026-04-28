@@ -2,6 +2,7 @@ package registration
 
 import (
 	"errors"
+
 	"github.com/hexablock/vivaldi"
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
@@ -26,4 +27,5 @@ type StatusInformation struct {
 	UsedCPU                 float64
 	Coordinates             vivaldi.Coordinate
 	LoadAvg                 []float64
+	LastUpdateTime          int64 // timestamp of last update of this information
 }

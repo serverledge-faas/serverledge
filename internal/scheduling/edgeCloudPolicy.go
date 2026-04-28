@@ -1,6 +1,8 @@
 package scheduling
 
 import (
+	"log"
+
 	"github.com/serverledge-faas/serverledge/internal/function"
 	"github.com/serverledge-faas/serverledge/internal/node"
 )
@@ -18,12 +20,20 @@ func (p *CloudEdgePolicy) OnCompletion(_ *function.Function, _ *function.Executi
 }
 
 func (p *CloudEdgePolicy) OnArrival(r *scheduledRequest) {
-	containerID, warm, err := node.AcquireContainer(r.Fun, false)
-	if err == nil {
-		execLocally(r, containerID, warm)
-	} else if r.CanDoOffloading {
+
+	canRunLocally := r.Fun.SupportsArch(node.LocalNode.Arch)
+	if canRunLocally {
+		containerID, warm, err := node.AcquireContainer(r.Fun, false)
+		if err == nil {
+			execLocally(r, containerID, warm)
+			return
+		}
+	}
+
+	if r.CanDoOffloading {
 		handleCloudOffload(r)
 	} else {
+		log.Printf("Dropping request because cannot exec locally (architecutre is supported: %t) and cannot offload", canRunLocally)
 		dropRequest(r)
 	}
 }

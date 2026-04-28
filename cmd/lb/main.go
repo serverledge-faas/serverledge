@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/serverledge-faas/serverledge/internal/mab"
+	"github.com/serverledge-faas/serverledge/internal/node"
 
 	"golang.org/x/net/context"
 
@@ -59,5 +61,6 @@ func main() {
 	// Register a signal handler to cleanup things on termination
 	registerTerminationHandler(e)
 
+	mab.InitBanditManager()
 	lb.StartReverseProxy(e, myArea)
 }
