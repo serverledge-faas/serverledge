@@ -441,7 +441,10 @@ func (wflow *Workflow) Invoke(r *Request) error {
 	}
 
 	for len(progress.ReadyToExecute) > 0 {
+		t0 := time.Now()
 		decision, err := offloadingPolicy.Evaluate(r, progress)
+		policyTime := time.Since(t0).Seconds()
+		r.ExecReport.SchedulingTime += policyTime
 
 		if err != nil {
 			return fmt.Errorf("an error occurred in policy evaluation: %v", err)
@@ -615,6 +618,8 @@ func offload(r *Request, policyDecision *OffloadingDecision) error {
 	for k, v := range response.Reports {
 		r.ExecReport.Reports[k] = v
 	}
+
+	r.ExecReport.SchedulingTime += response.SchedulingTime
 
 	if response.Result == nil {
 		// workflow execution is not complete after offloading

@@ -10,9 +10,10 @@ func CreateExecutionReportId(task Task) string {
 }
 
 type ExecutionReport struct {
-	Result       map[string]interface{}
-	Reports      map[string]*function.ExecutionReport
-	ResponseTime float64 // time waited by the user to get the output of the entire workflow
+	Result         map[string]interface{}
+	Reports        map[string]*function.ExecutionReport
+	ResponseTime   float64 // time waited by the user to get the output of the entire workflow
+	SchedulingTime float64
 }
 
 func (cer *ExecutionReport) String() string {

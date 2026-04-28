@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"maps"
 	"net/http"
 	"time"
 
@@ -218,6 +217,7 @@ func InvokeWorkflow(e echo.Context) error {
 	req.Resuming = false
 	req.Id = fmt.Sprintf("%v-%s%d", wflow.Name, node.LocalNode.String()[len(node.LocalNode.String())-5:], req.Arrival.Nanosecond())
 	req.ExecReport.ResponseTime = 0.0
+	req.ExecReport.SchedulingTime = 0.0
 	req.ExecReport.Result = nil // NOTE: this should be nil until workflow completion
 	req.ExecReport.Reports = map[string]*function.ExecutionReport{}
 
@@ -238,13 +238,13 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 				return
 			}
 
-			log.Printf("Invocation succeeded. Publishing: %v", req.ExecReport)
 			req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 			workflow.PublishAsyncInvocationResponse(req.Id, workflow.InvocationResponse{
-				Success:      true,
-				Result:       req.ExecReport.Result,
-				Reports:      req.ExecReport.Reports,
-				ResponseTime: req.ExecReport.ResponseTime,
+				Success:        true,
+				Result:         req.ExecReport.Result,
+				Reports:        req.ExecReport.Reports,
+				ResponseTime:   req.ExecReport.ResponseTime,
+				SchedulingTime: req.ExecReport.SchedulingTime,
 			})
 		}()
 
@@ -264,14 +264,12 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 	} else {
 		req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 
-		// TODO
-		log.Printf("Invocation succeeded. Returning %d reports for keys: %v", len(req.ExecReport.Reports), maps.Keys(req.ExecReport.Reports))
-
 		return e.JSON(http.StatusOK, workflow.InvocationResponse{
-			Success:      true,
-			Result:       req.ExecReport.Result,
-			Reports:      req.ExecReport.Reports,
-			ResponseTime: req.ExecReport.ResponseTime,
+			Success:        true,
+			Result:         req.ExecReport.Result,
+			Reports:        req.ExecReport.Reports,
+			ResponseTime:   req.ExecReport.ResponseTime,
+			SchedulingTime: req.ExecReport.SchedulingTime,
 		})
 	}
 }

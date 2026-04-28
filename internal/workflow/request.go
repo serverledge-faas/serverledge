@@ -42,10 +42,11 @@ func NewRequest(reqId string, workflow *Workflow, params map[string]interface{},
 }
 
 type InvocationResponse struct {
-	Success      bool
-	Result       map[string]interface{}
-	Reports      map[string]*function.ExecutionReport
-	ResponseTime float64 // time waited by the user to get the output of the entire workflow (in seconds)
+	Success        bool
+	Result         map[string]interface{}
+	Reports        map[string]*function.ExecutionReport
+	ResponseTime   float64 // time waited by the user to get the output of the entire workflow (in seconds)
+	SchedulingTime float64
 }
 
 type AsyncInvocationResponse struct {
