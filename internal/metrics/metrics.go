@@ -61,6 +61,7 @@ var (
 )
 
 type RetrievedMetrics struct {
+	EdgeColdStartProbability   map[string]map[string]float64
 	RemoteColdStartProbability map[string]float64
 	AvgRemoteExecutionTime     map[string]float64
 	AvgEdgeExecutionTime       map[string]map[string]float64
@@ -72,6 +73,8 @@ type RetrievedMetrics struct {
 
 func (r RetrievedMetrics) String() string {
 	s := ""
+	s += "EDGE COLD START PROB:\n"
+	s += fmt.Sprintf("  %v\n\n", r.EdgeColdStartProbability)
 	s += "REMOTE COLD START PROB:\n"
 	s += fmt.Sprintf("  %v\n\n", r.RemoteColdStartProbability)
 	s += "REMOTE EXEC TIMES:\n"

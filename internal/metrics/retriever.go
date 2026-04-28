@@ -203,6 +203,14 @@ func MetricsRetriever() {
 			}
 			retrievedMetrics.AvgEdgeInitTime = avgInitTimeAllNodes
 
+			query = fmt.Sprintf("%s{node=~\"\\\\(%s\\\\).*\"}/%s{node=~\"\\\\(%s\\\\).*\"}",
+				COLD_STARTS, localArea, COMPLETIONS, localArea)
+			coldStartProbPerFunction, err := retrieveByFunctionAndNode(query, api, ctx)
+			if err != nil {
+				log.Printf("Error in retrieveByFunction: %v", err)
+			}
+			retrievedMetrics.EdgeColdStartProbability = coldStartProbPerFunction
+
 			// CLOUD
 			cloudArea := config.GetString(config.REGISTRY_REMOTE_AREA, "")
 			if cloudArea != "" {

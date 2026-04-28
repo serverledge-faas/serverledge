@@ -285,8 +285,6 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 		params.DSBandwidth[CLOUD] = config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
 	}
 
-	localWarmStatus := node.WarmStatus()
-
 	// Execution Times
 	retrievedMetrics := metrics.GetMetrics()
 	for tid, task := range r.W.Tasks {
@@ -312,38 +310,32 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 						params.ExecTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
 					}
 				}
+				// Init Time
+				coldStartProb := 1.0
+				nodeProbs, found := retrievedMetrics.EdgeColdStartProbability[nId.String()]
+				if !found {
+					coldStartProb = 1.0
+				} else {
+					coldStartProb, found = nodeProbs[f.Name]
+					if !found || math.IsNaN(coldStartProb) || math.IsInf(coldStartProb, 1) {
+						coldStartProb = 1.0
+					}
+				}
 
 				// Init Times
 				initTimes, found := retrievedMetrics.AvgEdgeInitTime[nId.String()]
 				if !found {
 					// Unknown node
-					params.InitTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
+					params.InitTime[tupleKey(string(tid), n)] = 0.01 * coldStartProb // no data: just guessing
 					continue
 				}
-
-				coldStart := false
-				if n == LOCAL {
-					warmCount, ok := localWarmStatus[f.Name]
-					if !ok || warmCount < 1 {
-						coldStart = true
-					}
+				t, found := initTimes[f.Name]
+				if found {
+					params.InitTime[tupleKey(string(tid), n)] = t * coldStartProb
 				} else {
-					warmCount, ok := nearbyServers[n].AvailableWarmContainers[f.Name]
-					if !ok || warmCount < 1 {
-						coldStart = true
-					}
+					params.InitTime[tupleKey(string(tid), n)] = 0.01 * coldStartProb // no data about init time: just guessing
 				}
 
-				if !coldStart {
-					params.InitTime[tupleKey(string(tid), n)] = 0
-				} else {
-					t, found := initTimes[f.Name]
-					if found {
-						params.InitTime[tupleKey(string(tid), n)] = t
-					} else {
-						params.InitTime[tupleKey(string(tid), n)] = 0.01 // no data: just guessing
-					}
-				}
 			}
 
 			if len(params.CloudNodes) > 0 {
@@ -358,9 +350,9 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 				// Init Time
 				coldStartProb := retrievedMetrics.RemoteColdStartProbability[f.Name]
 				if math.IsNaN(coldStartProb) || math.IsInf(coldStartProb, 1) {
+					log.Printf("Cloud cold start probability is invalid for %s, setting 1", f.Name)
 					coldStartProb = 1.0
 				} else if coldStartProb < 0.0 {
-					log.Printf("Cold start probability is negative: %f", coldStartProb)
 					coldStartProb = 0.0
 				}
 				t, found = retrievedMetrics.AvgRemoteInitTime[f.Name]
@@ -476,6 +468,5 @@ func computeDecisionFromPlacement(placement taskPlacement, p *Progress, r *Reque
 	}
 
 	decision := OffloadingDecision{true, remoteNodeReg.APIUrl(), plan}
-	log.Printf("Decision: %v\n", decision)
 	return decision
 }
