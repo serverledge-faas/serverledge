@@ -35,6 +35,9 @@ func GetEtcdClient() (*clientv3.Client, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   []string{etcdHost},
 		DialTimeout: 3 * time.Second,
+		// Increase limit to 10MB
+		MaxCallSendMsgSize: 10 * 1024 * 1024,
+		MaxCallRecvMsgSize: 10 * 1024 * 1024,
 	})
 	if err != nil {
 		log.Printf("Could not connect to etcd: %v", err)

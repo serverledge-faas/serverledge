@@ -23,7 +23,8 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     scipy 
 
-COPY executor.py /executor.py
+COPY images/python312ml/executor.py /executor.py
+RUN mkdir -p /app
 WORKDIR /app
 
 CMD ["python3", "/executor.py"]

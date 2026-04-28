@@ -14,19 +14,24 @@ serverledge-cli:
 executor:
 	CGO_ENABLED=0 $(GO) build -o $(BIN)/$@ cmd/$@/executor.go
 
-DOCKERHUB_USER=fmuschera
-images:  image-python310 image-nodejs17ng image-base
-image-python310:
-	docker build -t $(DOCKERHUB_USER)/serverledge-python310 -f images/python310/Dockerfile .
+DOCKERHUB_USER=grussorusso
+images:  image-python image-nodejs17ng image-base image-go
+image-python:
+	docker build -t $(DOCKERHUB_USER)/serverledge-python314 -f images/python314/Dockerfile .
+	docker build -t $(DOCKERHUB_USER)/serverledge-python312ml -f images/python312ml/Dockerfile .
 image-base:
 	docker build -t $(DOCKERHUB_USER)/serverledge-base -f images/base-alpine/Dockerfile .
 image-nodejs17ng:
 	docker build -t $(DOCKERHUB_USER)/serverledge-nodejs17ng -f images/nodejs17ng/Dockerfile .
+image-go:
+	docker build -t $(DOCKERHUB_USER)/serverledge-go125 -f images/go125/Dockerfile .
 
 push-images:
-	docker push $(DOCKERHUB_USER)/serverledge-python310
+	docker push $(DOCKERHUB_USER)/serverledge-python314
 	docker push $(DOCKERHUB_USER)/serverledge-base
 	docker push $(DOCKERHUB_USER)/serverledge-nodejs17ng
+	docker push $(DOCKERHUB_USER)/serverledge-python312ml
+	docker push $(DOCKERHUB_USER)/serverledge-go125
 
 # Runs integration tests (all tests EXCEPT unit tests)
 test:
