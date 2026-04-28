@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"log"
 	"time"
 
 	"github.com/serverledge-faas/serverledge/utils"
@@ -60,17 +61,19 @@ func (td *TaskData) Save(reqId ReqId, task TaskId) error {
 		return err
 	}
 	ctx := context.TODO()
-	// marshal the progress object into json
+	// marshal task data object into json
 	payload, err := json.Marshal(td)
 	if err != nil {
-		return fmt.Errorf("could not marshal progress: %v", err)
+		return fmt.Errorf("could not marshal task data: %v", err)
 	}
 	// saves the json object into etcd
 	key := getTaskDataEtcdKey(reqId, task)
 
+	log.Printf("[Rq-%v] Saving task data to etcd - key: %s - bytes: %d", reqId, key, len(payload))
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
-		utils.TryEtcdReconnection()
+		log.Printf("[Rq-%v] Could not save task data due to failed Put()...retrying Etcd connection: %v", reqId, err)
+		utils.TriggerEtcdReconnection()
 		return fmt.Errorf("failed etcd Put partial data: %v", err)
 	}
 	return nil
@@ -86,7 +89,7 @@ func RetrievePartialData(reqId ReqId, task TaskId) (*TaskData, error) {
 	key := getTaskDataEtcdKey(reqId, task)
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return nil, fmt.Errorf("failed to retrieve PD for requestId %s: %v", key, err)
 	}
 	if len(getResponse.Kvs) < 1 {

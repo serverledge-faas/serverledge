@@ -87,6 +87,8 @@ const TRACING_ENABLED = "tracing.enabled"
 // Custom output file for traces
 const TRACING_OUTFILE = "tracing.outfile"
 
+const WORKFLOW_ALWAYS_SAVE_PROGRESS = "workflow.always_save_progress"
+
 // Workflow offloading policy to use
 // Possible values: "disable", "ilp"
 const WORKFLOW_OFFLOADING_POLICY = "workflow.offloading.policy"

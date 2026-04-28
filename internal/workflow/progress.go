@@ -193,7 +193,7 @@ func (p *Progress) Save() error {
 	}
 	// saves the json object into etcd
 	key := getProgressEtcdKey(p.ReqId)
-	log.Printf("Saving progress with key: %s", key)
+	log.Printf("[Rq-%v] Saving progress - bytes: %d", p.ReqId, len(payload))
 
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
