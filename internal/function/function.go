@@ -78,7 +78,7 @@ func getFromEtcd(name string) (*Function, bool) {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	getResponse, err := cli.Get(ctx, getEtcdKey(name))
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		log.Printf("etcd get failed: %v", err)
 		return nil, false
 	} else if len(getResponse.Kvs) < 1 {
@@ -108,7 +108,7 @@ func (f *Function) SaveToEtcd() error {
 	}
 	_, err = cli.Put(ctx, f.getEtcdKey(), string(payload))
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return fmt.Errorf("Failed Put: %v", err)
 	}
 

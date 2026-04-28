@@ -160,7 +160,7 @@ func GetNodesInArea(area string, includeSelf bool, limit int64) (map[string]Node
 	}
 	resp, err := etcdClient.Get(ctx, baseDir, clientv3.WithPrefix(), clientv3.WithLimit(limit))
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return nil, fmt.Errorf("Could not read from etcd: %v", err)
 	}
 
@@ -205,7 +205,7 @@ func GetLBInArea(area string) (map[string]NodeRegistration, error) {
 
 	resp, err := etcdClient.Get(ctx, baseDir, clientv3.WithPrefix())
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return nil, fmt.Errorf("Could not read from etcd: %v", err)
 	}
 

@@ -197,7 +197,7 @@ func (p *Progress) Save() error {
 
 	_, err = cli.Put(ctx, key, string(payload))
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return fmt.Errorf("failed etcd Put: %v", err)
 	}
 	return nil
@@ -214,7 +214,7 @@ func RetrieveProgress(reqId ReqId) (*Progress, error) {
 	key := getProgressEtcdKey(reqId)
 	getResponse, err := cli.Get(ctx, key)
 	if err != nil {
-		utils.TryEtcdReconnection()
+		utils.TriggerEtcdReconnection()
 		return nil, fmt.Errorf("failed to retrieve progress for requestId: %s", key)
 	} else if len(getResponse.Kvs) < 1 {
 		return nil, fmt.Errorf("failed to retrieve progress for requestId: %s", key)

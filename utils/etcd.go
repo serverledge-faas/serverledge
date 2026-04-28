@@ -15,10 +15,15 @@ import (
 var etcdClient *clientv3.Client = nil
 var clientMutex sync.Mutex
 var startedConnMonitor bool
+var etcdReconnectionTrigger chan struct{} = nil
 
 func GetEtcdClient() (*clientv3.Client, error) {
 	clientMutex.Lock()
 	defer clientMutex.Unlock()
+
+	if etcdReconnectionTrigger == nil {
+		etcdReconnectionTrigger = make(chan struct{})
+	}
 
 	// reuse client
 	if etcdClient != nil {
@@ -36,33 +41,48 @@ func GetEtcdClient() (*clientv3.Client, error) {
 		return nil, fmt.Errorf("Could not connect to etcd: %v", err)
 	}
 
+	log.Println("Connected to etcd")
+
 	etcdClient = cli
 
 	if !startedConnMonitor {
-		startConnectionMonitor(etcdClient)
+		startConnectionMonitor()
 		startedConnMonitor = true
 	}
 
 	return cli, nil
 }
 
-func TryEtcdReconnection() {
+func TriggerEtcdReconnection() {
 	log.Println("Trying Etcd Reconnection....")
-	etcdClient = nil
-	_, _ = GetEtcdClient()
+	select {
+	case etcdReconnectionTrigger <- struct{}{}:
+	default:
+	}
 }
 
-func startConnectionMonitor(cli *clientv3.Client) {
-	conn := cli.ActiveConnection()
-
+func startConnectionMonitor() {
 	go func() {
 		for {
+			conn := etcdClient.ActiveConnection()
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			changed := conn.WaitForStateChange(ctx, conn.GetState())
+
+			// Wait for either a state change or a manual trigger
+			stateCh := make(chan bool, 1)
+			go func() {
+				stateCh <- conn.WaitForStateChange(ctx, conn.GetState())
+			}()
+
+			var changed bool
+			select {
+			case changed = <-stateCh:
+				// Either timed out or state changed naturally
+			case <-etcdReconnectionTrigger:
+				changed = true // Treat manual trigger as a state change
+			}
 			cancel()
 
 			if !changed {
-				// Timeout expired with no state change — still in same state
 				continue
 			}
 
@@ -74,7 +94,7 @@ func startConnectionMonitor(cli *clientv3.Client) {
 				log.Println("etcd: connected and ready")
 			case connectivity.TransientFailure:
 				log.Println("etcd: transient failure, triggering reconnect")
-				conn.Connect() // Force reconnect attempt
+				conn.Connect()
 			case connectivity.Idle:
 				log.Println("etcd: idle, nudging connection")
 				conn.Connect()
