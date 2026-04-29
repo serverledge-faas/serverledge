@@ -307,7 +307,7 @@ func dismissContainer(requiredMemoryMB int64) (bool, error) {
 		}
 	}
 
-cleanup: // Phase 2: Cleanup
+cleanup:                               // Phase 2: Cleanup
 	if cleanedMB >= requiredMemoryMB { // if we'd actually free enough memory we do it, otherwise there's no point
 		for _, item := range containerToDismiss {
 			if item.pool.removeContainerFromIdle(item.cont) {
@@ -380,6 +380,7 @@ func DeleteExpiredContainer() {
 // ShutdownWarmContainersFor destroys warm containers of a given function
 // Actual termination happens asynchronously.
 func ShutdownWarmContainersFor(f *function.Function) {
+	log.Printf("Shutting down warm containers for %s", f.Name)
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
@@ -417,16 +418,11 @@ func ShutdownWarmContainersFor(f *function.Function) {
 
 // ShutdownAllContainers destroys all container (usually on termination)
 func ShutdownAllContainers() {
+	log.Printf("Shutting down ALL containers")
 	LocalResources.Lock()
 	defer LocalResources.Unlock()
 
-	for fun, pool := range LocalResources.containerPools {
-		functionDescriptor, _ := function.GetFunction(fun)
-		if functionDescriptor == nil {
-			log.Printf("Could not find function, cannot shutdown containers: %s\n", fun)
-			continue // should not happen
-		}
-
+	for _, pool := range LocalResources.containerPools {
 		for i, warmed := range pool.idle {
 			log.Printf("Removing container with ID %s\n", warmed.ID)
 
@@ -434,7 +430,6 @@ func ShutdownAllContainers() {
 			if err != nil {
 				log.Printf("Error while destroying container %s: %s", warmed.ID, err)
 			}
-			LocalResources.warmPoolUsedMem -= functionDescriptor.MemoryMB
 
 			// nil to help garbage collection
 			pool.idle[i] = nil
@@ -452,14 +447,17 @@ func ShutdownAllContainers() {
 				continue
 			}
 
-			LocalResources.usedCPUs -= functionDescriptor.CPUDemand
-			LocalResources.busyPoolUsedMem -= functionDescriptor.MemoryMB
-
 			pool.busy[i] = nil
 		}
 		// Reset the busy slice capacity
 		pool.busy = pool.busy[:0]
 	}
+
+	// NOTE: these values are not expected to be used again (we are shutting down the node)
+	LocalResources.usedCPUs = 0
+	LocalResources.busyPoolUsedMem = 0
+	LocalResources.warmPoolUsedMem = 0
+
 }
 
 // WarmStatus foreach function returns the corresponding number of warm container available

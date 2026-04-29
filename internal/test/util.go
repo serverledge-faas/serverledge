@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -147,7 +148,11 @@ func initializeJsFunction(name string, sign *function.Signature) (*function.Func
 	oldF, found := function.GetFunction(name)
 	if found {
 		// the function already exists; we delete it
-		oldF.Delete()
+		err := oldF.Delete()
+		if err != nil {
+			log.Printf("Function %s was not removed: %v", name, err)
+			return nil, err
+		}
 		node.ShutdownWarmContainersFor(oldF)
 	}
 

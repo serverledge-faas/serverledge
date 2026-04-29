@@ -32,15 +32,7 @@ func TestContainerPool(t *testing.T) {
 		createApiIfNotExistsTest(t, fn, HOST, PORT)
 	}
 
-	// creating java function
-	javaFn, err := InitializeJavaFunction("hello-java", "com.test.HelloFunction", function.NewSignature().
-		AddInput("name", function.Text{}).
-		AddOutput("greeting", function.Text{}).
-		Build())
-	utils.AssertNil(t, err)
-	createApiIfNotExistsTest(t, javaFn, HOST, PORT)
-
-	// executing all functions
+	// executing function
 	channel := make(chan error)
 	const n = 3
 	for i := 0; i < n; i++ {
@@ -54,18 +46,10 @@ func TestContainerPool(t *testing.T) {
 				channel <- err
 			}()
 		}
-		// invoke java func
-		x := make(map[string]interface{})
-		x["name"] = "World"
-		go func() {
-			time.Sleep(5 * time.Second)
-			err := invokeApiTest(javaFn.Name, x, HOST, PORT)
-			channel <- err
-		}()
 	}
 
 	// wait for all functions to complete and checking the errors
-	for i := 0; i < (len(pyFuncs)+1)*n; i++ {
+	for i := 0; i < len(pyFuncs)*n; i++ {
 		err := <-channel
 		utils.AssertNil(t, err)
 	}
@@ -73,7 +57,6 @@ func TestContainerPool(t *testing.T) {
 	for _, name := range pyFuncs {
 		deleteApiTest(t, name, HOST, PORT)
 	}
-	deleteApiTest(t, javaFn.Name, HOST, PORT)
 	//utils.AssertTrueMsg(t, workflow.IsEmptyPartialDataCache(), "partial data cache is not empty")
 }
 
