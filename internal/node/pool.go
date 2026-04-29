@@ -307,7 +307,7 @@ func dismissContainer(requiredMemoryMB int64) (bool, error) {
 		}
 	}
 
-cleanup:                               // Phase 2: Cleanup
+cleanup: // Phase 2: Cleanup
 	if cleanedMB >= requiredMemoryMB { // if we'd actually free enough memory we do it, otherwise there's no point
 		for _, item := range containerToDismiss {
 			if item.pool.removeContainerFromIdle(item.cont) {
