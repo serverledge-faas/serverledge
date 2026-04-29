@@ -216,11 +216,11 @@ func (b *ArchitectureAwareBalancer) AddTarget(t *middleware.ProxyTarget) bool {
 	// Every time we add a node, we set the information about its available memory
 	if nodeInfo != nil {
 		totalMemoryMb := nodeInfo.TotalMemory
-		freeMemoryMB := totalMemoryMb - nodeInfo.UsedMemory
+		availMemoryMb := nodeInfo.AvailableMemory
 		freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
 		// Update will update the freeMemory only if the information in nodeInfo is fresher than what we
 		// already have in the NodeMetrics cache.
-		NodeMetrics.Update(t.Name, freeMemoryMB, totalMemoryMb, nodeInfo.LastUpdateTime, freeCpu)
+		NodeMetrics.Update(t.Name, availMemoryMb, totalMemoryMb, nodeInfo.LastUpdateTime, freeCpu)
 	}
 	// Decide if target belongs to ARM or x86
 	if t.Meta["arch"] == container.ARM {

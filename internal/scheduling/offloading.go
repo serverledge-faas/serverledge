@@ -47,9 +47,8 @@ func pickEdgeNodeForOffloading(r *scheduledRequest) (url string, err error) {
 		if !ok {
 			continue
 		}
-		availableMemory := status.TotalMemory - status.UsedMemory
-		if r.Fun.SupportsArch(nodeReg.Arch) && availableMemory > maxMem {
-			maxMem = availableMemory
+		if r.Fun.SupportsArch(nodeReg.Arch) && status.AvailableMemory > maxMem {
+			maxMem = status.AvailableMemory
 			bestNode = &nodeReg
 		}
 	}

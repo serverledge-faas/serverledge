@@ -13,22 +13,22 @@ import (
 	"github.com/serverledge-faas/serverledge/internal/function"
 )
 
-type ArchitectureUNawareBalancer struct {
+type ArchitectureUnawareBalancer struct {
 	mu sync.Mutex
 
 	// instead of classic lists we will use hashRings (see hashRing.go) to implement a consistent hashing technique
 	hashRing *HashRing
 }
 
-// NewArchitectureUNawareBalancer Constructor
-func NewArchitectureUNawareBalancer(targets []*middleware.ProxyTarget) *ArchitectureUNawareBalancer {
+// NewArchitectureUnawareBalancer Constructor
+func NewArchitectureUnawareBalancer(targets []*middleware.ProxyTarget) *ArchitectureUnawareBalancer {
 
 	// REPLICAS is the number of times each physical node will appear in the hash ring. This is done to improve how
 	// virtual nodes (i.e.: replicas of each physical node) are distributed over the ring, to reduce variation.
 	REPLICAS := config.GetInt(config.REPLICAS, 128)
 	log.Printf("Running ArchitectureUNawareLB with %d replicas per node in the hash ring\n", REPLICAS)
 
-	b := &ArchitectureUNawareBalancer{
+	b := &ArchitectureUnawareBalancer{
 		hashRing: NewHashRing(REPLICAS),
 	}
 
@@ -49,7 +49,7 @@ func NewArchitectureUNawareBalancer(targets []*middleware.ProxyTarget) *Architec
 }
 
 // Next Used by Echo Proxy middleware to select the next target dynamically
-func (b *ArchitectureUNawareBalancer) Next(c echo.Context) *middleware.ProxyTarget {
+func (b *ArchitectureUnawareBalancer) Next(c echo.Context) *middleware.ProxyTarget {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -76,7 +76,7 @@ func (b *ArchitectureUNawareBalancer) Next(c echo.Context) *middleware.ProxyTarg
 }
 
 // AddTarget Echo requires this method for dynamic load-balancing. It simply inserts a new node in the respective ring.
-func (b *ArchitectureUNawareBalancer) AddTarget(t *middleware.ProxyTarget) bool {
+func (b *ArchitectureUnawareBalancer) AddTarget(t *middleware.ProxyTarget) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -84,11 +84,11 @@ func (b *ArchitectureUNawareBalancer) AddTarget(t *middleware.ProxyTarget) bool 
 	// Every time we add a node, we set the information about its available memory
 	if nodeInfo != nil {
 		totalMemoryMb := nodeInfo.TotalMemory
-		freeMemoryMB := totalMemoryMb - nodeInfo.UsedMemory
+		availableMemoryMb := nodeInfo.AvailableMemory
 		freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
 		// Update will update the freeMemory only if the information in nodeInfo is fresher than what we
 		// already have in the NodeMetrics cache.
-		NodeMetrics.Update(t.Name, freeMemoryMB, totalMemoryMb, nodeInfo.LastUpdateTime, freeCpu)
+		NodeMetrics.Update(t.Name, availableMemoryMb, totalMemoryMb, nodeInfo.LastUpdateTime, freeCpu)
 	}
 
 	b.hashRing.Add(t)
@@ -97,7 +97,7 @@ func (b *ArchitectureUNawareBalancer) AddTarget(t *middleware.ProxyTarget) bool 
 }
 
 // RemoveTarget Echo requires this method to remove a target by name
-func (b *ArchitectureUNawareBalancer) RemoveTarget(name string) bool {
+func (b *ArchitectureUnawareBalancer) RemoveTarget(name string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

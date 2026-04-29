@@ -31,7 +31,7 @@ func newBalancer(targets []*middleware.ProxyTarget) (middleware.ProxyBalancer, b
 
 	}
 
-	return NewArchitectureUNawareBalancer(targets), false
+	return NewArchitectureUnawareBalancer(targets), false
 }
 
 func StartReverseProxy(e *echo.Echo, region string) {
@@ -179,9 +179,9 @@ func updateTargets(balancer middleware.ProxyBalancer, region string) {
 					nodeInfo := GetSingleTargetInfo(curr)
 					if nodeInfo != nil {
 						totalMemory := nodeInfo.TotalMemory
-						freeMemoryMB := totalMemory - nodeInfo.UsedMemory
+						availableMemoryMb := nodeInfo.AvailableMemory
 						freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
-						NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
+						NodeMetrics.Update(curr.Name, availableMemoryMb, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 					}
 
 				}
@@ -202,9 +202,9 @@ func updateTargets(balancer middleware.ProxyBalancer, region string) {
 				nodeInfo := GetSingleTargetInfo(curr)
 				if nodeInfo != nil {
 					totalMemory := nodeInfo.TotalMemory
-					freeMemoryMB := totalMemory - nodeInfo.UsedMemory
+					availableMemoryMb := nodeInfo.AvailableMemory
 					freeCpu := nodeInfo.TotalCPU - nodeInfo.UsedCPU
-					NodeMetrics.Update(curr.Name, freeMemoryMB, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
+					NodeMetrics.Update(curr.Name, availableMemoryMb, totalMemory, nodeInfo.LastUpdateTime, freeCpu)
 				}
 			}
 		}

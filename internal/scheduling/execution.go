@@ -2,7 +2,6 @@ package scheduling
 
 import (
 	"fmt"
-	"github.com/serverledge-faas/serverledge/internal/node"
 	"log"
 	"time"
 
