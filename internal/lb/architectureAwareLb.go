@@ -24,8 +24,10 @@ type ArchitectureAwareBalancer struct {
 	armRing *HashRing
 	x86Ring *HashRing
 
-	mode      string
-	rrIndices map[string]int
+	mode        string
+	archRRIndex int
+	armRRIndex  int // for non-invoke requests using RR
+	x86RRIndex  int // for non-invoke requests using RR
 }
 
 // NewArchitectureAwareBalancer Constructor
@@ -37,9 +39,11 @@ func NewArchitectureAwareBalancer(targets []*middleware.ProxyTarget) *Architectu
 	log.Printf("Running ArchitectureAwareLB with %d replicas per node in the hash rings\n", REPLICAS)
 
 	b := &ArchitectureAwareBalancer{
-		armRing:   NewHashRing(REPLICAS),
-		x86Ring:   NewHashRing(REPLICAS),
-		rrIndices: make(map[string]int),
+		armRing:     NewHashRing(REPLICAS),
+		x86Ring:     NewHashRing(REPLICAS),
+		archRRIndex: 0,
+		armRRIndex:  0,
+		x86RRIndex:  0,
 	}
 
 	b.mode = config.GetString(config.LB_MODE, RR)
@@ -63,6 +67,29 @@ func NewArchitectureAwareBalancer(targets []*middleware.ProxyTarget) *Architectu
 func (b *ArchitectureAwareBalancer) Next(c echo.Context) *middleware.ProxyTarget {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	if !isInvoke(c) {
+		log.Printf("c NOT INVOKE: %s\n", c.Path())
+		// fallback to round-robin
+		var candidate *middleware.ProxyTarget
+		var arch string
+		if len(b.armRing.targetList) == 0 {
+			arch = container.X86
+		} else if len(b.x86Ring.targetList) == 0 {
+			arch = container.ARM
+		} else {
+			arch = b.selectArchitectureRR()
+		}
+
+		if arch == container.ARM {
+			b.armRRIndex = (b.armRRIndex + 1) % len(b.armRing.targetList)
+			candidate = b.armRing.targetList[b.armRRIndex]
+		} else {
+			b.x86RRIndex = (b.x86RRIndex + 1) % len(b.x86Ring.targetList)
+			candidate = b.x86Ring.targetList[b.x86RRIndex]
+		}
+		return candidate
+	}
 
 	funcName := extractFunctionName(c)        // get function's name from request's URL
 	fun, ok := function.GetFunction(funcName) // we use this to leverage cache before asking etcd
@@ -88,7 +115,7 @@ func (b *ArchitectureAwareBalancer) Next(c echo.Context) *middleware.ProxyTarget
 		bandit := mab.GlobalBanditManager.GetBandit(funcName)
 		targetArch = bandit.SelectArm(ctx)
 	} else if b.mode == RR { // RoundRobin
-		targetArch = b.selectArchitectureRR(funcName) // here the load balancer decides what architecture to use for this function
+		targetArch = b.selectArchitectureRR() // here the load balancer decides what architecture to use for this function
 	} else { // Random
 		targetArch = b.selectArchitectureRandom() // random load balancer for testing purposes
 	}
@@ -196,14 +223,14 @@ func (b *ArchitectureAwareBalancer) selectArchitecture(fun *function.Function) (
 }
 
 // selectArchitectureRR selects the architecture using a Round Robin policy.
-func (b *ArchitectureAwareBalancer) selectArchitectureRR(funcName string) string {
+func (b *ArchitectureAwareBalancer) selectArchitectureRR() string {
 
 	// This is just a function to use as a baseline for the LB. It should actually implement checks over the rings dimension.
 	// i.e.: it cannot select ARM/X86 "blindly", it should check if we have at least one node for that architecture.
 	archs := []string{container.ARM, container.X86}
-	index := b.rrIndices[funcName]
+	index := b.archRRIndex
 	selected := archs[index]
-	b.rrIndices[funcName] = (index + 1) % len(archs)
+	b.archRRIndex = (index + 1) % len(archs)
 	return selected
 }
 

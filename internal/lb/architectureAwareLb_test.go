@@ -157,6 +157,7 @@ func TestGetNodeFromRing(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/invoke/testGetNodeFromRingFunc", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	c.SetPath("/invoke/testGetNodeFromRingFunc")
 
 	// First call
 	firstTarget := b.Next(c)
@@ -207,6 +208,7 @@ func TestGetArchFallback(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/invoke/testGetArchFallbackFunc", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	c.SetPath("/invoke/testGetArchFallbackFunc")
 
 	// First call
 	firstTarget := b.Next(c)
@@ -256,6 +258,7 @@ func TestGetArchFallbackNotPossible(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/invoke/testGetArchFallbackNotPossibleFunc", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+	c.SetPath("/invoke/testGetArchFallbackNotPossibleFunc")
 
 	// First call
 	firstTarget := b.Next(c)

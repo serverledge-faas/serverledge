@@ -2,6 +2,7 @@ package lb
 
 import (
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,9 @@ type ArchitectureUnawareBalancer struct {
 
 	// instead of classic lists we will use hashRings (see hashRing.go) to implement a consistent hashing technique
 	hashRing *HashRing
+
+	// round-robin: used for non-invocation requests
+	rrIndex int
 }
 
 // NewArchitectureUnawareBalancer Constructor
@@ -53,6 +57,14 @@ func (b *ArchitectureUnawareBalancer) Next(c echo.Context) *middleware.ProxyTarg
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if !isInvoke(c) {
+		// fallback to round-robin
+		b.rrIndex = (b.rrIndex + 1) % len(b.hashRing.targetList)
+		candidate := b.hashRing.targetList[b.rrIndex]
+		log.Printf("Forwarding %s request to target %s\n", c.Path(), candidate.Name)
+		return candidate
+	}
+
 	funcName := extractFunctionName(c)        // get function's name from request's URL
 	fun, ok := function.GetFunction(funcName) // we use this to leverage cache before asking etcd
 	if !ok {
@@ -73,6 +85,10 @@ func (b *ArchitectureUnawareBalancer) Next(c echo.Context) *middleware.ProxyTarg
 
 	}
 	return candidate
+}
+
+func isInvoke(c echo.Context) bool {
+	return strings.HasPrefix(c.Path(), "/invoke/")
 }
 
 // AddTarget Echo requires this method for dynamic load-balancing. It simply inserts a new node in the respective ring.

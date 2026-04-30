@@ -24,7 +24,7 @@ var currentTargets []*middleware.ProxyTarget
 
 func newBalancer(targets []*middleware.ProxyTarget) (middleware.ProxyBalancer, bool) {
 	// old Load Balancer: return middleware.NewRoundRobinBalancer(targets)
-	isArchAware := config.GetBool(config.Arch_AWARENESS, true)
+	isArchAware := config.GetBool(config.Arch_AWARENESS, false)
 
 	if isArchAware {
 		return NewArchitectureAwareBalancer(targets), true
