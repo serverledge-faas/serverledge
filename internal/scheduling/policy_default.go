@@ -78,6 +78,7 @@ func (p *DefaultLocalPolicy) OnCompletion(_ *function.Function, _ *function.Exec
 func (p *DefaultLocalPolicy) OnArrival(r *scheduledRequest) {
 
 	if !r.Fun.SupportsArch(node.LocalNode.Arch) {
+		log.Printf("Dropping: %s supports %v, we are on %v", r.Fun.Name, r.Fun.SupportedArchs, node.LocalNode.Arch)
 		// If the current node architecture is not supported by the function's runtime, we can only drop it, since in
 		// this policy there is no offloading.
 		dropRequest(r)

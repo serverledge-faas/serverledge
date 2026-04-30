@@ -533,6 +533,7 @@ func (wflow *Workflow) Invoke(r *Request) error {
 			output, err := wflow.ExecuteTask(r, taskToExecute, input, progress)
 			if err != nil {
 				if errors.Is(err, node.OutOfResourcesErr) {
+					log.Printf("[Rq-%v] Could not execute %s: out of resources", requestId, taskToExecute)
 					return err
 				} else {
 					return fmt.Errorf("failed wflow execution: %v", err)

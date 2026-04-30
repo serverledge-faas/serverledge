@@ -257,11 +257,13 @@ func handleWorkflowInvocation(e echo.Context, req *workflow.Request) error {
 	defer workflowInvocationRequestPool.Put(req)
 
 	if errors.Is(err, node.OutOfResourcesErr) {
+		log.Printf("[Rq-%v] Returning 429", req.Id)
 		return e.String(http.StatusTooManyRequests, "")
 	} else if err != nil {
-		log.Printf("Invocation failed: %v", err)
+		log.Printf("[Rq-%v] Invocation failed: %v", req.Id, err)
 		return e.JSON(http.StatusInternalServerError, err.Error())
 	} else {
+		log.Printf("[Rq-%v] Invocation succeeded", req.Id)
 		req.ExecReport.ResponseTime = time.Now().Sub(req.Arrival).Seconds()
 
 		return e.JSON(http.StatusOK, workflow.InvocationResponse{

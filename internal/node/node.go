@@ -33,7 +33,8 @@ func NewRandomIdentifier(area string) NodeID {
 }
 
 func NewIdentifier(id, area string) NodeID {
-	return NodeID{Area: area, Key: id}
+	arch := runtime.GOARCH
+	return NodeID{Area: area, Key: id, Arch: arch}
 }
 
 type Resources struct {

@@ -38,6 +38,12 @@ func main() {
 	} else {
 		node.LocalNode = node.NewIdentifier(myId, myArea)
 	}
+	log.Printf("Local node id: %s (arch: %v)", node.LocalNode.String(), node.LocalNode.Arch)
+
+	myArch := config.GetString(config.NODE_ARCHITECTURE, "")
+	if myArch != "" {
+		node.LocalNode.Arch = myArch // otherwise, the auto-detected value is kept
+	}
 
 	err := registration.RegisterNode()
 	if err != nil {

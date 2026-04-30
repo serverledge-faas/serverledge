@@ -26,6 +26,9 @@ const CONTAINER_EXPIRATION_TIME = "container.expiration"
 // offloading cache validity time for EdgeOnlypolicy
 const OFFLOADING_CACHE_VALIDITY = "offloading.cache.validity"
 
+// local CPU architecture (optional; auto-detected otherwise)
+const NODE_ARCHITECTURE = "node.architecture"
+
 // cache capacity
 const CACHE_SIZE = "cache.size"
 
