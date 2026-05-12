@@ -124,7 +124,7 @@ func Init() {
 	invokeCmd.Flags().StringSliceVarP(&params, "param", "p", nil, "Function parameter: <name>:<value>")
 	invokeCmd.Flags().StringVarP(&paramsFile, "params_file", "j", "", "File containing parameters (JSON)")
 	invokeCmd.Flags().BoolVarP(&asyncInvocation, "async", "a", false, "Asynchronous invocation")
-	invokeCmd.Flags().BoolVarP(&returnOutput, "ret_output", "o", false, "Capture function output (if supported by used runtime)")
+	invokeCmd.Flags().BoolVarP(&returnOutput, "return_output", "o", false, "Capture function output (if supported by used runtime)")
 
 	rootCmd.AddCommand(createCmd)
 	createCmd.Flags().BoolVarP(&update, "update", "u", false, "Overwrite any function with the same name")

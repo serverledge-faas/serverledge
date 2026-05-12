@@ -276,13 +276,13 @@ func prepareParameters(r *Request, p *Progress) *remotePolicyParams {
 	}
 
 	// Bandwidth (we assume identical)
-	dsBandwidth := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 100.0)
+	dsBandwidth := config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_NODE_TO_DATA_STORE_BANDWIDTH, 40.0)
 	for _, n := range params.EdgeNodes {
 		params.DSBandwidth[n] = dsBandwidth
 	}
 
 	if len(params.CloudNodes) > 0 {
-		params.DSBandwidth[CLOUD] = config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, dsBandwidth*10)
+		params.DSBandwidth[CLOUD] = config.GetFloat(config.WORKFLOW_OFFLOADING_POLICY_CLOUD_TO_DATA_STORE_BANDWIDTH, 1000)
 	}
 
 	// Execution Times
