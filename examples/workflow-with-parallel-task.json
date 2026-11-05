@@ -10,7 +10,7 @@
           "States": {
             "FirstState": {
               "Type": "Task",
-              "Resource": "inc",
+              "Resource": "inc1",
               "End": true
             }
           }
@@ -20,12 +20,12 @@
           "States": {
             "SecondState": {
               "Type": "Task",
-              "Resource": "inc",
+              "Resource": "inc2",
               "Next": "ThirdState"
             },
             "ThirdState": {
               "Type": "Task",
-              "Resource": "inc",
+              "Resource": "inc3",
               "End": true
             }
           }

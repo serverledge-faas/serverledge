@@ -542,17 +542,16 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 				// Filter the tasks in the offloading plan to include only those that are currently ready to execute
 				for _, plannedTask := range decision.OffloadingPlan.ToExecute {
-					// Cerchiamo l'indice del task nella coda ReadyToExecute
 					idx := slices.Index(progress.ReadyToExecute, plannedTask)
 					if idx != -1 {
 						TasksToOffload = append(TasksToOffload, plannedTask)
 
-						// Rimuoviamo il task offloadato direttamente dalla slice.
+						// Remove the offloaded task directly from the slice
 						progress.ReadyToExecute = append(progress.ReadyToExecute[:idx], progress.ReadyToExecute[idx+1:]...)
 					}
 				}
 
-				// Salta l'offload se non ci sono task effettivamente pronti
+				// Skip offloading if there are no tasks actually ready
 				if len(TasksToOffload) == 0 {
 					continue
 				}
@@ -584,13 +583,13 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 		// pick the next executable task
 		for _, task := range progress.ReadyToExecute {
-			//Il task va eseguito localmente
+			// Task must be executed locally
 			if r.Plan == nil || slices.Contains(r.Plan.ToExecute, task) {
 				localReadyChan <- task
 				continue
 			}
 
-			//Il task è diretto al nodo coordinatore (necessario se il workflow è eseguito su un nodo remoto)
+			//Task is addressed to the source node (required when the workflow runs on a remote node)
 			tasksToKeep = append(tasksToKeep, task)
 		}
 
@@ -1203,8 +1202,6 @@ func (wflow *Workflow) prepareInput(taskToExecute TaskId, progress *Progress, da
 
 		mergedResult["parallel_results"] = parallelResults
 
-		// If the next task is a FunctionTask, it applies a positional mapping where the output of the i-th parallel branch
-		// is mapped directly to the i-th input parameter of the function. For any other task type, the output remains unchanged.
 		currentTask, ok := wflow.Find(taskToExecute)
 		if !ok {
 			return nil, fmt.Errorf("failed to find next task %s", taskToExecute)
@@ -1222,29 +1219,15 @@ func (wflow *Workflow) prepareInput(taskToExecute TaskId, progress *Progress, da
 
 		delete(mergedResult, "parallel_results")
 
-		// Positional mapping
-		/*expectedInputs := funct.Signature.GetInputs()
-		for i, res := range parallelResults {
-			if i < len(expectedInputs) {
-				targetParamName := expectedInputs[i].Name
-				if resMap, ok := res.(map[string]interface{}); ok {
-					for _, val := range resMap {
-						mergedResult[targetParamName] = val
-						break
-					}
-				}
-			}
-		}*/
-
 		expectedInputs := funct.Signature.GetInputs()
 
-		// Creazione di una mappa degli input attesi per il matching nominale
+		// Create a map of the expected inputs for name-based matching
 		expectedMap := make(map[string]bool)
 		for _, input := range expectedInputs {
 			expectedMap[input.Name] = true
 		}
 
-		// Estrazione e assegnazione basata sul nome della chiave, ignorando la posizione
+		// Extract and assign values based on key names, regardless of position
 		for _, res := range parallelResults {
 			if resMap, ok := res.(map[string]interface{}); ok {
 				for key, val := range resMap {
