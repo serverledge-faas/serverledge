@@ -542,17 +542,16 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 				// Filter the tasks in the offloading plan to include only those that are currently ready to execute
 				for _, plannedTask := range decision.OffloadingPlan.ToExecute {
-					// Cerchiamo l'indice del task nella coda ReadyToExecute
 					idx := slices.Index(progress.ReadyToExecute, plannedTask)
 					if idx != -1 {
 						TasksToOffload = append(TasksToOffload, plannedTask)
 
-						// Rimuoviamo il task offloadato direttamente dalla slice.
+						// Remove the offloaded task directly from the slice
 						progress.ReadyToExecute = append(progress.ReadyToExecute[:idx], progress.ReadyToExecute[idx+1:]...)
 					}
 				}
 
-				// Salta l'offload se non ci sono task effettivamente pronti
+				// Skip offloading if there are no tasks actually ready
 				if len(TasksToOffload) == 0 {
 					continue
 				}
@@ -584,13 +583,13 @@ func (wflow *Workflow) Invoke(r *Request) error {
 
 		// pick the next executable task
 		for _, task := range progress.ReadyToExecute {
-			//Il task va eseguito localmente
+			// Task must be executed locally
 			if r.Plan == nil || slices.Contains(r.Plan.ToExecute, task) {
 				localReadyChan <- task
 				continue
 			}
 
-			//Il task è diretto al nodo coordinatore (necessario se il workflow è eseguito su un nodo remoto)
+			//Task is addressed to the source node (required when the workflow runs on a remote node)
 			tasksToKeep = append(tasksToKeep, task)
 		}
 

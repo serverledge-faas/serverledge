@@ -242,7 +242,7 @@ func MetricsRetriever() {
 				retrievedMetrics.AvgRemoteInitTime = make(map[string]float64)
 			}
 
-			//fmt.Println(retrievedMetrics)
+			fmt.Println(retrievedMetrics)
 
 			// TODO: configuration option
 			metricsJsonFilename := config.GetString(config.METRICS_DUMP_JSON_FILE, "")
