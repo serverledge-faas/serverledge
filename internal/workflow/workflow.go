@@ -1202,8 +1202,6 @@ func (wflow *Workflow) prepareInput(taskToExecute TaskId, progress *Progress, da
 
 		mergedResult["parallel_results"] = parallelResults
 
-		// If the next task is a FunctionTask, it applies a positional mapping where the output of the i-th parallel branch
-		// is mapped directly to the i-th input parameter of the function. For any other task type, the output remains unchanged.
 		currentTask, ok := wflow.Find(taskToExecute)
 		if !ok {
 			return nil, fmt.Errorf("failed to find next task %s", taskToExecute)
@@ -1221,29 +1219,15 @@ func (wflow *Workflow) prepareInput(taskToExecute TaskId, progress *Progress, da
 
 		delete(mergedResult, "parallel_results")
 
-		// Positional mapping
-		/*expectedInputs := funct.Signature.GetInputs()
-		for i, res := range parallelResults {
-			if i < len(expectedInputs) {
-				targetParamName := expectedInputs[i].Name
-				if resMap, ok := res.(map[string]interface{}); ok {
-					for _, val := range resMap {
-						mergedResult[targetParamName] = val
-						break
-					}
-				}
-			}
-		}*/
-
 		expectedInputs := funct.Signature.GetInputs()
 
-		// Creazione di una mappa degli input attesi per il matching nominale
+		// Create a map of the expected inputs for name-based matching
 		expectedMap := make(map[string]bool)
 		for _, input := range expectedInputs {
 			expectedMap[input.Name] = true
 		}
 
-		// Estrazione e assegnazione basata sul nome della chiave, ignorando la posizione
+		// Extract and assign values based on key names, regardless of position
 		for _, res := range parallelResults {
 			if resMap, ok := res.(map[string]interface{}); ok {
 				for key, val := range resMap {
