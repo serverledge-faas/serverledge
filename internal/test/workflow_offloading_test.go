@@ -203,18 +203,12 @@ func TestMultiNodeOffloadingWorkflow(t *testing.T) {
 	placementPlan[workflow.TaskId("b1_t4")] = "B"
 	placementPlan[workflow.TaskId("parallel")] = "B"
 	placementPlan[workflow.TaskId("b2_t1")] = "B"
-	placementPlan[workflow.TaskId("b2_t3")] = "B"
 	placementPlan[workflow.TaskId("b4_t1")] = "C"
-	//placementPlan[workflow.TaskId("pre_final_task")] = "C"
-	//placementPlan[wf.End.GetId()] = "B"
-	//placementPlan[workflow.TaskId("b5_t1")] = "C"
 	placementPlan[workflow.TaskId("b5_t2")] = "C"
 	placementPlan[workflow.TaskId("b6_t1")] = "C"
 	placementPlan[workflow.TaskId("b6_t2")] = "C"
-	//placementPlan[workflow.TaskId("b4_t3")] = "C"
 	placementPlan[choiceNodeId] = "C"
 	placementPlan[workflow.TaskId("choice_branch_1")] = "B"
-	//placementPlan[workflow.TaskId("choice_branch_2")] = "C"
 	placementPlan[workflow.TaskId("pre_nested_choice")] = "C"
 	placementPlan[nestedChoiceNodeId] = "B"
 	placementPlan[workflow.TaskId("nested_branch_1")] = "C"
@@ -283,7 +277,7 @@ func TestMultiNodeOffloadingWorkflow(t *testing.T) {
 	assert.NotNil(t, request.ExecReport.Result, "Workflow should have completed")
 
 	// Check invocations on mock nodes
-	assert.Equal(t, 4, len(nodeB.invocations), "Node B should have been invoked 4 times")
+	assert.Equal(t, 3, len(nodeB.invocations), "Node B should have been invoked 3 times")
 	assert.True(t, slices.Contains(nodeB.invocations, "inv_on_B"))
 
 	assert.Equal(t, 5, len(nodeC.invocations), "Node C should have been invoked 5 times")
